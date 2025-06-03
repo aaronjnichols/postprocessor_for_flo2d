@@ -1,0 +1,9 @@
+import os
+from .extraction_utils import read_with_dask_optimized
+
+
+def extract_finalvel_out(path):
+    file_path = os.path.join(path, 'FINALVEL.OUT')
+    df = read_with_dask_optimized(file_path, column_names=['grid_id', 'x', 'y', 'final_velocity']).compute()
+    df['grid_id'] = df['grid_id'] - 1
+    return df
