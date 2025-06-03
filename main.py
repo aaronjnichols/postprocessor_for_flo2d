@@ -6,7 +6,8 @@ import time
 import argparse
 import logging
 import shutil
-from modules.data_extraction import extractModelDataToDF, extract_super_data  # Import the new function
+from modules.model_data_extraction import extract_model_data_to_df
+from modules.super_out_extraction import extract_super_out
 from modules.hycross_extraction import extract_fpxsec_results
 from modules.geospatial import convertToGeoDataFrame, calculate_cell_size
 from modules.rasterization import create_raster_from_gdf
@@ -127,7 +128,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
 
     # Step 2: Extract model data
     timing_logger.log("Extracting model data from FLO-2D files")
-    model_data = extractModelDataToDF(file_path)
+    model_data = extract_model_data_to_df(file_path)
     fpxsec_grids = model_data[pd.notna(model_data['fpxsec'])]
     timing_logger.log("Model data extraction completed")
 
@@ -166,7 +167,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     super_out_file = os.path.join(file_path, 'SUPER.OUT')
     if os.path.exists(super_out_file):
         timing_logger.log("Extracting data from SUPER.OUT")
-        super_data = extract_super_data(file_path)
+        super_data = extract_super_out(file_path)
         timing_logger.log("SUPER.OUT data extraction completed")
 
         # Ensure grid_id is of the same type in both DataFrames
