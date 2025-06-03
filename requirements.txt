@@ -1,0 +1,2 @@
+ttkthemes>=3.2.0
+# Add other dependencies as needed based on your main.py module 
