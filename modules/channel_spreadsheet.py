@@ -20,52 +20,124 @@ def create_channel_excel(file_path, combined_df):
 
 @time_function
 def create_channel_plots(combined_df, output_pdf_path):
-    unique_cross_sections = combined_df['Cross Section Number'].unique()
-    num_plots = len(unique_cross_sections)
-    
-    cs_data_dict = {cs_num: combined_df[combined_df['Cross Section Number'] == cs_num] for cs_num in unique_cross_sections}
-    
+    unique_cross_sections = sorted(combined_df['Cross Section Number'].unique())
+    cs_data_dict = {
+        cs_num: combined_df[combined_df['Cross Section Number'] == cs_num]
+        for cs_num in unique_cross_sections
+    }
+
     with PdfPages(output_pdf_path) as pdf:
-        fig, axs = plt.subplots(2, 2, figsize=(8.5, 11))
-        fig.subplots_adjust(hspace=0.4, wspace=0.3)
-        axs = axs.flatten()
-        
-        for i in range(0, num_plots, 4):
-            for j in range(4):
-                if i + j < num_plots:
-                    cross_section_number = unique_cross_sections[i + j]
-                    cs_data = cs_data_dict[cross_section_number]
-                    
-                    ax = axs[j]
-                    ax.plot(cs_data['Station'], cs_data['Elevation'], 'k-', linewidth=1.25)
-                    max_stage = cs_data['Max Stage'].max()
-                    ax.axhline(y=max_stage, color='b', linestyle='--', label='Max Water Surface')
-                    
-                    ax.set_title(f'Cross-Section {cross_section_number}')
-                    ax.set_xlabel('Station')
-                    ax.set_ylabel('Elevation')
-                    
-                    max_discharge = cs_data['Max Discharge (CFS)'].max()
-                    time_to_peak = cs_data['Time of Max Discharge (Hrs)'].max()
-                    max_velocity = cs_data['VELOC'].max()
-                    max_depth = cs_data['DEPCH'].max()
-                    
-                    ax.text(0.05, 0.95, (f'Max Q: {max_discharge:.2f} cfs\n'
-                                         f'Max Stage: {max_stage:.2f} ft\n'
-                                         f'Time to Peak: {time_to_peak:.2f} hrs\n'
-                                         f'Max Velocity: {max_velocity:.2f} ft/s\n'
-                                         f'Max Depth: {max_depth:.2f} ft'),
-                            transform=ax.transAxes, verticalalignment='top', fontsize=7,
-                            bbox=dict(facecolor='white', alpha=0.7))
-                    
-                    ax.legend(fontsize=7, loc='upper right')
+        for i in range(0, len(unique_cross_sections), 4):
+            fig, axs = plt.subplots(2, 2, figsize=(8.5, 11))
+            fig.subplots_adjust(hspace=0.5, wspace=0.3)
+            axs = axs.flatten()
+
+            page_sections = unique_cross_sections[i : i + 4]
+            for j, cross_section_number in enumerate(page_sections):
+                cs_data = cs_data_dict[cross_section_number]
+                station = cs_data['Station'].to_numpy()
+                elevation = cs_data['Elevation'].to_numpy()
+
+                ax = axs[j]
+                ax.plot(
+                    station,
+                    elevation,
+                    color="black",
+                    linewidth=1.5,
+                    label="Ground Profile",
+                    zorder=10,
+                )
+
+                max_stage = cs_data['Max Stage'].max()
+                max_discharge = cs_data['Max Discharge (CFS)'].max()
+
+                if pd.notna(max_stage):
+                    start = station[0] if max_stage >= elevation[0] else None
+                    end = station[-1] if max_stage >= elevation[-1] else None
+                    inter = []
+                    for k in range(len(station) - 1):
+                        e1, e2 = elevation[k], elevation[k + 1]
+                        diff = e2 - e1
+                        between = (e1 < max_stage <= e2) or (e2 < max_stage <= e1)
+                        if between and abs(diff) > 1e-9:
+                            xi = station[k] + (station[k + 1] - station[k]) * (
+                                (max_stage - e1) / diff
+                            )
+                            inter.append(xi)
+                        elif between and abs(diff) < 1e-9 and abs(e1 - max_stage) < 1e-9:
+                            inter.extend([station[k], station[k + 1]])
+                    inter = sorted(set(inter))
+                    if start is None and inter:
+                        start = inter[0]
+                    if end is None and inter:
+                        end = inter[-1]
+                    if start is not None and end is not None and end > start:
+                        ax.fill_between(
+                            station,
+                            elevation,
+                            max_stage,
+                            where=(elevation <= max_stage)
+                            & (station >= start)
+                            & (station <= end),
+                            interpolate=True,
+                            color="lightblue",
+                            alpha=0.7,
+                            zorder=5,
+                        )
+                        ax.plot(
+                            [start, end],
+                            [max_stage, max_stage],
+                            color="blue",
+                            linewidth=1.5,
+                            label="Max Water Surface",
+                            zorder=15,
+                        )
+
+                ax.set_title(f"Cross-Section {cross_section_number}", fontsize=10)
+                ax.set_xlabel("Station (ft)", fontsize=8)
+                ax.set_ylabel("Elevation (ft)", fontsize=8)
+
+                lines = []
+                if pd.notna(max_discharge):
+                    lines.append(f"Max Q: {max_discharge:.0f} cfs")
+                if pd.notna(max_stage):
+                    lines.append(f"Max Stage: {max_stage:.2f} ft")
+                if lines:
+                    ax.text(
+                        0.03,
+                        0.97,
+                        "\n".join(lines),
+                        transform=ax.transAxes,
+                        va="top",
+                        fontsize=7,
+                        bbox=dict(
+                            boxstyle="round,pad=0.3",
+                            facecolor="white",
+                            alpha=0.8,
+                            edgecolor="lightgray",
+                        ),
+                    )
+
+                ax.grid(True, linestyle=":", alpha=0.5, color="gray")
+                min_e = elevation.min()
+                max_e = max(
+                    elevation.max(), max_stage if pd.notna(max_stage) else elevation.max()
+                )
+                buf = (max_e - min_e) * 0.1 if max_e > min_e else 1.0
+                ax.set_ylim(min_e - buf, max_e + buf)
+                ax.tick_params(axis="both", which="major", labelsize=7)
+                handles, labels = ax.get_legend_handles_labels()
+                if "Max Water Surface" in labels:
+                    ax.legend(handles, labels, fontsize=7, loc="lower right", framealpha=0.7)
                 else:
-                    axs[j].clear()  # Clear the axis if no data for it
-            
-            fig.tight_layout()
+                    ax.legend().remove()
+
+            for j in range(len(page_sections), 4):
+                fig.delaxes(axs[j])
+
             pdf.savefig(fig)
-            plt.clf()  # Clear the figure to reuse the axes
-    
+            plt.close(fig)
+
     print(f"PDF file created: {output_pdf_path}")
 
 @time_function
