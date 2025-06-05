@@ -71,7 +71,10 @@ def save_geodataframe(gdf, f_path, coord_system, output_format, logger):
     elif output_format == "GeoPackage":
         output_file = os.path.join(output_dir, 'fpxsec.gpkg')
         try:
-            gdf.to_file(output_file, driver="GPKG", crs=f"EPSG:{coord_system}")
+            # Ensure CRS is set on GeoDataFrame before saving (pyogrio engine doesn't support crs parameter)
+            if gdf.crs is None:
+                gdf.crs = f"EPSG:{coord_system}"
+            gdf.to_file(output_file, driver="GPKG")
             logger.info(f"FLO-2D FPXSEC GeoPackage created at: {output_file}")
         except Exception as e:
             logger.error(f"Failed to create GeoPackage: {str(e)}")

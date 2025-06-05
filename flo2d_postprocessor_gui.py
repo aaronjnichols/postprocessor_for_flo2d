@@ -3,6 +3,7 @@ from tkinter import ttk, filedialog, messagebox
 import sys
 import io
 import os
+import time
 from main import batch_process_flo2d, process_flo2d
 import shutil
 import threading
@@ -239,10 +240,29 @@ class FLO2DPostProcessorGUI:
         # Run processing in a separate thread to keep GUI responsive
         threading.Thread(target=self.run_process, daemon=True).start()
 
+    def format_time(self, seconds):
+        """Format elapsed time in seconds to a human-readable string."""
+        if seconds < 1:
+            return f"{seconds:.2f} seconds"
+        
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        
+        if hours > 0:
+            return f"{hours} hours, {minutes} minutes, {secs} seconds"
+        elif minutes > 0:
+            return f"{minutes} minutes, {secs} seconds"
+        else:
+            return f"{secs} seconds"
+
     def run_process(self):
         self.output_text.configure(state='normal')
         self.output_text.delete('1.0', tk.END)
         self.output_text.configure(state='disabled')
+
+        # Record start time
+        start_time = time.time()
 
         old_stdout = sys.stdout
         sys.stdout = RedirectText(self.output_text)
@@ -263,13 +283,24 @@ class FLO2DPostProcessorGUI:
                 print(result)
                 print("\n")
             
-            # Final completion message
+            # Calculate elapsed time
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            
+            # Final completion message with timing
             completion_message = "\n" + "=" * 50 + "\n"
             completion_message += "All FLO-2D folders processed successfully\n"
+            completion_message += f"Total processing time: {self.format_time(elapsed_time)}\n"
             completion_message += "=" * 50 + "\n"
             print(completion_message)
         except Exception as e:
-            print(f"An error occurred: {str(e)}")
+            # Calculate elapsed time even for errors
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            
+            error_message = f"\nAn error occurred: {str(e)}\n"
+            error_message += f"Processing stopped after: {self.format_time(elapsed_time)}\n"
+            print(error_message)
             messagebox.showerror("Processing Error", f"An error occurred during processing:\n{str(e)}")
         finally:
             sys.stdout = old_stdout

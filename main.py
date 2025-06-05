@@ -158,7 +158,10 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
 
             gpkg_file = os.path.join(shp_outpath, 'flow_direction.gpkg')
             try:
-                geo_df_subset.to_file(gpkg_file, driver="GPKG", crs=f"EPSG:{coord_system}")
+                # Ensure CRS is set on GeoDataFrame before saving (pyogrio engine doesn't support crs parameter)
+                if geo_df_subset.crs is None:
+                    geo_df_subset.crs = f"EPSG:{coord_system}"
+                geo_df_subset.to_file(gpkg_file, driver="GPKG")
                 timing_logger.log(f"FLO-2D Points GeoPackage created at: {gpkg_file}")
             except Exception as e:
                 logger.error(f"Failed to create GeoPackage: {str(e)}")
@@ -193,7 +196,14 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             driver = "GPKG"
 
         try:
-            super_geo_df.to_file(super_file, driver=driver, crs=f"EPSG:{coord_system}")
+            # Ensure CRS is set on GeoDataFrame before saving (pyogrio engine doesn't support crs parameter)
+            if super_geo_df.crs is None:
+                super_geo_df.crs = f"EPSG:{coord_system}"
+            
+            if driver == "GPKG":
+                super_geo_df.to_file(super_file, driver=driver)
+            else:
+                super_geo_df.to_file(super_file, driver=driver, crs=f"EPSG:{coord_system}")
             timing_logger.log(f"SUPER.OUT Points {output_format} created at: {super_file}")
         except Exception as e:
             logger.error(f"Failed to create SUPER.OUT Points {output_format}: {str(e)}")
@@ -230,7 +240,14 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             driver = "GPKG"
 
         try:
-            evacuatedfp_geo_df.to_file(evacuatedfp_file, driver=driver, crs=f"EPSG:{coord_system}")
+            # Ensure CRS is set on GeoDataFrame before saving (pyogrio engine doesn't support crs parameter)
+            if evacuatedfp_geo_df.crs is None:
+                evacuatedfp_geo_df.crs = f"EPSG:{coord_system}"
+            
+            if driver == "GPKG":
+                evacuatedfp_geo_df.to_file(evacuatedfp_file, driver=driver)
+            else:
+                evacuatedfp_geo_df.to_file(evacuatedfp_file, driver=driver, crs=f"EPSG:{coord_system}")
             timing_logger.log(f"EVACUATEDFP.OUT Points {output_format} created at: {evacuatedfp_file}")
         except Exception as e:
             logger.error(f"Failed to create EVACUATEDFP.OUT Points {output_format}: {str(e)}")
@@ -267,7 +284,14 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             driver = "GPKG"
 
         try:
-            time_out_geo_df.to_file(time_out_file, driver=driver, crs=f"EPSG:{coord_system}")
+            # Ensure CRS is set on GeoDataFrame before saving (pyogrio engine doesn't support crs parameter)
+            if time_out_geo_df.crs is None:
+                time_out_geo_df.crs = f"EPSG:{coord_system}"
+            
+            if driver == "GPKG":
+                time_out_geo_df.to_file(time_out_file, driver=driver)
+            else:
+                time_out_geo_df.to_file(time_out_file, driver=driver, crs=f"EPSG:{coord_system}")
             timing_logger.log(f"TIME.OUT Points {output_format} created at: {time_out_file}")
         except Exception as e:
             logger.error(f"Failed to create TIME.OUT Points {output_format}: {str(e)}")

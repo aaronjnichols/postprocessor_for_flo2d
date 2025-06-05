@@ -215,7 +215,10 @@ def save_geodataframe(gdf, output_path, layer_name, coord_system, output_format,
     elif output_format == "GeoPackage":
         output_file = os.path.join(output_path, f'swmm_{layer_name}.gpkg')
         try:
-            gdf.to_file(output_file, layer=layer_name, driver="GPKG", crs=f"EPSG:{coord_system}")
+            # Ensure CRS is set on GeoDataFrame before saving (pyogrio engine doesn't support crs parameter)
+            if gdf.crs is None:
+                gdf.crs = f"EPSG:{coord_system}"
+            gdf.to_file(output_file, layer=layer_name, driver="GPKG")
             logger.info(f"SWMM {layer_name.capitalize()} GeoPackage created at: {output_file}")
         except Exception as e:
             logger.error(f"Failed to create GeoPackage for {layer_name}: {str(e)}")
