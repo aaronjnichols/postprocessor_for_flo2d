@@ -29,6 +29,8 @@ from modules.swmm_rating_tables_extraction import extract_swmm_rating_tables
 from modules.swmm_rating_tables_spreadsheet import swmm_rating_tables_and_plots
 from modules.evacuatedfp_extraction import extract_evacuatedfp_data  # Add this import
 from modules.time_out_extraction import extract_time_out_data  # Add this import
+from modules.channel_extraction import extract_channel_data
+from modules.channel_spreadsheet import channel_spreadsheet_and_plots
 import geopandas as gpd  # Ensure geopandas is imported
 
 class TimingLogger:
@@ -177,7 +179,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         super_data['grid_id'] = super_data['grid_id'].astype(geo_df['grid_id'].dtype)
 
         # Merge the super_data with the main GeoDataFrame
-        super_geo_df = geo_df.merge(super_data, on='grid_id', how='left')
+        super_geo_df = geo_df.merge(super_data, on='grid_id', how='left', suffixes=('_orig', ''))
         print("Columns in super_geo_df after merge:", super_geo_df.columns)  # Debug print
 
         # Filter rows to include only those with non-null values in the super_data columns
@@ -380,12 +382,37 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info("SWMM Rating Tables data not found. Skipping this step.")
 
-    # Step 13: Calculate Cell Size for Raster Creation
+    # Step 13: Process Channel Data
+    required_channel_files = ["XSEC.DAT", "CHAN.DAT"]
+    optional_channel_files = ["CHANMAX.OUT", "DEPCH.OUT", "VELOC.OUT"]
+    
+    # Check if the essential channel files exist
+    has_required_files = all(file in os.listdir(file_path) for file in required_channel_files)
+    
+    if has_required_files:
+        timing_logger.log("Processing Channel Data")
+        try:
+            channel_data = extract_channel_data(file_path)
+            timing_logger.log("Channel data extraction completed")
+            
+            # Create channel spreadsheets and plots
+            channel_spreadsheet_and_plots(file_path, channel_data)
+            channel_excel = os.path.join(plots_outpath, 'channel_results.xlsx')
+            channel_pdf = os.path.join(plots_outpath, 'channel_plots.pdf')
+            timing_logger.log(f"Channel Spreadsheet created at: {channel_excel}")
+            timing_logger.log(f"Channel Cross-Section Plots PDF created at: {channel_pdf}")
+        except Exception as e:
+            logger.error(f"Failed to process channel data. Error: {e}")
+    else:
+        missing_files = [file for file in required_channel_files if file not in os.listdir(file_path)]
+        logger.info(f"Channel data processing skipped. Missing required files: {missing_files}")
+
+    # Step 14: Calculate Cell Size for Raster Creation
     timing_logger.log("Calculating cell size for raster generation")
     cell_size = calculate_cell_size(geo_df)
     timing_logger.log(f"Calculated cell size: {cell_size} units")
 
-    # Step 14: Create Rasters for Specified Columns
+    # Step 15: Create Rasters for Specified Columns
     desired_columns = [
         'depth_max', 'xksat', 'psif', 'dtheta', 'abstrinf', 'rtimpf', 'soil_depth',
         'velocity', 'q_max', 'wse_max', 'infil_depth', 'infil_stop', 'time_of_oneft',
@@ -406,7 +433,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         except Exception as e:
             logger.error(f"Failed to create raster for column '{column}'. Error: {e}")
 
-    # Step 15: Apply Styles to Shapefiles and Rasters (if provided)
+    # Step 16: Apply Styles to Shapefiles and Rasters (if provided)
     if style_folder:
         timing_logger.log("Applying style files to shapefiles and rasters")
         apply_styles(file_path, style_folder, logger)

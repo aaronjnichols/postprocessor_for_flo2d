@@ -25,7 +25,11 @@ def extract_evacuatedfp_data(file_path):
         if extract_data and line.strip():
             parts = line.split()
             if len(parts) == 2:
-                grid_ids.append(int(parts[0]))
-                num_evacuations.append(int(parts[1]))
+                try:
+                    grid_ids.append(int(parts[0]))
+                    num_evacuations.append(int(parts[1]))
+                except ValueError:
+                    # Skip lines with non-numeric data
+                    continue
 
     return pd.DataFrame({'grid_id': grid_ids, 'num_evacuations': num_evacuations})

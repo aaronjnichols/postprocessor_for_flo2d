@@ -3,6 +3,7 @@ import pandas as pd
 def extract_time_out_data(file_path):
     """
     Extracts data from the TIME.OUT file.
+    Handles both FLOODPLAIN NODES and CHANNEL NODES sections.
 
     Args:
         file_path (str): Path to the TIME.OUT file.
@@ -17,19 +18,37 @@ def extract_time_out_data(file_path):
         lines = file.readlines()
         
     extract_data = False
+    
     for line in lines:
-        if line.strip().startswith("FLOODPLAIN NODES    NUMBER OF TIMES EXCEEDED"):
+        line_stripped = line.strip()
+        
+        # Start extracting when we hit either floodplain or channel nodes section
+        if (line_stripped.startswith("FLOODPLAIN NODES    NUMBER OF TIMES EXCEEDED") or 
+            line_stripped.startswith("CHANNEL NODES")):
             extract_data = True
             continue
 
-        if line.strip().startswith("THE LAST"):
+        # Stop extracting when we hit the timestep decreases section
+        if line_stripped.startswith("THE LAST"):
             extract_data = False
             continue
+            
+        # Skip empty lines
+        if not line_stripped:
+            continue
         
-        if extract_data and line.strip():
-            parts = line.split()
+        # Extract data if we're in a data section
+        if extract_data:
+            parts = line_stripped.split()
             if len(parts) == 2:
-                grid_ids.append(int(parts[0]))
-                num_time_decrements.append(int(parts[1]))
+                try:
+                    # Try to convert both parts to numbers
+                    grid_id = int(parts[0])
+                    time_decrements = int(parts[1])
+                    grid_ids.append(grid_id)
+                    num_time_decrements.append(time_decrements)
+                except ValueError:
+                    # Skip lines with non-numeric data (headers, etc.)
+                    continue
 
     return pd.DataFrame({'grid_id': grid_ids, 'num_time_decrements': num_time_decrements})
