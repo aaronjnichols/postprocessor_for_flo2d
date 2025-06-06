@@ -4,6 +4,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import os
 import re
 import xlsxwriter
+from .constants import TIME, DISCHARGE
 
 def extract_hydrograph_data(file_path):
     """
@@ -67,7 +68,7 @@ def extract_hydrograph_data(file_path):
 
     # Convert lists to pandas DataFrames and integrate max discharge
     for section in hydrograph_data:
-        df = pd.DataFrame(hydrograph_data[section], columns=['Time', 'Discharge'])
+        df = pd.DataFrame(hydrograph_data[section], columns=[TIME, DISCHARGE])
         if section in max_discharge_info:
             df = integrate_max_discharge_in_df(df, max_discharge_info[section])
         hydrograph_data[section] = df
@@ -81,13 +82,13 @@ def integrate_max_discharge_in_df(hydrograph_data, max_discharge_info):
     max_time, max_discharge = max_discharge_info
 
     # Check if the max time already exists in the DataFrame
-    if max_time in hydrograph_data['Time'].values:
-        hydrograph_data.loc[hydrograph_data['Time'] == max_time, 'Discharge'] = max_discharge
+    if max_time in hydrograph_data[TIME].values:
+        hydrograph_data.loc[hydrograph_data[TIME] == max_time, DISCHARGE] = max_discharge
     else:
         # Insert a new row for the maximum discharge
-        new_row = pd.DataFrame({'Time': [max_time], 'Discharge': [max_discharge]})
+        new_row = pd.DataFrame({TIME: [max_time], DISCHARGE: [max_discharge]})
         hydrograph_data = pd.concat([hydrograph_data, new_row], ignore_index=True)
-        hydrograph_data = hydrograph_data.sort_values(by='Time').reset_index(drop=True)
+        hydrograph_data = hydrograph_data.sort_values(by=TIME).reset_index(drop=True)
 
     return hydrograph_data
 
@@ -183,8 +184,8 @@ def create_summary_sheet(writer, workbook, formats, hydrograph_data, max_wse_inf
         worksheet.write_url(row, 0, f"internal:'{sheet_name}'!A1", formats["link"], str(section_id))
 
         # Calculate summary statistics
-        max_discharge = data['Discharge'].max()
-        max_time = data[data['Discharge'] == max_discharge]['Time'].iloc[0]
+        max_discharge = data[DISCHARGE].max()
+        max_time = data[data[DISCHARGE] == max_discharge][TIME].iloc[0]
         max_wse = max_wse_info.get(section_id, 'N/A')
 
         worksheet.write(row, 1, max_discharge, formats["number"])
@@ -235,8 +236,8 @@ def create_section_sheet(writer, workbook, formats, section, data, max_wse_info,
     worksheet.set_column("E:E", 18)
 
     # Calculate summary statistics
-    max_discharge = data['Discharge'].max()
-    max_time = data[data['Discharge'] == max_discharge]['Time'].iloc[0]
+    max_discharge = data[DISCHARGE].max()
+    max_time = data[data[DISCHARGE] == max_discharge][TIME].iloc[0]
     max_wse = max_wse_info.get(section, 'N/A')
 
     # Summary statistics box
@@ -356,11 +357,11 @@ def create_pdf_plots(hydrograph_data, max_wse_info, output_pdf_path):
                     break
                 section = sections[idx]
                 data = hydrograph_data[section]
-                max_discharge = data['Discharge'].max()
-                max_time = data[data['Discharge'] == max_discharge]['Time'].iloc[0]
+                max_discharge = data[DISCHARGE].max()
+                max_time = data[data[DISCHARGE] == max_discharge][TIME].iloc[0]
                 max_wse = max_wse_info.get(section, 'N/A')
                 
-                axs[i].plot(data['Time'], data['Discharge'], label='Discharge', color='blue')
+                axs[i].plot(data[TIME], data[DISCHARGE], label='Discharge', color='blue')
                 axs[i].set_title(f'Cross Section {section}')
                 axs[i].set_xlabel('Time (hours)')
                 axs[i].set_ylabel('Discharge (cfs)')

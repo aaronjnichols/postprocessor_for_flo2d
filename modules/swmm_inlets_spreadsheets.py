@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import xlsxwriter
+from .constants import TIME, DISCHARGE
 
 def extract_hydrograph_data(folder_path):
     """
@@ -30,13 +31,13 @@ def extract_hydrograph_data(folder_path):
 
         if inlet_match:
             current_inlet = inlet_match.group(1).strip()
-            inlets_data[current_inlet] = {'Time': [], 'Discharge': []}
+            inlets_data[current_inlet] = {TIME: [], DISCHARGE: []}
         
         elif data_match and current_inlet:
             time = float(data_match.group(1))
             discharge = float(data_match.group(2))
-            inlets_data[current_inlet]['Time'].append(time)
-            inlets_data[current_inlet]['Discharge'].append(discharge)
+            inlets_data[current_inlet][TIME].append(time)
+            inlets_data[current_inlet][DISCHARGE].append(discharge)
     
     # Convert to DataFrame
     inlet_dfs = {inlet: pd.DataFrame(data) for inlet, data in inlets_data.items()}
@@ -137,8 +138,8 @@ def create_summary_sheet(writer, workbook, formats, inlet_dfs, inlet_sheet_names
         worksheet.write_url(row, 0, f"internal:'{sheet_name}'!A1", formats["link"], str(inlet_id))
 
         # Calculate summary statistics
-        peak_inflow = data['Discharge'].max()
-        peak_time = data['Time'][data['Discharge'].idxmax()]
+        peak_inflow = data[DISCHARGE].max()
+        peak_time = data[TIME][data[DISCHARGE].idxmax()]
 
         worksheet.write(row, 1, peak_inflow, formats["number"])
         worksheet.write(row, 2, peak_time, formats["time_hr"])
@@ -178,8 +179,8 @@ def create_inlet_sheet(writer, workbook, formats, inlet_id, data, sheet_name):
     worksheet.set_column("D:E", 20)
 
     # Calculate summary statistics
-    peak_inflow = data['Discharge'].max()
-    peak_time = data['Time'][data['Discharge'].idxmax()]
+    peak_inflow = data[DISCHARGE].max()
+    peak_time = data[TIME][data[DISCHARGE].idxmax()]
 
     # Summary statistics box
     summary_box_start_row = 1
@@ -306,14 +307,14 @@ def create_pdf_plots(inlet_dfs, output_pdf_path):
                 inlet = sections[idx]
                 df = inlet_dfs[inlet]
                 
-                axs[i].plot(df['Time'], df['Discharge'], label='Discharge', color='blue')
+                axs[i].plot(df[TIME], df[DISCHARGE], label='Discharge', color='blue')
                 axs[i].set_title(f'Inlet {inlet}')
                 axs[i].set_xlabel('Time (hours)')
                 axs[i].set_ylabel('Discharge (cfs)')
                 axs[i].grid(True)
 
-                peak_discharge = df['Discharge'].max()
-                time_of_peak = df['Time'][df['Discharge'].idxmax()]
+                peak_discharge = df[DISCHARGE].max()
+                time_of_peak = df[TIME][df[DISCHARGE].idxmax()]
                 label = f'Peak Discharge: {peak_discharge:.2f} cfs\nTime of Peak: {time_of_peak:.2f} hrs'
                 axs[i].text(0.05, 0.95, label, ha='left', va='top', transform=axs[i].transAxes, fontsize=8,
                             bbox=dict(facecolor='white', alpha=0.6))

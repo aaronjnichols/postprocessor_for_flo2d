@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+from .constants import GRID_ID, FPXSEC, normalize_grid_id
 
 
 def extract_fpxsec_dat(path):
@@ -16,5 +17,5 @@ def extract_fpxsec_dat(path):
                 line_number += 1
                 for grid_id in parts[3:]:
                     if grid_id.isdigit():
-                        rows.append({'grid_id': int(grid_id) - 1, 'fpxsec': line_number})
+                        rows.append({GRID_ID: normalize_grid_id(int(grid_id)), FPXSEC: line_number})
     return pd.DataFrame(rows)

@@ -2,6 +2,10 @@ import os
 import pandas as pd
 import re
 from modules.utilities import time_function
+from .constants import (
+    STRUCTURE_ID, INFLOW_NODE, OUTFLOW_NODE, STRUCTURE_TYPE, 
+    STAGE, FLOW, normalize_grid_id
+)
 
 @time_function
 def extract_hystruc_results(file_path):
@@ -20,30 +24,30 @@ def extract_hystruc_results(file_path):
         if line[0] == 'S':
             structure_name = line[1]
             if structure_name not in structures:
-                structures[structure_name] = {
-                    'Structure Name': structure_name,
-                    'IFPROCHAN': int(line[2]),
-                    'ICURVETABLE': int(line[3]),
-                    'Inflow Node': int(line[4]),
-                    'Outflow Node': int(line[5]),
-                    'INOUTCONT': int(line[6]),
-                    'HEADREFEL': float(line[7]),
-                    'CLENGTH': float(line[8]),
-                    'CDIAMETER': float(line[9]),
-                    'TYPEC': None,
-                    'TYPEEN': None,
-                    'CULVERTN': None,
-                    'KE': None,
-                    'CUBASE': None
-                }
+                            structures[structure_name] = {
+                'structure_name': structure_name,
+                'ifprochan': int(line[2]),
+                'icurvetable': int(line[3]),
+                INFLOW_NODE: normalize_grid_id(int(line[4])),
+                OUTFLOW_NODE: normalize_grid_id(int(line[5])),
+                'inoutcont': int(line[6]),
+                'headrefel': float(line[7]),
+                'clength': float(line[8]),
+                'cdiameter': float(line[9]),
+                'typec': None,
+                'typeen': None,
+                'culvertn': None,
+                'ke': None,
+                'cubase': None
+            }
 
         elif line[0] == 'F' and structure_name in structures:
             structures[structure_name].update({
-                'TYPEC': int(line[1]),
-                'TYPEEN': int(line[2]),
-                'CULVERTN': float(line[3]),
-                'KE': float(line[4]),
-                'CUBASE': float(line[5])
+                'typec': int(line[1]),
+                'typeen': int(line[2]),
+                'culvertn': float(line[3]),
+                'ke': float(line[4]),
+                'cubase': float(line[5])
             })
 
     # Extract peak discharge and time of peak discharge from HYDROSTRUCT.OUT file
@@ -60,8 +64,8 @@ def extract_hystruc_results(file_path):
                 
                 if structure_name in structures:
                     structures[structure_name].update({
-                        'Qpeak_cfs': peak_discharge,
-                        'Tpeak_hrs': time_of_peak
+                        'qpeak_cfs': peak_discharge,
+                        'tpeak_hrs': time_of_peak
                     })
 
     # Extract rating curves
@@ -100,8 +104,8 @@ def extract_rating_curves(file_path):
                 # If there was a previous structure with rating data, save it
                 if current_structure and structure_data:
                     rating_curves.append({
-                        "Structure": current_structure,
-                        "Data": pd.DataFrame(structure_data, columns=["Stage", "Flow"])
+                        STRUCTURE_ID: current_structure,
+                        "Data": pd.DataFrame(structure_data, columns=[STAGE, FLOW])
                     })
                 
                 # Start new structure
@@ -117,8 +121,8 @@ def extract_rating_curves(file_path):
         # Append the last structure's data if it exists
         if current_structure and structure_data:
             rating_curves.append({
-                "Structure": current_structure,
-                "Data": pd.DataFrame(structure_data, columns=["Stage", "Flow"])
+                STRUCTURE_ID: current_structure,
+                "Data": pd.DataFrame(structure_data, columns=[STAGE, FLOW])
             })
     
     return rating_curves

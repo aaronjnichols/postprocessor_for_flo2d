@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+from .constants import GRID_ID, XKSAT, PSIF, DTHETA, ABSTRINF, RTIMPF, SOIL_DEPTH
 
 
 def extract_infil_dat(path):
@@ -13,6 +14,6 @@ def extract_infil_dat(path):
             if parts and parts[0] == 'F':
                 data.append(parts[1:])
 
-    columns = ['grid_id', 'xksat', 'psif', 'dtheta', 'abstrinf', 'rtimpf', 'soil_depth']
+    columns = [GRID_ID, XKSAT, PSIF, DTHETA, ABSTRINF, RTIMPF, SOIL_DEPTH]
     df = pd.DataFrame(data, columns=columns)
     return df.apply(pd.to_numeric, errors='coerce')

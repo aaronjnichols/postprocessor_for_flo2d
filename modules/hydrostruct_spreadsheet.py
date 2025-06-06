@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import re
 import os
+from .constants import TIME, INFLOW, OUTFLOW
 
 def parse_hydrograph_data(folder_path):
     """
@@ -24,7 +25,7 @@ def parse_hydrograph_data(folder_path):
             header_match = structure_header_re.search(line)
             if header_match:
                 if current_structure and current_data:
-                    df = pd.DataFrame(current_data, columns=['Time', 'Inflow', 'Outflow'])
+                    df = pd.DataFrame(current_data, columns=[TIME, INFLOW, OUTFLOW])
                     hydrograph_data[current_structure] = df
                     current_data = []
                 current_structure = header_match.group(1)
@@ -34,7 +35,7 @@ def parse_hydrograph_data(folder_path):
                     time, inflow, outflow = data_match.groups()
                     current_data.append([float(time), float(inflow), float(outflow)])
         if current_structure and current_data:
-            df = pd.DataFrame(current_data, columns=['Time', 'Inflow', 'Outflow'])
+            df = pd.DataFrame(current_data, columns=[TIME, INFLOW, OUTFLOW])
             hydrograph_data[current_structure] = df
     return hydrograph_data
 
@@ -133,8 +134,8 @@ def create_dashboard_sheet(writer, workbook, formats, hydrograph_data, structure
         worksheet.write_url(row, 0, f"internal:'{sheet_name}'!A1", formats["link"], str(structure_id))
 
         # Calculate summary statistics
-        peak_inflow = data['Inflow'].max()
-        peak_time = data['Time'][data['Inflow'].idxmax()]
+        peak_inflow = data[INFLOW].max()
+        peak_time = data[TIME][data[INFLOW].idxmax()]
 
         worksheet.write(row, 1, peak_inflow, formats["number"])
         worksheet.write(row, 2, peak_time, formats["time_hr"])
@@ -173,10 +174,10 @@ def create_structure_sheet(writer, workbook, formats, structure, data, sheet_nam
     worksheet.set_column("D:E", 20)
 
     # Calculate summary statistics
-    peak_inflow = data['Inflow'].max()
-    peak_time = data['Time'][data['Inflow'].idxmax()]
-    avg_inflow = data['Inflow'].mean()
-    avg_outflow = data['Outflow'].mean()
+    peak_inflow = data[INFLOW].max()
+    peak_time = data[TIME][data[INFLOW].idxmax()]
+    avg_inflow = data[INFLOW].mean()
+    avg_outflow = data[OUTFLOW].mean()
 
     # Summary statistics box
     summary_box_start_row = 1
@@ -304,11 +305,11 @@ def hydrostruct_pdf_plots(hydrograph_data, output_pdf_path):
                     break
                 structure = structures[idx]
                 data = hydrograph_data[structure]
-                peak_inflow_time = data['Time'][data['Inflow'].idxmax()]
-                peak_inflow_value = data['Inflow'].max()
+                peak_inflow_time = data[TIME][data[INFLOW].idxmax()]
+                peak_inflow_value = data[INFLOW].max()
 
-                axs[i].plot(data['Time'], data['Inflow'], label='Inflow', color='blue')
-                axs[i].plot(data['Time'], data['Outflow'], label='Outflow', color='red')
+                axs[i].plot(data[TIME], data[INFLOW], label='Inflow', color='blue')
+                axs[i].plot(data[TIME], data[OUTFLOW], label='Outflow', color='red')
                 axs[i].set_title(f'{structure}')
                 axs[i].set_xlabel('Time (hrs)')
                 axs[i].set_ylabel('Discharge (cfs)')

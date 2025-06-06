@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 from .utilities import time_function
+from .constants import GRID_ID, normalize_grid_id
 
 @time_function
 def extract_depch_out(path, relevant_grid_ids=None):
@@ -10,7 +11,7 @@ def extract_depch_out(path, relevant_grid_ids=None):
     with open(file_path, 'r') as file:
         for line in file:
             parts = line.split()
-            grid_id = int(parts[0])
+            grid_id = normalize_grid_id(int(parts[0]))  # Convert to 0-based
             if relevant_grid_ids is None or grid_id in relevant_grid_ids:
                 data.append((grid_id, float(parts[3])))
-    return pd.DataFrame(data, columns=['FLO-2D Grid ID', 'DEPCH'])
+    return pd.DataFrame(data, columns=[GRID_ID, 'channel_depth'])

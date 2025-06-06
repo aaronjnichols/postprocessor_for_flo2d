@@ -22,6 +22,7 @@ from modules.hydrostruct_spreadsheet import hydrostruct_spreadsheet_and_plots, p
 from modules.rain_spreadsheet import rain_spreadsheet_and_plot
 from modules.swmm_extraction import extract_swmm_data, create_swmm_shapefiles
 from modules.arf_extraction import extract_area_reduction_factors, merge_arf_with_model_data
+from modules.constants import GRID_ID, FLOW_DIRECTION, GEOMETRY, MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS, NUM_EVACUATIONS, NUM_TIME_DECREMENTS
 from modules.swmm_inlets_spreadsheets import swmm_inlet_spreadsheets_and_pdf
 from modules.inflow_extraction import extract_inflow_hydrographs
 from modules.inflow_spreadsheets import create_pdf_plots, export_hydrograph_to_excel
@@ -153,10 +154,10 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     if create_flo2d_points:
         timing_logger.log("Initiating creation of FLO-2D Points Output")
 
-        if 'flow_direction' not in geo_df.columns:
-            logger.error("'flow_direction' column is missing in the GeoDataFrame. Output creation aborted.")
+        if FLOW_DIRECTION not in geo_df.columns:
+            logger.error(f"'{FLOW_DIRECTION}' column is missing in the GeoDataFrame. Output creation aborted.")
         else:
-            geo_df_subset = geo_df[['grid_id', 'flow_direction', 'geometry']]
+            geo_df_subset = geo_df[[GRID_ID, FLOW_DIRECTION, GEOMETRY]]
 
             gpkg_file = os.path.join(shp_outpath, 'flow_direction.gpkg')
             try:
@@ -176,17 +177,17 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         timing_logger.log("SUPER.OUT data extraction completed")
 
         # Ensure grid_id is of the same type in both DataFrames
-        super_data['grid_id'] = super_data['grid_id'].astype(geo_df['grid_id'].dtype)
+        super_data[GRID_ID] = super_data[GRID_ID].astype(geo_df[GRID_ID].dtype)
 
         # Merge the super_data with the main GeoDataFrame
-        super_geo_df = geo_df.merge(super_data, on='grid_id', how='left', suffixes=('_orig', ''))
+        super_geo_df = geo_df.merge(super_data, on=GRID_ID, how='left', suffixes=('_orig', ''))
         print("Columns in super_geo_df after merge:", super_geo_df.columns)  # Debug print
 
         # Filter rows to include only those with non-null values in the super_data columns
-        super_geo_df = super_geo_df.dropna(subset=['max_froude_no', 'depth_super', 'time_super', 'num_supercritical_timesteps'])
+        super_geo_df = super_geo_df.dropna(subset=[MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS])
 
         # Select only the relevant columns for the output file
-        columns_to_select = ['grid_id', 'max_froude_no', 'depth_super', 'time_super', 'num_supercritical_timesteps', 'geometry']
+        columns_to_select = [GRID_ID, MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS, GEOMETRY]
         super_geo_df = super_geo_df[columns_to_select]
 
         # Create a points shapefile or GeoPackage for the SUPER.OUT data
@@ -220,17 +221,17 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         timing_logger.log("EVACUATEDFP.OUT data extraction completed")
 
         # Ensure grid_id is of the same type in both DataFrames
-        evacuatedfp_data['grid_id'] = evacuatedfp_data['grid_id'].astype(geo_df['grid_id'].dtype)
+        evacuatedfp_data[GRID_ID] = evacuatedfp_data[GRID_ID].astype(geo_df[GRID_ID].dtype)
 
         # Merge the evacuatedfp_data with the main GeoDataFrame
-        evacuatedfp_geo_df = geo_df.merge(evacuatedfp_data, on='grid_id', how='left')
+        evacuatedfp_geo_df = geo_df.merge(evacuatedfp_data, on=GRID_ID, how='left')
         print("Columns in evacuatedfp_geo_df after merge:", evacuatedfp_geo_df.columns)  # Debug print
 
         # Filter rows to include only those with non-null values in the evacuatedfp_data columns
-        evacuatedfp_geo_df = evacuatedfp_geo_df.dropna(subset=['num_evacuations'])
+        evacuatedfp_geo_df = evacuatedfp_geo_df.dropna(subset=[NUM_EVACUATIONS])
 
         # Select only the relevant columns for the output file
-        columns_to_select = ['grid_id', 'num_evacuations', 'geometry']
+        columns_to_select = [GRID_ID, NUM_EVACUATIONS, GEOMETRY]
         evacuatedfp_geo_df = evacuatedfp_geo_df[columns_to_select]
 
         # Create a points shapefile or GeoPackage for the EVACUATEDFP.OUT data
@@ -264,17 +265,17 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         timing_logger.log("TIME.OUT data extraction completed")
 
         # Ensure grid_id is of the same type in both DataFrames
-        time_out_data['grid_id'] = time_out_data['grid_id'].astype(geo_df['grid_id'].dtype)
+        time_out_data[GRID_ID] = time_out_data[GRID_ID].astype(geo_df[GRID_ID].dtype)
 
         # Merge the time_out_data with the main GeoDataFrame
-        time_out_geo_df = geo_df.merge(time_out_data, on='grid_id', how='left')
+        time_out_geo_df = geo_df.merge(time_out_data, on=GRID_ID, how='left')
         print("Columns in time_out_geo_df after merge:", time_out_geo_df.columns)  # Debug print
 
         # Filter rows to include only those with non-null values in the time_out_data columns
-        time_out_geo_df = time_out_geo_df.dropna(subset=['num_time_decrements'])
+        time_out_geo_df = time_out_geo_df.dropna(subset=[NUM_TIME_DECREMENTS])
 
         # Select only the relevant columns for the output file
-        columns_to_select = ['grid_id', 'num_time_decrements', 'geometry']
+        columns_to_select = [GRID_ID, NUM_TIME_DECREMENTS, GEOMETRY]
         time_out_geo_df = time_out_geo_df[columns_to_select]
 
         # Create a points shapefile or GeoPackage for the TIME.OUT data

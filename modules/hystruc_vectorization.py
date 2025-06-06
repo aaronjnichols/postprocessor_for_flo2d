@@ -6,6 +6,7 @@ from shapely.geometry import LineString
 import os
 from modules.utilities import time_function
 import logging
+from .constants import INFLOW_NODE, OUTFLOW_NODE, GRID_ID
 
 @time_function
 def create_hystruc_shapefile(hystruc_df, model_data_df, coord_system, output_path, output_format="Shapefile"):
@@ -26,9 +27,9 @@ def create_hystruc_shapefile(hystruc_df, model_data_df, coord_system, output_pat
 
     # Merge the hystruc dataframe with the model data dataframe to get x, y coordinates for inflow and outflow nodes
     # This assumes the model_data_df has 'grid_id', 'x', 'y' columns
-    merged_df = pd.merge(hystruc_df, model_data_df[['grid_id', 'x', 'y']], left_on='Inflow Node', right_on='grid_id', how='left')
+    merged_df = pd.merge(hystruc_df, model_data_df[[GRID_ID, 'x', 'y']], left_on=INFLOW_NODE, right_on=GRID_ID, how='left')
     merged_df.rename(columns={'x': 'inflow_x', 'y': 'inflow_y'}, inplace=True)
-    merged_df = pd.merge(merged_df, model_data_df[['grid_id', 'x', 'y']], left_on='Outflow Node', right_on='grid_id', how='left', suffixes=('', '_outflow'))
+    merged_df = pd.merge(merged_df, model_data_df[[GRID_ID, 'x', 'y']], left_on=OUTFLOW_NODE, right_on=GRID_ID, how='left', suffixes=('', '_outflow'))
     merged_df.rename(columns={'x': 'outflow_x', 'y': 'outflow_y'}, inplace=True)
 
     # Create a GeoDataFrame with a LineString from inflow to outflow for each structure

@@ -6,18 +6,19 @@ import geopandas as gpd
 from shapely.geometry import Point, LineString
 from modules.utilities import time_function
 import logging
+from .constants import FPXSEC, X_COORD, Y_COORD, FPXS_ID
 
 def filter_model_data(model_data):
     """Filter model data for non-zero fpxsec values and return sorted unique fpxsec IDs."""
-    fpxsec_grids = model_data[pd.notna(model_data['fpxsec'])]
-    fpxsec_grids['fpxsec'] = fpxsec_grids['fpxsec'].astype(int)
-    fpxsec_ids = fpxsec_grids['fpxsec'].drop_duplicates().sort_values()
+    fpxsec_grids = model_data[pd.notna(model_data[FPXSEC])]
+    fpxsec_grids[FPXSEC] = fpxsec_grids[FPXSEC].astype(int)
+    fpxsec_ids = fpxsec_grids[FPXSEC].drop_duplicates().sort_values()
     return fpxsec_ids
 
 
 def create_linestring_from_data(df, fpxsec_id):
     """Create a LineString geometry from dataframe coordinates."""
-    points = [Point(float(row['x']), float(row['y'])) for _, row in df.iterrows()]
+    points = [Point(float(row[X_COORD]), float(row[Y_COORD])) for _, row in df.iterrows()]
     if len(points) > 1:
         return LineString(points)
     else:
@@ -28,13 +29,13 @@ def create_geodataframe(fpxsec_ids, model_data, fpxsec_results):
     """Create a GeoDataFrame with LineStrings and corresponding attributes."""
     rows = []
     for fpxsec_id in fpxsec_ids:
-        df = model_data[model_data['fpxsec'] == fpxsec_id]
+        df = model_data[model_data[FPXSEC] == fpxsec_id]
         line = create_linestring_from_data(df, fpxsec_id)
         if line is None:
             continue
-        if fpxsec_id not in fpxsec_results['fpxs_id'].values:
+        if fpxsec_id not in fpxsec_results[FPXS_ID].values:
             continue
-        result_row = fpxsec_results.loc[fpxsec_results['fpxs_id'] == fpxsec_id].iloc[0]
+        result_row = fpxsec_results.loc[fpxsec_results[FPXS_ID] == fpxsec_id].iloc[0]
         row = result_row.to_dict()
         row['geometry'] = line
         rows.append(row)

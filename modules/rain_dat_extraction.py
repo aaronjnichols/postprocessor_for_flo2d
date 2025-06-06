@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+from .constants import GRID_ID, RAIN_DEPTH
 
 
 def extract_rain_data(path):
@@ -12,9 +13,9 @@ def extract_rain_data(path):
     data_lines = lines[last_r_index + 1:]
 
     data = [line.split() for line in data_lines if line.strip()]
-    df = pd.DataFrame(data, columns=['grid_id', 'rain_depth'])
+    df = pd.DataFrame(data, columns=[GRID_ID, RAIN_DEPTH])
 
-    df['grid_id'] = pd.to_numeric(df['grid_id'], errors='coerce').astype('Int64')
-    df['rain_depth'] = pd.to_numeric(df['rain_depth'], errors='coerce') * multiplier_value
+    df[GRID_ID] = pd.to_numeric(df[GRID_ID], errors='coerce').astype('Int64')
+    df[RAIN_DEPTH] = pd.to_numeric(df[RAIN_DEPTH], errors='coerce') * multiplier_value
 
     return df

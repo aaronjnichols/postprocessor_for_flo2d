@@ -83,8 +83,9 @@ def extract_model_data_to_df(file_path: str) -> pd.DataFrame:
     main_df = controlled_merge(main_df, data_frames)
 
     if 'SUPER.OUT' in data_frames:
+        from .constants import GRID_ID
         print("Merging SUPER.OUT data...")
-        main_df = pd.merge(main_df, data_frames['SUPER.OUT'], on='grid_id', how='left')
+        main_df = pd.merge(main_df, data_frames['SUPER.OUT'], on=GRID_ID, how='left')
         print(f"Dataframe shape after merging SUPER.OUT: {main_df.shape}")
 
     main_df = ensure_unique_columns(main_df)

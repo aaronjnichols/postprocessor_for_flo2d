@@ -8,6 +8,11 @@ import os
 import logging
 import re
 from modules.utilities import time_function
+from .constants import (
+    SWMM_NAME, INVERT_ELEVATION, MAX_DEPTH, INIT_DEPTH, SURCHARGE_DEPTH, PONDED_AREA,
+    OUTFALL_TYPE, STAGE_DATA, TIDE_GATE, FROM_NODE, TO_NODE, LENGTH, MANNINGS_N,
+    INLET_OFFSET, OUTLET_OFFSET, INIT_FLOW, MAX_FLOW, X_COORD, Y_COORD
+)
 
 def extract_swmm_data(file_path, epsg):
     """
@@ -62,7 +67,7 @@ def process_junctions(junctions_data, coordinates_data, coord_system):
     Returns:
     - GeoDataFrame with junction points.
     """
-    columns = ['Name', 'Invert_Elevation', 'Max_Depth', 'Init_Depth', 'Surcharge_Depth', 'Ponded_Area']
+    columns = [SWMM_NAME, INVERT_ELEVATION, MAX_DEPTH, INIT_DEPTH, SURCHARGE_DEPTH, PONDED_AREA]
     junctions = []
 
     for line in junctions_data:
@@ -74,7 +79,7 @@ def process_junctions(junctions_data, coordinates_data, coord_system):
     df_junctions = pd.DataFrame(junctions, columns=columns)
     df_junctions = df_junctions.apply(pd.to_numeric, errors='ignore')
 
-    coords_columns = ['Name', 'X_Coord', 'Y_Coord']
+    coords_columns = [SWMM_NAME, X_COORD, Y_COORD]
     coords = []
 
     for line in coordinates_data:
@@ -84,10 +89,10 @@ def process_junctions(junctions_data, coordinates_data, coord_system):
         coords.append(parts[:len(coords_columns)])
 
     df_coords = pd.DataFrame(coords, columns=coords_columns)
-    df_coords[['X_Coord', 'Y_Coord']] = df_coords[['X_Coord', 'Y_Coord']].apply(pd.to_numeric, errors='coerce')
+    df_coords[[X_COORD, Y_COORD]] = df_coords[[X_COORD, Y_COORD]].apply(pd.to_numeric, errors='coerce')
 
-    df_merged = pd.merge(df_junctions, df_coords, on='Name', how='left')
-    geometry = [Point(xy) for xy in zip(df_merged['X_Coord'], df_merged['Y_Coord'])]
+    df_merged = pd.merge(df_junctions, df_coords, on=SWMM_NAME, how='left')
+    geometry = [Point(xy) for xy in zip(df_merged[X_COORD], df_merged[Y_COORD])]
     gdf = gpd.GeoDataFrame(df_merged, geometry=geometry, crs=f"EPSG:{coord_system}")
 
     return gdf

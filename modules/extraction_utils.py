@@ -31,6 +31,7 @@ def read_with_dask_optimized(file_path, column_names=None, **kwargs):
 
 
 def read_file_with_line_number(file_path, column_names, skiprows=0):
+    from .constants import GRID_ID
     df = pd.read_csv(
         file_path,
         delim_whitespace=True,
@@ -38,7 +39,7 @@ def read_file_with_line_number(file_path, column_names, skiprows=0):
         names=column_names,
         skiprows=skiprows,
     )
-    df.insert(0, 'grid_id', range(len(df)))
+    df.insert(0, GRID_ID, range(len(df)))
     return df
 
 
@@ -52,9 +53,10 @@ def ensure_unique_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def verify_grid_ids(data_frames):
+    from .constants import GRID_ID
     for name, df in data_frames.items():
-        if 'grid_id' in df.columns:
-            unique_count = df['grid_id'].nunique()
+        if GRID_ID in df.columns:
+            unique_count = df[GRID_ID].nunique()
             total_count = len(df)
             print(f"{name}: {unique_count} unique grid_ids out of {total_count} total rows")
             if unique_count != total_count:
@@ -62,15 +64,16 @@ def verify_grid_ids(data_frames):
 
 
 def controlled_merge(main_df: pd.DataFrame, data_frames: dict) -> pd.DataFrame:
+    from .constants import GRID_ID, FPXSEC
     print("Starting controlled merge...")
     result = main_df.copy()
     total_rows = len(result)
 
     for name, df in data_frames.items():
         if name != 'DEPTH.OUT' and not df.empty:
-            if 'grid_id' in df.columns:
+            if GRID_ID in df.columns:
                 print(f"Merging {name}...")
-                result = pd.merge(result, df, on='grid_id', how='left', suffixes=('', f'_{name}'))
+                result = pd.merge(result, df, on=GRID_ID, how='left', suffixes=('', f'_{name}'))
                 if len(result) != total_rows:
                     print(
                         f"Warning: Row count changed after merging {name}. Expected {total_rows}, got {len(result)}"
@@ -78,8 +81,8 @@ def controlled_merge(main_df: pd.DataFrame, data_frames: dict) -> pd.DataFrame:
                     total_rows = len(result)
             elif name == 'FPXSEC.DAT':
                 print(f"Merging {name}...")
-                result = pd.merge(result, df, left_on='grid_id', right_on='grid_id', how='left')
-                result['fpxsec'] = result['fpxsec'].fillna(0)
+                result = pd.merge(result, df, left_on=GRID_ID, right_on=GRID_ID, how='left')
+                result[FPXSEC] = result[FPXSEC].fillna(0)
         print(f"Current dataframe shape after merging {name}: {result.shape}")
 
     print("Merge complete.")

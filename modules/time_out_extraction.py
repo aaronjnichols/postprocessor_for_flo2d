@@ -1,4 +1,5 @@
 import pandas as pd
+from .constants import GRID_ID, NUM_TIME_DECREMENTS, normalize_grid_id
 
 def extract_time_out_data(file_path):
     """
@@ -43,7 +44,7 @@ def extract_time_out_data(file_path):
             if len(parts) == 2:
                 try:
                     # Try to convert both parts to numbers
-                    grid_id = int(parts[0])
+                    grid_id = normalize_grid_id(int(parts[0]))
                     time_decrements = int(parts[1])
                     grid_ids.append(grid_id)
                     num_time_decrements.append(time_decrements)
@@ -51,4 +52,4 @@ def extract_time_out_data(file_path):
                     # Skip lines with non-numeric data (headers, etc.)
                     continue
 
-    return pd.DataFrame({'grid_id': grid_ids, 'num_time_decrements': num_time_decrements})
+    return pd.DataFrame({GRID_ID: grid_ids, NUM_TIME_DECREMENTS: num_time_decrements})

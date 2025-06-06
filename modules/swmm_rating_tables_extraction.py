@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 from modules.utilities import time_function
+from .constants import STAGE, FLOW
 
 @time_function
 def extract_swmm_rating_tables(file_path):
@@ -31,7 +32,7 @@ def extract_swmm_rating_tables(file_path):
                     try:
                         stage = float(parts[1])
                         discharge = float(parts[2])
-                        current_table["Data"].append({"Stage": stage, "Flow": discharge})
+                        current_table["Data"].append({STAGE: stage, FLOW: discharge})
                     except ValueError:
                         print(f"Warning: Could not convert values to float: {parts}")
 

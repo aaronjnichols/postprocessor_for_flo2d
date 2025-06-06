@@ -5,6 +5,7 @@ from openpyxl import Workbook
 from openpyxl.chart import ScatterChart, Reference, Series
 from openpyxl.chart.marker import Marker
 from modules.utilities import time_function
+from .constants import FLOW, STAGE, STRUCTURE_ID
 
 @time_function
 def plot_rating_curves_to_pdf(rating_curves, pdf_filename):
@@ -26,8 +27,8 @@ def plot_rating_curves_to_pdf(rating_curves, pdf_filename):
         
         for idx, curve in enumerate(rating_curves):
             ax = axes[plot_count // 2, plot_count % 2]
-            ax.plot(curve["Data"]["Flow"], curve["Data"]["Stage"], color='blue', label='Stage vs Discharge', marker='o')
-            ax.set_title(curve["Structure"])
+            ax.plot(curve["Data"][FLOW], curve["Data"][STAGE], color='blue', label='Stage vs Discharge', marker='o')
+            ax.set_title(curve[STRUCTURE_ID])
             ax.set_xlabel('Discharge (cfs)')
             ax.set_ylabel('Stage (ft)')
             ax.grid(True)
@@ -64,7 +65,7 @@ def create_rating_curve_spreadsheet(rating_curves, excel_filename):
     wb.remove(wb.active)  # Remove the default sheet
 
     for curve in rating_curves:
-        structure_name = curve["Structure"]
+        structure_name = curve[STRUCTURE_ID]
         data = curve["Data"]
 
         # Create a new worksheet for each structure
@@ -73,7 +74,7 @@ def create_rating_curve_spreadsheet(rating_curves, excel_filename):
         # Write data to the worksheet
         ws.append(["Stage (ft)", "Discharge (cfs)"])
         for _, row in data.iterrows():
-            ws.append([row["Stage"], row["Flow"]])
+            ws.append([row[STAGE], row[FLOW]])
 
         # Create a scatter plot
         chart = ScatterChart()

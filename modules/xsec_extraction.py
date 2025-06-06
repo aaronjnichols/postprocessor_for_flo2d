@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 from .utilities import time_function
+from .constants import CROSS_SECTION_NUMBER, STATION, ELEVATION
 
 @time_function
 def extract_xsec_dat(path):
@@ -15,4 +16,4 @@ def extract_xsec_dat(path):
             elif line.strip():
                 station, elevation = map(float, line.split())
                 data.append((cross_section, station, elevation))
-    return pd.DataFrame(data, columns=['Cross Section Number', 'Station', 'Elevation'])
+    return pd.DataFrame(data, columns=[CROSS_SECTION_NUMBER, STATION, ELEVATION])

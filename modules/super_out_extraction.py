@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+from .constants import GRID_ID, MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS, normalize_grid_id
 
 
 def extract_super_out(path):
@@ -35,18 +36,18 @@ def extract_super_out(path):
             if len(parts) == 5:
                 try:
                     # Try to parse as numeric data
-                    grid_id = int(parts[0]) - 1  # Convert to 0-based indexing
+                    grid_id = normalize_grid_id(int(parts[0]))
                     max_froude_no = float(parts[1])
                     depth_super = float(parts[2])
                     time_super = float(parts[3])
                     num_supercritical_timesteps = int(parts[4])
                     
                     data.append({
-                        'grid_id': grid_id,
-                        'max_froude_no': max_froude_no,
-                        'depth_super': depth_super,
-                        'time_super': time_super,
-                        'num_supercritical_timesteps': num_supercritical_timesteps
+                        GRID_ID: grid_id,
+                        MAX_FROUDE_NO: max_froude_no,
+                        DEPTH_SUPER: depth_super,
+                        TIME_SUPER: time_super,
+                        NUM_SUPERCRITICAL_TIMESTEPS: num_supercritical_timesteps
                     })
                 except ValueError:
                     # Skip lines with non-numeric data (headers, etc.)

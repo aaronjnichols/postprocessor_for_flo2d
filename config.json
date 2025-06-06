@@ -3,7 +3,7 @@
         "S:/21002795 - Lake Havasu/Project Documents/Engineering-Planning-Power and Energy/Reports/CLOMR/Models/FLO2D/PROP/20241017_PROP_No_Levees"
     ],
     "epsg_number": "2224",
-    "create_flo2d_points": false,
+    "create_flo2d_points": true,
     "style_folder": "R:/_anichols/Resources/GIS/Styles",
     "output_format": "GeoPackage"
 }

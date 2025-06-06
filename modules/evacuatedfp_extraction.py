@@ -1,4 +1,5 @@
 import pandas as pd
+from .constants import GRID_ID, NUM_EVACUATIONS
 
 def extract_evacuatedfp_data(file_path):
     """
@@ -32,4 +33,4 @@ def extract_evacuatedfp_data(file_path):
                     # Skip lines with non-numeric data
                     continue
 
-    return pd.DataFrame({'grid_id': grid_ids, 'num_evacuations': num_evacuations})
+    return pd.DataFrame({GRID_ID: grid_ids, NUM_EVACUATIONS: num_evacuations})

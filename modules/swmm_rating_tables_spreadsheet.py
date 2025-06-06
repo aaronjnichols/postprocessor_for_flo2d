@@ -6,6 +6,7 @@ from openpyxl.chart import ScatterChart, Reference, Series
 from openpyxl.chart.marker import Marker
 from modules.utilities import time_function
 from modules.swmm_rating_tables_extraction import extract_swmm_rating_tables
+from .constants import FLOW, STAGE
 
 @time_function
 def plot_rating_tables_to_pdf(rating_tables, pdf_filename):
@@ -27,7 +28,7 @@ def plot_rating_tables_to_pdf(rating_tables, pdf_filename):
         
         for idx, table in enumerate(rating_tables):
             ax = axes[plot_count // 2, plot_count % 2]
-            ax.plot(table["Data"]["Flow"], table["Data"]["Stage"], color='blue', label='Stage vs Flow', marker='o')
+            ax.plot(table["Data"][FLOW], table["Data"][STAGE], color='blue', label='Stage vs Flow', marker='o')
             ax.set_title(f"Table: {table['Table']}")
             ax.set_xlabel('Discharge (cfs)')
             ax.set_ylabel('Stage (ft)')
@@ -74,7 +75,7 @@ def create_rating_tables_spreadsheet(rating_tables, excel_filename):
         # Write data to the worksheet
         ws.append(["Stage (ft)", "Flow (cfs)"])
         for _, row in data.iterrows():
-            ws.append([row["Stage"], row["Flow"]])
+            ws.append([row[STAGE], row[FLOW]])
 
         # Create a scatter plot
         chart = ScatterChart()

@@ -2,6 +2,7 @@ import sys
 import pandas as pd
 import numpy as np
 from modules.utilities import time_function
+from .constants import normalize_grid_id, GRID_ID, AREA_REDUCTION_FACTOR
 
 @time_function
 def extract_area_reduction_factors(file_path):
@@ -20,17 +21,17 @@ def extract_area_reduction_factors(file_path):
             parts = line.split()
             if parts:
                 if parts[0] == 'T':
-                    grid_id = int(parts[1]) - 1  # Adjust to 0-based index
+                    grid_id = normalize_grid_id(int(parts[1]))
                     arf = 1.0
                 else:
                     try:
-                        grid_id = int(parts[0]) - 1  # Adjust to 0-based index
+                        grid_id = normalize_grid_id(int(parts[0]))
                         arf = float(parts[1])
                     except ValueError:
                         continue
                 data.append((grid_id, arf))
 
-    df = pd.DataFrame(data, columns=['grid_id', 'arf'])
+    df = pd.DataFrame(data, columns=[GRID_ID, AREA_REDUCTION_FACTOR])
     return df
 
 @time_function
@@ -45,6 +46,6 @@ def merge_arf_with_model_data(model_data, arf_df):
     Returns:
         pd.DataFrame: The merged DataFrame.
     '''
-    merged_df = pd.merge(model_data, arf_df, on='grid_id', how='left')
-    merged_df['arf'] = merged_df['arf'].fillna(1.0)
+    merged_df = pd.merge(model_data, arf_df, on=GRID_ID, how='left')
+    merged_df[AREA_REDUCTION_FACTOR] = merged_df[AREA_REDUCTION_FACTOR].fillna(1.0)
     return merged_df

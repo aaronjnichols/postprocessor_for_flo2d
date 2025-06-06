@@ -4,6 +4,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import os
 import xlsxwriter
 from modules.utilities import time_function
+from .constants import CROSS_SECTION_NUMBER, STATION, ELEVATION, MAX_STAGE, MAX_DISCHARGE
 
 @time_function
 def create_channel_excel(file_path, combined_df):
@@ -13,16 +14,16 @@ def create_channel_excel(file_path, combined_df):
         combined_df.to_excel(writer, sheet_name='Full Summary', index=False)
         
         # Unique cross section summary sheet
-        unique_df = combined_df.drop_duplicates(subset=['Cross Section Number'])
+        unique_df = combined_df.drop_duplicates(subset=[CROSS_SECTION_NUMBER])
         unique_df.to_excel(writer, sheet_name='Unique Cross Section Summary', index=False)
     
     print(f"Excel file created: {output_excel_path}")
 
 @time_function
 def create_channel_plots(combined_df, output_pdf_path):
-    unique_cross_sections = sorted(combined_df['Cross Section Number'].unique())
+    unique_cross_sections = sorted(combined_df[CROSS_SECTION_NUMBER].unique())
     cs_data_dict = {
-        cs_num: combined_df[combined_df['Cross Section Number'] == cs_num]
+        cs_num: combined_df[combined_df[CROSS_SECTION_NUMBER] == cs_num]
         for cs_num in unique_cross_sections
     }
 
@@ -35,8 +36,8 @@ def create_channel_plots(combined_df, output_pdf_path):
             page_sections = unique_cross_sections[i : i + 4]
             for j, cross_section_number in enumerate(page_sections):
                 cs_data = cs_data_dict[cross_section_number]
-                station = cs_data['Station'].to_numpy()
-                elevation = cs_data['Elevation'].to_numpy()
+                station = cs_data[STATION].to_numpy()
+                elevation = cs_data[ELEVATION].to_numpy()
 
                 ax = axs[j]
                 ax.plot(
@@ -48,8 +49,8 @@ def create_channel_plots(combined_df, output_pdf_path):
                     zorder=10,
                 )
 
-                max_stage = cs_data['Max Stage'].max()
-                max_discharge = cs_data['Max Discharge (CFS)'].max()
+                max_stage = cs_data[MAX_STAGE].max()
+                max_discharge = cs_data[MAX_DISCHARGE].max()
 
                 if pd.notna(max_stage):
                     start = station[0] if max_stage >= elevation[0] else None

@@ -1,6 +1,7 @@
 import dask.dataframe as dd
 import geopandas as gpd
 import dask_geopandas as dgpd
+from .constants import GRID_ID, FLOW_DIRECTION, GEOMETRY
 
 def convert_gdf_to_shapefile(geo_df, output_path, coord_system):
     """
@@ -16,7 +17,7 @@ def convert_gdf_to_shapefile(geo_df, output_path, coord_system):
         geo_df.to_crs(epsg=coord_system, inplace=True)
 
     # Select only grid_id and flow_direction columns
-    geo_df = geo_df[['grid_id', 'flow_direction', 'geometry']]
+    geo_df = geo_df[[GRID_ID, FLOW_DIRECTION, GEOMETRY]]
 
     # Convert to Dask GeoDataFrame for parallel processing
     npartitions = 10  # Adjust the number of partitions based on your data size and available memory

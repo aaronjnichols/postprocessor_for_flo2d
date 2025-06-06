@@ -2,6 +2,7 @@ import os
 import re
 import pandas as pd
 from modules.utilities import time_function
+from .constants import FPXS_ID, TIME_MAX_DISCHARGE, Q_MAX, VOL_ACFT, WSE_MAX
 
 # Regular expression patterns
 Q_MAX_PATTERN = re.compile(r'MAXIMUM DISCHARGE FROM CROSS SECTION\s+\d+\s+IS:\s+(\d+\.\d+)\s+CFS')
@@ -20,10 +21,10 @@ def extract_max_q_vol_time(file_lines):
     vol = re.findall(VOL_PATTERN, file_lines)
 
     data = {
-        'fpxs_id': list(range(1, len(q_max) + 1)),
-        'time_max': time_max,
-        'q_max': q_max,
-        'vol_acft': vol
+        FPXS_ID: list(range(1, len(q_max) + 1)),
+        TIME_MAX_DISCHARGE: time_max,
+        Q_MAX: q_max,
+        VOL_ACFT: vol
     }
     return pd.DataFrame.from_dict(data)
 
@@ -67,7 +68,7 @@ def extract_fpxsec_results(file_path):
     fpxsec_results = extract_max_q_vol_time(file_content)
 
     if len(wse_max_values) == len(fpxsec_results):
-        fpxsec_results['wse_max'] = wse_max_values
+        fpxsec_results[WSE_MAX] = wse_max_values
     else:
         pass
 
