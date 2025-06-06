@@ -8,7 +8,7 @@ def parse_hydrograph_data(folder_path):
     """
     Parse hydrograph data from the provided file.
     Args:
-    file_path (str): Path to the file containing the hydrograph data.
+    folder_path (str): Path to the folder containing the HYDROSTRUCT.OUT file.
     Returns:
     dict: Dictionary containing structure names as keys and their corresponding
           hydrograph data as pandas DataFrames.
@@ -24,7 +24,7 @@ def parse_hydrograph_data(folder_path):
             header_match = structure_header_re.search(line)
             if header_match:
                 if current_structure and current_data:
-                    df = pd.DataFrame(current_data, columns=['Time (Hrs)', 'Inflow (CFS)', 'Outflow (CFS)'])
+                    df = pd.DataFrame(current_data, columns=['Time', 'Inflow', 'Outflow'])
                     hydrograph_data[current_structure] = df
                     current_data = []
                 current_structure = header_match.group(1)
@@ -34,54 +34,255 @@ def parse_hydrograph_data(folder_path):
                     time, inflow, outflow = data_match.groups()
                     current_data.append([float(time), float(inflow), float(outflow)])
         if current_structure and current_data:
-            df = pd.DataFrame(current_data, columns=['Time (Hrs)', 'Inflow (CFS)', 'Outflow (CFS)'])
+            df = pd.DataFrame(current_data, columns=['Time', 'Inflow', 'Outflow'])
             hydrograph_data[current_structure] = df
     return hydrograph_data
 
+def create_excel_formats(workbook):
+    """Create standardized formats for Excel sheets."""
+    formats = {
+        "header": workbook.add_format(
+            {"bold": True, "bg_color": "#808080", "font_color": "white", "border": 1}
+        ),
+        "subheader": workbook.add_format(
+            {"bold": True, "bg_color": "#D3D3D3", "border": 1, "align": "center"}
+        ),
+        "number": workbook.add_format({"num_format": "#,##0.00", "border": 1}),
+        "integer": workbook.add_format({"num_format": "0", "border": 1}),
+        "link": workbook.add_format({"font_color": "#505050", "underline": True}),
+        "timestamp": workbook.add_format({"num_format": "yyyy-mm-dd hh:mm:ss", "border": 1}),
+        "date": workbook.add_format({"num_format": "yyyy-mm-dd", "border": 1}),
+        "title": workbook.add_format(
+            {"bold": True, "font_size": 14, "align": "center"}
+        ),
+        "border": workbook.add_format({"border": 1}),
+        "number_right": workbook.add_format({"num_format": "#,##0.00", "border": 1, "align": "right"}),
+        "border_right": workbook.add_format({"border": 1, "align": "right"}),
+        "time_hr": workbook.add_format({"num_format": "#,##0.00", "border": 1}),
+        "time_hr_right": workbook.add_format({"num_format": "#,##0.00", "border": 1, "align": "right"}),
+    }
+    return formats
+
+def create_readme_sheet(writer, workbook, formats, num_structures, folder_path):
+    """Create README sheet with metadata and documentation."""
+    worksheet = writer.sheets["README"]
+    worksheet.set_column("A:A", 28)
+    worksheet.set_column("B:B", 100)
+    worksheet.merge_range("A1:B1", "Hydraulic Structure Data README", formats["title"])
+
+    # Metadata section
+    worksheet.merge_range("A3:B3", "Metadata", formats["subheader"])
+    metadata = [
+        ["Generated On", pd.Timestamp.now()],
+        ["Model Path", str(folder_path)],
+        ["Number of Structures Processed", num_structures],
+    ]
+    for row_offset, (key, value) in enumerate(metadata):
+        row_idx = 4 + row_offset
+        worksheet.write(row_idx, 0, key, formats["border"])
+        cell_format = formats["timestamp"] if key == "Generated On" else formats["border"]
+        worksheet.write(row_idx, 1, value, cell_format)
+
+    # Sheet descriptions
+    worksheet.merge_range("A8:B8", "Sheet Descriptions", formats["subheader"])
+    descriptions = [
+        ["Dashboard", "Overview of all structures with key metrics (peak discharge, time to peak) and navigation links."],
+        ["Structure Sheets", "Individual sheets for each structure with time series data (Inflow, Outflow) and hydrograph chart."],
+    ]
+    for row_offset, (key, value) in enumerate(descriptions):
+        row_idx = 9 + row_offset
+        worksheet.write(row_idx, 0, key, formats["border"])
+        worksheet.write(row_idx, 1, value, formats["border"])
+
+    # Column descriptions
+    worksheet.merge_range("A12:B12", "Data Column Descriptions", formats["subheader"])
+    column_desc = [
+        ["Time", "Time (hr relative to start)"],
+        ["Inflow", "Inflow discharge (cfs)"],
+        ["Outflow", "Outflow discharge (cfs)"],
+        ["Peak Discharge", "Maximum inflow discharge (cfs) for the structure"],
+        ["Time to Peak", "Time to peak inflow discharge (hr)"],
+        ["Average Inflow", "Average inflow discharge (cfs)"],
+        ["Average Outflow", "Average outflow discharge (cfs)"],
+    ]
+    for row_offset, (key, value) in enumerate(column_desc):
+        row_idx = 13 + row_offset
+        worksheet.write(row_idx, 0, key, formats["border"])
+        worksheet.write(row_idx, 1, value, formats["border"])
+
+def create_dashboard_sheet(writer, workbook, formats, hydrograph_data, structure_sheet_names):
+    """Create dashboard sheet with overview of all structures."""
+    worksheet = writer.sheets["Dashboard"]
+    worksheet.set_column("A:A", 15)
+    worksheet.set_column("B:D", 18)
+    worksheet.merge_range("A1:D1", "Hydraulic Structure Dashboard", formats["title"])
+    worksheet.write("A3", "Generated:", formats["subheader"])
+    worksheet.write("B3", pd.Timestamp.now(), formats["timestamp"])
+
+    # Dashboard headers
+    dashboard_headers = ["Structure ID", "Peak Discharge (cfs)", "Time to Peak (hr)"]
+    for col, header in enumerate(dashboard_headers):
+        worksheet.write(4, col, header, formats["header"])
+
+    structures = list(hydrograph_data.keys())
+    for row, structure_id in enumerate(structures, start=5):
+        data = hydrograph_data[structure_id]
+        
+        # Create navigation link to structure sheet
+        sheet_name = structure_sheet_names[structure_id]
+        worksheet.write_url(row, 0, f"internal:'{sheet_name}'!A1", formats["link"], str(structure_id))
+
+        # Calculate summary statistics
+        peak_inflow = data['Inflow'].max()
+        peak_time = data['Time'][data['Inflow'].idxmax()]
+
+        worksheet.write(row, 1, peak_inflow, formats["number"])
+        worksheet.write(row, 2, peak_time, formats["time_hr"])
+
+    # Add conditional formatting for peak discharge
+    if structures:
+        last_row = 5 + len(structures) - 1
+        worksheet.conditional_format(5, 1, last_row, 1, {
+            "type": "3_color_scale", 
+            "min_color": "#63BE7B", 
+            "mid_color": "#FFEB84", 
+            "max_color": "#F8696B"
+        })
+        worksheet.autofilter(4, 0, 4 + len(structures), len(dashboard_headers) - 1)
+
+    worksheet.freeze_panes(5, 0)
+
+def create_structure_sheet(writer, workbook, formats, structure, data, sheet_name):
+    """Create individual structure sheet with data, chart, and summary statistics."""
+    # Write data to sheet starting at row 2
+    data.to_excel(writer, sheet_name=sheet_name, startrow=1, index=False)
+    worksheet = writer.sheets[sheet_name]
+
+    # Add back to dashboard link
+    worksheet.write_url("A1", "internal:'Dashboard'!A1", formats["link"], "← Back to Dashboard")
+
+    # Create table
+    table_range = f"A2:{chr(65 + len(data.columns) - 1)}{2 + len(data)}"
+    worksheet.add_table(table_range, {
+        "columns": [{"header": col} for col in data.columns], 
+        "style": "Table Style Light 1"
+    })
+
+    # Set column widths
+    worksheet.set_column("A:C", 14)
+    worksheet.set_column("D:E", 20)
+
+    # Calculate summary statistics
+    peak_inflow = data['Inflow'].max()
+    peak_time = data['Time'][data['Inflow'].idxmax()]
+    avg_inflow = data['Inflow'].mean()
+    avg_outflow = data['Outflow'].mean()
+
+    # Summary statistics box
+    summary_box_start_row = 1
+    summary_box_start_col = 4
+    worksheet.merge_range(
+        summary_box_start_row, summary_box_start_col,
+        summary_box_start_row, summary_box_start_col + 1,
+        "Summary Statistics", formats["subheader"]
+    )
+
+    stats_data = [
+        ["Peak Discharge (cfs)", peak_inflow, formats["number_right"]],
+        ["Time to Peak (hr)", peak_time, formats["time_hr_right"]],
+        ["Average Inflow (cfs)", avg_inflow, formats["number_right"]],
+        ["Average Outflow (cfs)", avg_outflow, formats["number_right"]],
+    ]
+
+    for i, (stat, value, value_format) in enumerate(stats_data):
+        current_row = summary_box_start_row + 1 + i
+        worksheet.write(current_row, summary_box_start_col, stat, formats["border"])
+        if isinstance(value, (int, float)) and pd.notna(value):
+            worksheet.write_number(current_row, summary_box_start_col + 1, value, value_format)
+        else:
+            worksheet.write_string(current_row, summary_box_start_col + 1, 
+                                 str(value) if pd.notna(value) else 'N/A', formats["border_right"])
+
+    # Create dual-axis chart
+    line_chart = workbook.add_chart({'type': 'line'})
+    
+    # Chart data series
+    first_data_row_excel = 3
+    last_data_row_excel = first_data_row_excel + len(data) - 1
+    
+    # Add Inflow series
+    line_chart.add_series({
+        'name': 'Inflow',
+        'categories': [sheet_name, first_data_row_excel, 0, last_data_row_excel, 0],  # Time column
+        'values': [sheet_name, first_data_row_excel, 1, last_data_row_excel, 1],      # Inflow column
+        'line': {'color': 'blue', 'width': 2},
+    })
+    
+    # Add Outflow series
+    line_chart.add_series({
+        'name': 'Outflow',
+        'categories': [sheet_name, first_data_row_excel, 0, last_data_row_excel, 0],  # Time column
+        'values': [sheet_name, first_data_row_excel, 2, last_data_row_excel, 2],      # Outflow column
+        'line': {'color': 'red', 'width': 2},
+    })
+
+    # Chart formatting
+    peak_str = f"{peak_inflow:.2f}"
+    time_str = f"{peak_time:.2f}"
+    chart_title = f"Hydrograph for Structure {structure}\nPeak Discharge: {peak_str} cfs | Time to Peak: {time_str} hr"
+
+    line_chart.set_title({'name': chart_title})
+    line_chart.set_x_axis({
+        'name': "Time (hr)",
+        'major_gridlines': {'visible': True},
+    })
+    line_chart.set_y_axis({'name': "Discharge (cfs)", 'major_gridlines': {'visible': True}})
+    line_chart.set_legend({'position': 'bottom'})
+    line_chart.set_size({'width': 720, 'height': 480})
+    
+    # Insert chart
+    worksheet.insert_chart('G2', line_chart)
+    worksheet.freeze_panes(2, 0)
+
 def hydrostruct_hydrographs_to_excel(hydrograph_data, output_folder):
     """
-    Export hydrograph data to an Excel file with each structure's data and plot on the same sheet.
-    The plot is placed starting from cell E1, and the title of the plot includes the peak discharge
-    and time of peak discharge.
-    Args:
-    hydrograph_data (dict): Dictionary containing structure names as keys and their corresponding
-                            hydrograph data as pandas DataFrames.
-    output_folder (str): Folder where the output Excel file will be saved.
+    Export hydrograph data to an enhanced Excel file with README, Dashboard, and individual structure sheets.
     """
-    output_file = f'{output_folder}/hydrostruct_hydrographs.xlsx'
-    with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
-        for structure, data in hydrograph_data.items():
-            data.to_excel(writer, sheet_name=structure, index=False, startrow=3)
-            workbook = writer.book
-            worksheet = writer.sheets[structure]
-            
-            peak_inflow_time = data['Time (Hrs)'][data['Inflow (CFS)'].idxmax()]
-            peak_inflow_value = data['Inflow (CFS)'].max()
+    if not hydrograph_data:
+        print("No hydrograph data available to generate Excel.")
+        return
 
-            chart = workbook.add_chart({'type': 'line'})
-            chart.add_series({
-                'name': 'Outflow',
-                'categories': f'={structure}!$A$5:$A${len(data)+4}',
-                'values': f'={structure}!$C$5:$C${len(data)+4}',
-                'line': {'color': 'blue'}
-            })
-            chart.add_series({
-                'name': 'Inflow',
-                'categories': f'={structure}!$A$5:$A${len(data)+4}',
-                'values': f'={structure}!$B$5:$B${len(data)+4}',
-                'line': {'color': 'red'}
-            })
-            chart.set_title({'name': f'{structure}'})
-            chart.set_x_axis({'name': 'Time (hrs)', 'label_position': 'low'})
-            chart.set_y_axis({'name': 'Discharge (cfs)'})
-            chart.set_legend({'position': 'bottom'})
-            chart.set_size({'width': 960, 'height': 576})
-            worksheet.insert_chart('E1', chart)
-            
-            worksheet.write('A1', 'Peak Discharge (cfs)')
-            worksheet.write('B1', peak_inflow_value)
-            worksheet.write('A2', 'Time to Peak (hrs)')
-            worksheet.write('B2', peak_inflow_time)
+    output_file = f'{output_folder}/hydrostruct_hydrographs.xlsx'
+    
+    with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
+        workbook = writer.book
+        formats = create_excel_formats(workbook)
+
+        # Create sheets
+        workbook.add_worksheet("README")
+        workbook.add_worksheet("Dashboard")
+        
+        # Create structure sheet names mapping
+        structure_sheet_names = {}
+        structures_to_process = list(hydrograph_data.keys())
+        
+        for structure in structures_to_process:
+            sheet_name = f"Structure {structure}"[:31]  # Ensure Excel sheet name limit
+            structure_sheet_names[structure] = sheet_name
+            workbook.add_worksheet(sheet_name)
+
+        # Populate sheets
+        create_readme_sheet(writer, workbook, formats, len(structures_to_process), output_folder)
+        create_dashboard_sheet(writer, workbook, formats, hydrograph_data, structure_sheet_names)
+        
+        for structure in structures_to_process:
+            create_structure_sheet(
+                writer, workbook, formats, structure, 
+                hydrograph_data[structure], 
+                structure_sheet_names[structure]
+            )
+
+    print(f"Enhanced hydraulic structure Excel file saved to {output_file}")
 
 def hydrostruct_pdf_plots(hydrograph_data, output_pdf_path):
     """
@@ -103,11 +304,11 @@ def hydrostruct_pdf_plots(hydrograph_data, output_pdf_path):
                     break
                 structure = structures[idx]
                 data = hydrograph_data[structure]
-                peak_inflow_time = data['Time (Hrs)'][data['Inflow (CFS)'].idxmax()]
-                peak_inflow_value = data['Inflow (CFS)'].max()
+                peak_inflow_time = data['Time'][data['Inflow'].idxmax()]
+                peak_inflow_value = data['Inflow'].max()
 
-                axs[i].plot(data['Time (Hrs)'], data['Inflow (CFS)'], label='Inflow', color='blue')
-                axs[i].plot(data['Time (Hrs)'], data['Outflow (CFS)'], label='Outflow', color='red')
+                axs[i].plot(data['Time'], data['Inflow'], label='Inflow', color='blue')
+                axs[i].plot(data['Time'], data['Outflow'], label='Outflow', color='red')
                 axs[i].set_title(f'{structure}')
                 axs[i].set_xlabel('Time (hrs)')
                 axs[i].set_ylabel('Discharge (cfs)')
