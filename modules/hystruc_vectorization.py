@@ -2,6 +2,7 @@
 
 import pandas as pd
 import geopandas as gpd
+import numpy as np
 from shapely.geometry import LineString
 import os
 from modules.utilities import time_function
@@ -32,16 +33,12 @@ def create_hystruc_shapefile(hystruc_df, model_data_df, coord_system, output_pat
     merged_df = pd.merge(merged_df, model_data_df[[GRID_ID, 'x', 'y']], left_on=OUTFLOW_NODE, right_on=GRID_ID, how='left', suffixes=('', '_outflow'))
     merged_df.rename(columns={'x': 'outflow_x', 'y': 'outflow_y'}, inplace=True)
 
-    # Create a GeoDataFrame with a LineString from inflow to outflow for each structure
-    geometry = [
-        LineString([
-            (row['inflow_x'], row['inflow_y']),
-            (row['outflow_x'], row['outflow_y'])
-        ]) for index, row in merged_df.iterrows()
-        if not pd.isna(row['inflow_x']) and not pd.isna(row['outflow_x'])
-    ]
+    # Vectorized creation of LineString geometries
+    valid = ~merged_df[['inflow_x', 'inflow_y', 'outflow_x', 'outflow_y']].isna().any(axis=1)
+    coords = merged_df.loc[valid, ['inflow_x', 'inflow_y', 'outflow_x', 'outflow_y']].to_numpy()
+    geometry = [LineString([(x1, y1), (x2, y2)]) for x1, y1, x2, y2 in coords]
 
-    gdf = gpd.GeoDataFrame(merged_df, geometry=geometry, crs=f"EPSG:{coord_system}")
+    gdf = gpd.GeoDataFrame(merged_df.loc[valid].copy(), geometry=geometry, crs=f"EPSG:{coord_system}")
 
     if gdf.empty:
         logger.warning("No Hydraulic Structures data to save. GeoDataFrame is empty.")

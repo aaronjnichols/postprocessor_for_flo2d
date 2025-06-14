@@ -1,3 +1,4 @@
+import re
 import pandas as pd
 from .constants import GRID_ID, NUM_TIME_DECREMENTS, normalize_grid_id
 
@@ -12,44 +13,22 @@ def extract_time_out_data(file_path):
     Returns:
         pandas.DataFrame: DataFrame containing the extracted data.
     """
-    grid_ids = []
-    num_time_decrements = []
-
     with open(file_path, 'r') as file:
-        lines = file.readlines()
-        
-    extract_data = False
-    
-    for line in lines:
-        line_stripped = line.strip()
-        
-        # Start extracting when we hit either floodplain or channel nodes section
-        if (line_stripped.startswith("FLOODPLAIN NODES    NUMBER OF TIMES EXCEEDED") or 
-            line_stripped.startswith("CHANNEL NODES")):
-            extract_data = True
-            continue
+        text = file.read()
 
-        # Stop extracting when we hit the timestep decreases section
-        if line_stripped.startswith("THE LAST"):
-            extract_data = False
-            continue
-            
-        # Skip empty lines
-        if not line_stripped:
-            continue
-        
-        # Extract data if we're in a data section
-        if extract_data:
-            parts = line_stripped.split()
-            if len(parts) == 2:
-                try:
-                    # Try to convert both parts to numbers
-                    grid_id = normalize_grid_id(int(parts[0]))
-                    time_decrements = int(parts[1])
-                    grid_ids.append(grid_id)
-                    num_time_decrements.append(time_decrements)
-                except ValueError:
-                    # Skip lines with non-numeric data (headers, etc.)
-                    continue
+    sections = re.split(r'FLOODPLAIN NODES\s+NUMBER OF TIMES EXCEEDED|CHANNEL NODES', text)[1:]
+    data = []
+    for section in sections:
+        for line in section.splitlines():
+            if line.startswith('THE LAST'):
+                break
+            if not line.strip():
+                continue
+            parts = line.split()
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                data.append((int(parts[0]), int(parts[1])))
 
-    return pd.DataFrame({GRID_ID: grid_ids, NUM_TIME_DECREMENTS: num_time_decrements})
+    df = pd.DataFrame(data, columns=[GRID_ID, NUM_TIME_DECREMENTS])
+    if not df.empty:
+        df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
+    return df

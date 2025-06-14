@@ -1,6 +1,7 @@
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import multiprocessing
 import pandas as pd
 
 from .extraction_utils import (
@@ -50,7 +51,8 @@ def extract_model_data_to_df(file_path: str) -> pd.DataFrame:
     start_time = time.time()
 
     data_frames = {}
-    with ThreadPoolExecutor() as executor:
+    max_workers = multiprocessing.cpu_count() or 1
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             executor.submit(func, file_path): name
             for name, func in FILE_EXTRACTORS.items()
