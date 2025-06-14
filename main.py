@@ -6,6 +6,8 @@ import time
 import argparse
 import logging
 import shutil
+import multiprocessing
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from modules.model_data_extraction import extract_model_data_to_df
 from modules.super_out_extraction import extract_super_out
 from modules.hycross_extraction import extract_fpxsec_results
@@ -425,14 +427,21 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     timing_logger.log("Initiating raster creation for available data columns")
     logger.debug(f"Available Columns in GeoDataFrame: {list(geo_df.columns)}")
 
-    for column in raster_columns:
-        logger.debug(f"Processing Column: '{column}' (Data Type: {geo_df[column].dtype})")
-        raster_file = os.path.join(raster_outpath, f'{column}.tif')
-        try:
-            create_raster_from_gdf(geo_df, column, raster_file, cell_size, logger)
-            timing_logger.log(f"Raster successfully created: {raster_file}")
-        except Exception as e:
-            logger.error(f"Failed to create raster for column '{column}'. Error: {e}")
+    max_workers = multiprocessing.cpu_count() or 1
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_map = {
+            executor.submit(create_raster_from_gdf, geo_df, col,
+                            os.path.join(raster_outpath, f'{col}.tif'), cell_size, logger): col
+            for col in raster_columns
+        }
+        for future in as_completed(future_map):
+            column = future_map[future]
+            raster_file = os.path.join(raster_outpath, f'{column}.tif')
+            try:
+                future.result()
+                timing_logger.log(f"Raster successfully created: {raster_file}")
+            except Exception as e:
+                logger.error(f"Failed to create raster for column '{column}'. Error: {e}")
 
     # Step 16: Apply Styles to Shapefiles and Rasters (if provided)
     if style_folder:

@@ -1,3 +1,4 @@
+import multiprocessing
 import dask.dataframe as dd
 import geopandas as gpd
 import dask_geopandas as dgpd
@@ -20,7 +21,8 @@ def convert_gdf_to_shapefile(geo_df, output_path, coord_system):
     geo_df = geo_df[[GRID_ID, FLOW_DIRECTION, GEOMETRY]]
 
     # Convert to Dask GeoDataFrame for parallel processing
-    npartitions = 10  # Adjust the number of partitions based on your data size and available memory
+    cpu_count = multiprocessing.cpu_count()
+    npartitions = max(1, min(len(geo_df), cpu_count * 2))
     dask_geo_df = dgpd.from_geopandas(geo_df, npartitions=npartitions)
 
     # Compute the Dask GeoDataFrame to get a GeoDataFrame
