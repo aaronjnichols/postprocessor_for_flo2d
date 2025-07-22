@@ -1,0 +1,12 @@
+pandas
+numpy
+geopandas
+dask[dataframe]
+dask-geopandas
+shapely
+rasterio
+matplotlib
+openpyxl
+xlsxwriter
+psutil
+ttkthemes
