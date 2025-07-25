@@ -1,43 +1,9 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-import re
 import os
 from .constants import TIME, INFLOW, OUTFLOW
-
-def parse_hydrograph_data(folder_path):
-    """
-    Parse hydrograph data from the provided file.
-    Args:
-    folder_path (str): Path to the folder containing the HYDROSTRUCT.OUT file.
-    Returns:
-    dict: Dictionary containing structure names as keys and their corresponding
-          hydrograph data as pandas DataFrames.
-    """
-    file_path = os.path.join(folder_path, 'HYDROSTRUCT.OUT')
-    hydrograph_data = {}
-    current_structure = None
-    current_data = []
-    structure_header_re = re.compile(r'THE MAXIMUM DISCHARGE FOR:\s+(\S+)\s+')
-    data_row_re = re.compile(r'^\s*(\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)')
-    with open(file_path, 'r') as file:
-        for line in file:
-            header_match = structure_header_re.search(line)
-            if header_match:
-                if current_structure and current_data:
-                    df = pd.DataFrame(current_data, columns=[TIME, INFLOW, OUTFLOW])
-                    hydrograph_data[current_structure] = df
-                    current_data = []
-                current_structure = header_match.group(1)
-            else:
-                data_match = data_row_re.search(line)
-                if data_match:
-                    time, inflow, outflow = data_match.groups()
-                    current_data.append([float(time), float(inflow), float(outflow)])
-        if current_structure and current_data:
-            df = pd.DataFrame(current_data, columns=[TIME, INFLOW, OUTFLOW])
-            hydrograph_data[current_structure] = df
-    return hydrograph_data
+from .hydrostruct_out_extraction import parse_hydrograph_data
 
 def create_excel_formats(workbook):
     """Create standardized formats for Excel sheets."""

@@ -7,10 +7,11 @@ from shapely.geometry import LineString
 import os
 from modules.utilities import time_function
 import logging
-from .constants import INFLOW_NODE, OUTFLOW_NODE, GRID_ID
+from .constants import INFLOW_NODE, OUTFLOW_NODE, GRID_ID, STRUCTURE_ID
+from .hydrostruct_out_extraction import extract_hydrostruct_peaks
 
 @time_function
-def create_hystruc_shapefile(hystruc_df, model_data_df, coord_system, output_path, output_format="Shapefile"):
+def create_hystruc_shapefile(hystruc_df, model_data_df, coord_system, folder_path, output_path, output_format="Shapefile"):
     """
     Create a shapefile or geopackage for hydraulic structures based on the specified output format.
 
@@ -18,6 +19,7 @@ def create_hystruc_shapefile(hystruc_df, model_data_df, coord_system, output_pat
         hystruc_df (DataFrame): Hydraulic structures data.
         model_data_df (DataFrame): Model data with 'grid_id', 'x', 'y' columns.
         coord_system (int): EPSG code for spatial reference.
+        folder_path (str): Path to the FLO-2D project directory (for HYDROSTRUCT.OUT).
         output_path (str): Directory path to save the output file.
         output_format (str): Desired output format ("Shapefile" or "GeoPackage").
 
@@ -25,6 +27,13 @@ def create_hystruc_shapefile(hystruc_df, model_data_df, coord_system, output_pat
         str: Path to the created shapefile or geopackage.
     """
     logger = logging.getLogger('FLO2D_Postprocessor')
+
+    # Merge peak discharge information from HYDROSTRUCT.OUT if available
+    try:
+        peaks_df = extract_hydrostruct_peaks(folder_path)
+        hystruc_df = pd.merge(hystruc_df, peaks_df, on=STRUCTURE_ID, how='left')
+    except FileNotFoundError:
+        logger.warning(f"HYDROSTRUCT.OUT not found in {folder_path}. Skipping peak merge.")
 
     # Merge the hystruc dataframe with the model data dataframe to get x, y coordinates for inflow and outflow nodes
     # This assumes the model_data_df has 'grid_id', 'x', 'y' columns
