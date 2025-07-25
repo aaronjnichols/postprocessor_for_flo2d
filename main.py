@@ -20,7 +20,8 @@ from modules.hystruc_vectorization import create_hystruc_shapefile
 from modules.hystruc_extraction import extract_hystruc_results
 from modules.hystruc_spreadsheet import hystruc_spreadsheet_and_plots, create_rating_curve_spreadsheet, plot_rating_curves_to_pdf
 from modules.fpxsec_spreadsheet import hycross_spreadsheet_and_plots
-from modules.hydrostruct_spreadsheet import hydrostruct_spreadsheet_and_plots, parse_hydrograph_data
+from modules.hydrostruct_spreadsheet import hydrostruct_spreadsheet_and_plots
+from modules.hydrostruct_out_extraction import parse_hydrograph_data
 from modules.rain_spreadsheet import rain_spreadsheet_and_plot
 from modules.swmm_extraction import extract_swmm_data, create_swmm_shapefiles
 from modules.arf_extraction import extract_area_reduction_factors, merge_arf_with_model_data
@@ -329,7 +330,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     if "HYSTRUC.DAT" in os.listdir(file_path):
         timing_logger.log("Processing Hydraulic Structures")
         hystruc_df, rating_curves = extract_hystruc_results(file_path)
-        hystruc_shp = create_hystruc_shapefile(hystruc_df, model_data, coord_system, shp_outpath, output_format=output_format)
+        hystruc_shp = create_hystruc_shapefile(hystruc_df, model_data, coord_system, file_path, shp_outpath, output_format=output_format)
         timing_logger.log(f"Hydraulic Structures Output created at: {hystruc_shp}")
         hydrograph_data = parse_hydrograph_data(file_path)
         hydrostruct_files = hydrostruct_spreadsheet_and_plots(file_path, hydrograph_data)

@@ -3,14 +3,18 @@ import pandas as pd
 import re
 from modules.utilities import time_function
 from .constants import (
-    STRUCTURE_ID, INFLOW_NODE, OUTFLOW_NODE, STRUCTURE_TYPE, 
-    STAGE, FLOW, normalize_grid_id
+    STRUCTURE_ID,
+    INFLOW_NODE,
+    OUTFLOW_NODE,
+    STRUCTURE_TYPE,
+    STAGE,
+    FLOW,
+    normalize_grid_id,
 )
 
 @time_function
 def extract_hystruc_results(file_path):
     hystruc_file_path = os.path.join(file_path, 'HYSTRUC.DAT')
-    hydrostruct_file_path = os.path.join(file_path, 'HYDROSTRUCT.OUT')
 
     # Extract data from HYSTRUC.DAT file
     with open(hystruc_file_path, 'r') as file:
@@ -49,24 +53,6 @@ def extract_hystruc_results(file_path):
                 'ke': float(line[4]),
                 'cubase': float(line[5])
             })
-
-    # Extract peak discharge and time of peak discharge from HYDROSTRUCT.OUT file
-    with open(hydrostruct_file_path, 'r') as file:
-        for line in file:
-            if 'THE MAXIMUM DISCHARGE FOR:' in line:
-                parts = line.split()
-                structure_index = parts.index('FOR:') + 1
-                structure_name = parts[structure_index]
-                is_index = parts.index('IS:')
-                peak_discharge = float(parts[is_index + 1])
-                at_time_index = parts.index('AT', is_index)
-                time_of_peak = float(parts[at_time_index + 2])
-                
-                if structure_name in structures:
-                    structures[structure_name].update({
-                        'qpeak_cfs': peak_discharge,
-                        'tpeak_hrs': time_of_peak
-                    })
 
     # Extract rating curves
     rating_curves = extract_rating_curves(hystruc_file_path)
