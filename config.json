@@ -1,9 +1,9 @@
 {
     "flo2d_folders": [
-        "S:/21002795 - Lake Havasu/Project Documents/Engineering-Planning-Power and Energy/Reports/CLOMR/Models/FLO2D/PROP/20241017_PROP_No_Levees"
+        "C:/hh_models/flo2d/pima_wash/100Y24H"
     ],
-    "epsg_number": "2224",
+    "epsg_number": "2868",
     "create_flo2d_points": true,
-    "style_folder": "R:/_anichols/Resources/GIS/Styles",
+    "style_folder": "C:/_gis/styles",
     "output_format": "GeoPackage"
 }
