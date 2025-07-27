@@ -8,33 +8,38 @@ import logging
 import shutil
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from modules.model_data_extraction import extract_model_data_to_df
-from modules.super_out_extraction import extract_super_out
-from modules.hycross_extraction import extract_fpxsec_results
-from modules.geospatial import convertToGeoDataFrame, calculate_cell_size
-from modules.rasterization import create_raster_from_gdf
-from modules.vectorization import convert_gdf_to_shapefile
-from modules.fpxsec_vectorization import create_fpxsec_shapefile
-from modules.utilities import create_required_folders
-from modules.hystruc_vectorization import create_hystruc_shapefile
-from modules.hystruc_extraction import extract_hystruc_results
-from modules.hystruc_spreadsheet import hystruc_spreadsheet_and_plots, create_rating_curve_spreadsheet, plot_rating_curves_to_pdf
-from modules.fpxsec_spreadsheet import hycross_spreadsheet_and_plots
-from modules.hydrostruct_spreadsheet import hydrostruct_spreadsheet_and_plots
-from modules.hydrostruct_out_extraction import parse_hydrograph_data
-from modules.rain_spreadsheet import rain_spreadsheet_and_plot
-from modules.swmm_extraction import extract_swmm_data, create_swmm_shapefiles
-from modules.arf_extraction import extract_area_reduction_factors, merge_arf_with_model_data
-from modules.constants import GRID_ID, FLOW_DIRECTION, GEOMETRY, MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS, NUM_EVACUATIONS, NUM_TIME_DECREMENTS
-from modules.swmm_inlets_spreadsheets import swmm_inlet_spreadsheets_and_pdf
-from modules.inflow_extraction import extract_inflow_hydrographs
-from modules.inflow_spreadsheets import create_pdf_plots, export_hydrograph_to_excel
-from modules.swmm_rating_tables_extraction import extract_swmm_rating_tables
-from modules.swmm_rating_tables_spreadsheet import swmm_rating_tables_and_plots
-from modules.evacuatedfp_extraction import extract_evacuatedfp_data  # Add this import
-from modules.time_out_extraction import extract_time_out_data  # Add this import
-from modules.channel_extraction import extract_channel_data
-from modules.channel_spreadsheet import channel_spreadsheet_and_plots
+from core.model_data_extraction import extract_model_data_to_df
+from extraction.out.super_out_extraction import extract_super_out
+from extraction.out.hycross_out_extraction import extract_fpxsec_results
+from processing.spatial.geospatial import convertToGeoDataFrame, calculate_cell_size
+from processing.spatial.rasterization import create_raster_from_gdf
+from processing.spatial.vectorization import convert_gdf_to_shapefile
+from processing.vectorization.fpxsec_vectorization import create_fpxsec_shapefile
+from core.utilities import create_required_folders
+from processing.vectorization.hystruc_vectorization import create_hystruc_shapefile
+from extraction.dat.hystruc_dat_extraction import extract_hystruc_results
+from reporting.spreadsheets.hystruc_spreadsheet import hystruc_spreadsheet_and_plots, create_rating_curve_spreadsheet, plot_rating_curves_to_pdf
+from reporting.spreadsheets.hycross_spreadsheet import hycross_spreadsheet_and_plots
+from reporting.spreadsheets.hydrostruct_spreadsheet import hydrostruct_spreadsheet_and_plots
+from extraction.out.hydrostruct_out_extraction import parse_hydrograph_data
+from reporting.spreadsheets.rain_spreadsheet import rain_spreadsheet_and_plot
+from extraction.dat.swmm_dat_extraction import extract_swmm_data
+from processing.vectorization.swmm_vectorization import create_swmm_shapefiles
+from extraction.dat.arf_dat_extraction import extract_area_reduction_factors, merge_arf_with_model_data
+from core.constants import GRID_ID, FLOW_DIRECTION, GEOMETRY, MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS, NUM_EVACUATIONS, NUM_TIME_DECREMENTS
+from reporting.spreadsheets.swmm_inlets_spreadsheet import swmm_inlet_spreadsheets_and_pdf
+from extraction.dat.inflow_dat_extraction import extract_inflow_hydrographs
+from reporting.spreadsheets.inflow_spreadsheets import create_pdf_plots, export_hydrograph_to_excel
+from extraction.dat.swmmflort_dat_extraction import extract_swmm_rating_tables
+from reporting.spreadsheets.swmm_rating_tables_spreadsheet import swmm_rating_tables_and_plots
+from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_data
+from extraction.out.time_out_extraction import extract_time_out_data
+from extraction.out.channel_extraction import extract_channel_data
+from reporting.spreadsheets.channel_spreadsheet import channel_spreadsheet_and_plots
+from core.file_discovery import (
+    get_file_path, check_file_exists, log_file_status, 
+    get_existing_files, check_special_processor_requirements
+)
 import geopandas as gpd  # Ensure geopandas is imported
 
 class TimingLogger:
@@ -126,6 +131,9 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         logger.info(f"Style Files Directory: {style_folder}")
     else:
         logger.info("No Style Files Directory provided.")
+    
+    # Log file discovery status
+    log_file_status(file_path, logger)
 
     # Step 1: Create required output directories
     timing_logger.log("Creating necessary output directories")
@@ -139,8 +147,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     timing_logger.log("Model data extraction completed")
 
     # Step 3: Extract Area Reduction Factors (ARF)
-    arf_file = os.path.join(file_path, 'ARF.DAT')
-    if os.path.exists(arf_file):
+    arf_file = get_file_path(file_path, 'ARF.DAT')
+    if check_file_exists(arf_file):
         timing_logger.log("Extracting Area Reduction Factors (ARF)")
         arf_df = extract_area_reduction_factors(arf_file)
         model_data = merge_arf_with_model_data(model_data, arf_df)
@@ -173,8 +181,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
                 logger.error(f"Failed to create GeoPackage: {str(e)}")
 
     # Step 6: Extract and Process SUPER.OUT Data
-    super_out_file = os.path.join(file_path, 'SUPER.OUT')
-    if os.path.exists(super_out_file):
+    super_out_file = get_file_path(file_path, 'SUPER.OUT')
+    if check_file_exists(super_out_file):
         timing_logger.log("Extracting data from SUPER.OUT")
         super_data = extract_super_out(file_path)
         timing_logger.log("SUPER.OUT data extraction completed")
@@ -217,8 +225,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         logger.info("SUPER.OUT file not found. Skipping SUPER.OUT data extraction.")
 
     # New Step: Extract and Process EVACUATEDFP.OUT Data
-    evacuatedfp_file = os.path.join(file_path, 'EVACUATEDFP.OUT')
-    if os.path.exists(evacuatedfp_file):
+    evacuatedfp_file = get_file_path(file_path, 'EVACUATEDFP.OUT')
+    if check_file_exists(evacuatedfp_file):
         timing_logger.log("Extracting data from EVACUATEDFP.OUT")
         evacuatedfp_data = extract_evacuatedfp_data(evacuatedfp_file)
         timing_logger.log("EVACUATEDFP.OUT data extraction completed")
@@ -261,8 +269,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         logger.info("EVACUATEDFP.OUT file not found. Skipping EVACUATEDFP.OUT data extraction.")
 
     # New Step: Extract and Process TIME.OUT Data
-    time_out_file = os.path.join(file_path, 'TIME.OUT')
-    if os.path.exists(time_out_file):
+    time_out_file = get_file_path(file_path, 'TIME.OUT')
+    if check_file_exists(time_out_file):
         timing_logger.log("Extracting data from TIME.OUT")
         time_out_data = extract_time_out_data(time_out_file)
         timing_logger.log("TIME.OUT data extraction completed")
@@ -305,7 +313,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         logger.info("TIME.OUT file not found. Skipping TIME.OUT data extraction.")
 
     # Step 7: Process Inflow Data
-    if "INFLOW.DAT" in os.listdir(file_path):
+    inflow_file = get_file_path(file_path, 'INFLOW.DAT')
+    if check_file_exists(inflow_file):
         timing_logger.log("Extracting inflow data")
         inflow_data = extract_inflow_hydrographs(file_path)
         output_excel_path = os.path.join(plots_outpath, 'inflow_data.xlsx')
@@ -316,7 +325,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         # timing_logger.log(f"Inflow plots PDF created: {os.path.join(plots_outpath, 'inflow_plots.pdf')}")
 
     # Step 8: Process Floodplain Cross Sections
-    if "FPXSEC.DAT" in os.listdir(file_path) and "HYCROSS.OUT" in os.listdir(file_path):
+    fpxsec_requirements_met, missing_fpxsec = check_special_processor_requirements(file_path, 'FPXSEC_HYCROSS')
+    if fpxsec_requirements_met:
         timing_logger.log("Processing Floodplain Cross Sections")
         fpxsec_results = extract_fpxsec_results(file_path)
         fpxsec_shp = create_fpxsec_shapefile(f_path=file_path, coord_system=coord_system, model_data=model_data, fpxsec_results=fpxsec_results, output_format=output_format)
@@ -327,7 +337,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         logger.info("Floodplain Cross Sections data not found. Skipping this step.")
 
     # Step 9: Process Hydraulic Structures
-    if "HYSTRUC.DAT" in os.listdir(file_path):
+    hystruc_file = get_file_path(file_path, 'HYSTRUC.DAT')
+    if check_file_exists(hystruc_file):
         timing_logger.log("Processing Hydraulic Structures")
         try:
             hystruc_df, rating_curves = extract_hystruc_results(file_path)
@@ -370,7 +381,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         logger.info("Hydraulic Structures data not found. Skipping this step.")
 
     # Step 10: Create Rainfall Spreadsheet and Plot
-    if "RAIN.DAT" in os.listdir(file_path):
+    rain_file = get_file_path(file_path, 'RAIN.DAT')
+    if check_file_exists(rain_file):
         timing_logger.log("Generating Rainfall Spreadsheet and Plot")
         rain_files = rain_spreadsheet_and_plot(file_path)
         timing_logger.log(f"Rainfall Spreadsheet and Plot created at: {rain_files}")
@@ -378,13 +390,13 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         logger.info("Rainfall data not found. Skipping this step.")
 
     # Step 11: Process SWMM Data
-    swmm_file = os.path.join(file_path, 'SWMM.inp')
-    if os.path.exists(swmm_file):
+    swmm_file = get_file_path(file_path, 'SWMM.inp')
+    if check_file_exists(swmm_file):
         timing_logger.log("Extracting SWMM Data from SWMM.inp")
         swmm_data = extract_swmm_data(swmm_file, coord_system)
 
-        swmm_qin_file = os.path.join(file_path, 'SWMMQIN.OUT')
-        if os.path.exists(swmm_qin_file):
+        swmm_qin_file = get_file_path(file_path, 'SWMMQIN.OUT')
+        if check_file_exists(swmm_qin_file):
             timing_logger.log("Generating SWMM Inlet Spreadsheets and PDF")
             swmm_inlet_files = swmm_inlet_spreadsheets_and_pdf(file_path)
             timing_logger.log(f"SWMM Inlet Spreadsheets and PDF created at: {swmm_inlet_files}")
@@ -401,7 +413,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         logger.info("SWMM Input File (SWMM.inp) not found. Skipping SWMM Data Extraction.")
 
     # Step 12: Extract SWMM Rating Tables
-    if "SWMMFLORT.DAT" in os.listdir(file_path):
+    swmm_rating_file = get_file_path(file_path, 'SWMMFLORT.DAT')
+    if check_file_exists(swmm_rating_file):
         timing_logger.log("Extracting SWMM Rating Tables")
         swmm_rating_tables = extract_swmm_rating_tables(file_path)
         timing_logger.log("SWMM Rating Tables extraction completed")
@@ -412,11 +425,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         logger.info("SWMM Rating Tables data not found. Skipping this step.")
 
     # Step 13: Process Channel Data
-    required_channel_files = ["XSEC.DAT", "CHAN.DAT"]
-    optional_channel_files = ["CHANMAX.OUT", "DEPCH.OUT", "VELOC.OUT"]
-    
-    # Check if the essential channel files exist
-    has_required_files = all(file in os.listdir(file_path) for file in required_channel_files)
+    channel_requirements_met, missing_channel = check_special_processor_requirements(file_path, 'CHANNEL')
+    has_required_files = channel_requirements_met
     
     if has_required_files:
         timing_logger.log("Processing Channel Data")
@@ -433,8 +443,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         except Exception as e:
             logger.error(f"Failed to process channel data. Error: {e}")
     else:
-        missing_files = [file for file in required_channel_files if file not in os.listdir(file_path)]
-        logger.info(f"Channel data processing skipped. Missing required files: {missing_files}")
+        logger.info(f"Channel data processing skipped. Missing required files: {missing_channel}")
 
     # Step 14: Calculate Cell Size for Raster Creation
     timing_logger.log("Calculating cell size for raster generation")

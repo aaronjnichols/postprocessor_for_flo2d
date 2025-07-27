@@ -1,7 +1,6 @@
 {
     "flo2d_folders": [
-        "C:/hh_models/flo2d/pima_wash/100Y24H",
-        "K:/24008320 - Sunderban Properties/Project Documents/Reports/Drainage/Models/FLO2D/100Y24H/_D11"
+        "C:/_hh_models/flo2d/pima_wash/100Y24H"
     ],
     "epsg_number": "2868",
     "create_flo2d_points": true,
