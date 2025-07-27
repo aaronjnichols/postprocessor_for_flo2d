@@ -329,18 +329,43 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     # Step 9: Process Hydraulic Structures
     if "HYSTRUC.DAT" in os.listdir(file_path):
         timing_logger.log("Processing Hydraulic Structures")
-        hystruc_df, rating_curves = extract_hystruc_results(file_path)
-        hystruc_shp = create_hystruc_shapefile(hystruc_df, model_data, coord_system, file_path, shp_outpath, output_format=output_format)
-        timing_logger.log(f"Hydraulic Structures Output created at: {hystruc_shp}")
-        hydrograph_data = parse_hydrograph_data(file_path)
-        hydrostruct_files = hydrostruct_spreadsheet_and_plots(file_path, hydrograph_data)
-        timing_logger.log(f"Hydrostruct Spreadsheet and Plots generated: {hydrostruct_files}")
-        rating_curve_excel = os.path.join(plots_outpath, 'hystruc_rating_curves.xlsx')
-        rating_curve_pdf = os.path.join(plots_outpath, 'hystruc_rating_curves.pdf')
-        create_rating_curve_spreadsheet(rating_curves, rating_curve_excel)
-        timing_logger.log(f"Rating Curves Spreadsheet created at: {rating_curve_excel}")
-        plot_rating_curves_to_pdf(rating_curves, rating_curve_pdf)
-        timing_logger.log(f"Rating Curves PDF report generated at: {rating_curve_pdf}")
+        try:
+            hystruc_df, rating_curves = extract_hystruc_results(file_path)
+            hystruc_shp = create_hystruc_shapefile(hystruc_df, model_data, coord_system, file_path, shp_outpath, output_format=output_format)
+            timing_logger.log(f"Hydraulic Structures Output created at: {hystruc_shp}")
+            
+            # Process hydrograph data with error handling
+            hydrograph_data = parse_hydrograph_data(file_path)
+            if hydrograph_data:
+                try:
+                    hydrostruct_files = hydrostruct_spreadsheet_and_plots(file_path, hydrograph_data)
+                    timing_logger.log(f"Hydrostruct Spreadsheet and Plots generated: {hydrostruct_files}")
+                except Exception as e:
+                    logger.error(f"Failed to create hydrostruct spreadsheets and plots: {e}")
+                    timing_logger.log("Hydrostruct Spreadsheet and Plots generation failed")
+            else:
+                logger.info("No hydrograph data available for hydraulic structures")
+                timing_logger.log("Skipping hydrostruct spreadsheet generation - no data available")
+            
+            # Process rating curves
+            if rating_curves:
+                try:
+                    rating_curve_excel = os.path.join(plots_outpath, 'hystruc_rating_curves.xlsx')
+                    rating_curve_pdf = os.path.join(plots_outpath, 'hystruc_rating_curves.pdf')
+                    create_rating_curve_spreadsheet(rating_curves, rating_curve_excel)
+                    timing_logger.log(f"Rating Curves Spreadsheet created at: {rating_curve_excel}")
+                    plot_rating_curves_to_pdf(rating_curves, rating_curve_pdf)
+                    timing_logger.log(f"Rating Curves PDF report generated at: {rating_curve_pdf}")
+                except Exception as e:
+                    logger.error(f"Failed to create rating curves: {e}")
+                    timing_logger.log("Rating curves generation failed")
+            else:
+                logger.info("No rating curves data available")
+                timing_logger.log("Skipping rating curves generation - no data available")
+                
+        except Exception as e:
+            logger.error(f"Failed to process hydraulic structures: {e}")
+            timing_logger.log("Hydraulic structures processing failed")
     else:
         logger.info("Hydraulic Structures data not found. Skipping this step.")
 

@@ -219,37 +219,68 @@ def hydrostruct_hydrographs_to_excel(hydrograph_data, output_folder):
         print("No hydrograph data available to generate Excel.")
         return
 
+    # Validate that we have actual data in the hydrograph_data
+    valid_structures = []
+    for structure, data in hydrograph_data.items():
+        if isinstance(data, pd.DataFrame) and not data.empty and len(data) > 0:
+            valid_structures.append(structure)
+    
+    if not valid_structures:
+        print("No valid hydrograph data found. All structures have empty or invalid data.")
+        return
+
+    # Ensure output folder exists
+    os.makedirs(output_folder, exist_ok=True)
+    
     output_file = f'{output_folder}/hydrostruct_hydrographs.xlsx'
     
-    with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
-        workbook = writer.book
-        formats = create_excel_formats(workbook)
+    try:
+        with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
+            workbook = writer.book
+            formats = create_excel_formats(workbook)
 
-        # Create sheets
-        workbook.add_worksheet("README")
-        workbook.add_worksheet("Dashboard")
-        
-        # Create structure sheet names mapping
-        structure_sheet_names = {}
-        structures_to_process = list(hydrograph_data.keys())
-        
-        for structure in structures_to_process:
-            sheet_name = f"Structure {structure}"[:31]  # Ensure Excel sheet name limit
-            structure_sheet_names[structure] = sheet_name
-            workbook.add_worksheet(sheet_name)
+            # Create sheets
+            workbook.add_worksheet("README")
+            workbook.add_worksheet("Dashboard")
+            
+            # Create structure sheet names mapping - only for valid structures
+            structure_sheet_names = {}
+            
+            for structure in valid_structures:
+                sheet_name = f"Structure {structure}"[:31]  # Ensure Excel sheet name limit
+                structure_sheet_names[structure] = sheet_name
+                workbook.add_worksheet(sheet_name)
 
-        # Populate sheets
-        create_readme_sheet(writer, workbook, formats, len(structures_to_process), output_folder)
-        create_dashboard_sheet(writer, workbook, formats, hydrograph_data, structure_sheet_names)
-        
-        for structure in structures_to_process:
-            create_structure_sheet(
-                writer, workbook, formats, structure, 
-                hydrograph_data[structure], 
-                structure_sheet_names[structure]
-            )
+            # Populate sheets
+            create_readme_sheet(writer, workbook, formats, len(valid_structures), output_folder)
+            create_dashboard_sheet(writer, workbook, formats, hydrograph_data, structure_sheet_names)
+            
+            for structure in valid_structures:
+                create_structure_sheet(
+                    writer, workbook, formats, structure, 
+                    hydrograph_data[structure], 
+                    structure_sheet_names[structure]
+                )
 
-    print(f"Enhanced hydraulic structure Excel file saved to {output_file}")
+        print(f"Enhanced hydraulic structure Excel file saved to {output_file}")
+        
+    except Exception as e:
+        print(f"Error creating Excel file: {e}")
+        # If there's an error, try to create a minimal Excel file with just a README
+        try:
+            with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
+                workbook = writer.book
+                formats = create_excel_formats(workbook)
+                
+                # Create just a README sheet
+                worksheet = workbook.add_worksheet("README")
+                worksheet.write("A1", "No hydrograph data available", formats["title"])
+                worksheet.write("A3", "The HYDROSTRUCT.OUT file either does not exist or contains no valid data.", formats["border"])
+                
+            print(f"Minimal Excel file created with error message: {output_file}")
+        except Exception as e2:
+            print(f"Failed to create even minimal Excel file: {e2}")
+            return
 
 def hydrostruct_pdf_plots(hydrograph_data, output_pdf_path):
     """
