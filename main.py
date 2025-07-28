@@ -1,46 +1,60 @@
-# main.py
+"""FLO-2D Postprocessor main module.
 
-import os
-import pandas as pd
-import time
+This module provides the main processing functions for extracting, analyzing,
+and visualizing FLO-2D hydraulic modeling data.
+"""
+
+# Standard library imports
 import argparse
 import logging
-import shutil
 import multiprocessing
+import os
+import shutil
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# Third-party imports
+import geopandas as gpd
+import pandas as pd
+
+# Local application imports
+from core.constants import (
+    DEPTH_SUPER, FLOW_DIRECTION, GEOMETRY, GRID_ID, MAX_FROUDE_NO,
+    NUM_EVACUATIONS, NUM_SUPERCRITICAL_TIMESTEPS, NUM_TIME_DECREMENTS, TIME_SUPER
+)
+from core.file_discovery import (
+    check_file_exists, check_special_processor_requirements,
+    get_existing_files, get_file_path, log_file_status
+)
 from core.model_data_extraction import extract_model_data_to_df
-from extraction.out.super_out_extraction import extract_super_out
+from core.utilities import create_required_folders
+from extraction.dat.arf_dat_extraction import extract_area_reduction_factors, merge_arf_with_model_data
+from extraction.dat.hystruc_dat_extraction import extract_hystruc_results
+from extraction.dat.inflow_dat_extraction import extract_inflow_hydrographs
+from extraction.dat.swmm_dat_extraction import extract_swmm_data
+from extraction.dat.swmmflort_dat_extraction import extract_swmm_rating_tables
+from extraction.out.channel_extraction import extract_channel_data
+from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_data
+from extraction.out.hydrostruct_out_extraction import parse_hydrograph_data
 from extraction.out.hycross_out_extraction import extract_fpxsec_results
-from processing.spatial.geospatial import convertToGeoDataFrame, calculate_cell_size
+from extraction.out.super_out_extraction import extract_super_out
+from extraction.out.time_out_extraction import extract_time_out_data
+from processing.spatial.geospatial import calculate_cell_size, convert_to_geo_dataframe
 from processing.spatial.rasterization import create_raster_from_gdf
 from processing.spatial.vectorization import convert_gdf_to_shapefile
 from processing.vectorization.fpxsec_vectorization import create_fpxsec_shapefile
-from core.utilities import create_required_folders
 from processing.vectorization.hystruc_vectorization import create_hystruc_shapefile
-from extraction.dat.hystruc_dat_extraction import extract_hystruc_results
-from reporting.spreadsheets.hystruc_spreadsheet import hystruc_spreadsheet_and_plots, create_rating_curve_spreadsheet, plot_rating_curves_to_pdf
+from processing.vectorization.swmm_vectorization import create_swmm_shapefiles
+from reporting.spreadsheets.channel_spreadsheet import channel_spreadsheet_and_plots
 from reporting.spreadsheets.hycross_spreadsheet import hycross_spreadsheet_and_plots
 from reporting.spreadsheets.hydrostruct_spreadsheet import hydrostruct_spreadsheet_and_plots
-from extraction.out.hydrostruct_out_extraction import parse_hydrograph_data
-from reporting.spreadsheets.rain_spreadsheet import rain_spreadsheet_and_plot
-from extraction.dat.swmm_dat_extraction import extract_swmm_data
-from processing.vectorization.swmm_vectorization import create_swmm_shapefiles
-from extraction.dat.arf_dat_extraction import extract_area_reduction_factors, merge_arf_with_model_data
-from core.constants import GRID_ID, FLOW_DIRECTION, GEOMETRY, MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS, NUM_EVACUATIONS, NUM_TIME_DECREMENTS
-from reporting.spreadsheets.swmm_inlets_spreadsheet import swmm_inlet_spreadsheets_and_pdf
-from extraction.dat.inflow_dat_extraction import extract_inflow_hydrographs
-from reporting.spreadsheets.inflow_spreadsheets import create_pdf_plots, export_hydrograph_to_excel
-from extraction.dat.swmmflort_dat_extraction import extract_swmm_rating_tables
-from reporting.spreadsheets.swmm_rating_tables_spreadsheet import swmm_rating_tables_and_plots
-from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_data
-from extraction.out.time_out_extraction import extract_time_out_data
-from extraction.out.channel_extraction import extract_channel_data
-from reporting.spreadsheets.channel_spreadsheet import channel_spreadsheet_and_plots
-from core.file_discovery import (
-    get_file_path, check_file_exists, log_file_status, 
-    get_existing_files, check_special_processor_requirements
+from reporting.spreadsheets.hystruc_spreadsheet import (
+    create_rating_curve_spreadsheet, hystruc_spreadsheet_and_plots, plot_rating_curves_to_pdf
 )
-import geopandas as gpd  # Ensure geopandas is imported
+from reporting.spreadsheets.inflow_spreadsheets import create_pdf_plots, export_hydrograph_to_excel
+from reporting.spreadsheets.rain_spreadsheet import rain_spreadsheet_and_plot
+from reporting.spreadsheets.swmm_inlets_spreadsheet import swmm_inlet_spreadsheets_and_pdf
+from reporting.spreadsheets.swmm_rating_tables_spreadsheet import swmm_rating_tables_and_plots
 
 class TimingLogger:
     """
@@ -158,7 +172,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
 
     # Step 4: Convert DataFrame to GeoDataFrame
     timing_logger.log("Converting model data to GeoDataFrame for spatial processing")
-    geo_df = convertToGeoDataFrame(model_data)
+    geo_df = convert_to_geo_dataframe(model_data)
     timing_logger.log("Conversion to GeoDataFrame completed")
 
     # Step 5: Create FLO-2D Points Output (Shapefile or GeoPackage)
@@ -192,7 +206,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
 
         # Merge the super_data with the main GeoDataFrame
         super_geo_df = geo_df.merge(super_data, on=GRID_ID, how='left', suffixes=('_orig', ''))
-        print("Columns in super_geo_df after merge:", super_geo_df.columns)  # Debug print
+        logger.debug(f"Columns in super_geo_df after merge: {list(super_geo_df.columns)}")
 
         # Filter rows to include only those with non-null values in the super_data columns
         super_geo_df = super_geo_df.dropna(subset=[MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS])
@@ -236,7 +250,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
 
         # Merge the evacuatedfp_data with the main GeoDataFrame
         evacuatedfp_geo_df = geo_df.merge(evacuatedfp_data, on=GRID_ID, how='left')
-        print("Columns in evacuatedfp_geo_df after merge:", evacuatedfp_geo_df.columns)  # Debug print
+        logger.debug(f"Columns in evacuatedfp_geo_df after merge: {list(evacuatedfp_geo_df.columns)}")
 
         # Filter rows to include only those with non-null values in the evacuatedfp_data columns
         evacuatedfp_geo_df = evacuatedfp_geo_df.dropna(subset=[NUM_EVACUATIONS])
@@ -280,7 +294,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
 
         # Merge the time_out_data with the main GeoDataFrame
         time_out_geo_df = geo_df.merge(time_out_data, on=GRID_ID, how='left')
-        print("Columns in time_out_geo_df after merge:", time_out_geo_df.columns)  # Debug print
+        logger.debug(f"Columns in time_out_geo_df after merge: {list(time_out_geo_df.columns)}")
 
         # Filter rows to include only those with non-null values in the time_out_data columns
         time_out_geo_df = time_out_geo_df.dropna(subset=[NUM_TIME_DECREMENTS])

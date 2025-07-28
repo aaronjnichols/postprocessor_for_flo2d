@@ -1,7 +1,15 @@
+"""Model data extraction coordinator for FLO-2D files.
+
+This module orchestrates the extraction and merging of data from multiple
+FLO-2D input and output files into a unified DataFrame for processing.
+"""
+
+import logging
+import multiprocessing
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import multiprocessing
+
 import pandas as pd
 
 from extraction.base.extraction_utils import (
@@ -48,7 +56,17 @@ FILE_EXTRACTORS = {
 
 
 def extract_model_data_to_df(file_path: str) -> pd.DataFrame:
-    print("Started extracting model data")
+    """
+    Extract and merge data from all available FLO-2D files into a unified DataFrame.
+    
+    Args:
+        file_path (str): Path to the directory containing FLO-2D files.
+        
+    Returns:
+        pd.DataFrame: Merged DataFrame containing all extracted data.
+    """
+    logger = logging.getLogger('FLO2D_Postprocessor')
+    logger.info("Starting model data extraction")
     start_time = time.time()
 
     data_frames = {}
@@ -64,11 +82,11 @@ def extract_model_data_to_df(file_path: str) -> pd.DataFrame:
                 df = future.result()
                 if df is not None and not df.empty:
                     data_frames[name] = df
-                    print(f"Processed {name}: {len(df)} rows")
+                    logger.info(f"Processed {name}: {len(df)} rows")
                 else:
-                    print(f"Warning: {name} is empty or None")
+                    logger.warning(f"{name} is empty or None")
             except Exception as e:
-                print(f"Error processing {name}: {e}")
+                logger.error(f"Error processing {name}: {e}")
 
     infil_file = get_file_path(file_path, 'INFIL.DAT')
     if check_file_exists(infil_file):
@@ -81,15 +99,15 @@ def extract_model_data_to_df(file_path: str) -> pd.DataFrame:
     verify_grid_ids(data_frames)
 
     main_df = data_frames['DEPTH.OUT']
-    print(f"Main dataframe (DEPTH.OUT) shape: {main_df.shape}")
+    logger.info(f"Main dataframe (DEPTH.OUT) shape: {main_df.shape}")
 
     main_df = controlled_merge(main_df, data_frames)
 
     if 'SUPER.OUT' in data_frames:
         from core.constants import GRID_ID
-        print("Merging SUPER.OUT data...")
+        logger.info("Merging SUPER.OUT data...")
         main_df = pd.merge(main_df, data_frames['SUPER.OUT'], on=GRID_ID, how='left')
-        print(f"Dataframe shape after merging SUPER.OUT: {main_df.shape}")
+        logger.info(f"Dataframe shape after merging SUPER.OUT: {main_df.shape}")
 
     main_df = ensure_unique_columns(main_df)
     log_time("Extracting model data", start_time)
