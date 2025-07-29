@@ -1,58 +1,105 @@
-import re
-import pandas as pd
+"""
+Module for extracting inflow hydrograph data from FLO-2D INFLOW.DAT files.
+
+This module provides functions to parse and extract inflow hydrograph data
+from FLO-2D model files, creating time series data for each inflow grid element.
+"""
+
+# Standard library imports
 import os
+import logging
+
+# Third-party imports
+import pandas as pd
+
+# Local application imports
+from core.logger import setup_logger
+
 
 def extract_inflow_hydrographs(folder_path):
+    """
+    Extract inflow hydrograph data from INFLOW.DAT file.
+    
+    Args:
+        folder_path (str): Path to the directory containing INFLOW.DAT file.
+        
+    Returns:
+        pd.DataFrame: DataFrame with time as index and grid IDs as columns,
+                     containing flow values. Returns empty DataFrame on error.
+                     
+    Raises:
+        FileNotFoundError: If INFLOW.DAT file is not found.
+    """
+    logger = setup_logger('INFLOW', level=logging.INFO)
     file_path = os.path.join(folder_path, 'INFLOW.DAT')
-
-    # Initialize variables
-    hydrograph_data = {}
-    current_grid_element = None
-    all_time_steps = set()  # To collect all unique time steps
-
-    # Regex patterns to identify grid elements and hydrograph data
-    grid_element_pattern = re.compile(r'F\s+\d+\s+(\d+)')
-    hydrograph_pattern = re.compile(r'H\s+([\d\.]+)\s+([\d\.]+)')
-
-    # Open the file and process it line by line
-    with open(file_path, 'r') as file:
-        for line in file:
-            # Check for grid element ID lines
-            grid_match = grid_element_pattern.match(line)
-            if grid_match:
-                current_grid_element = int(grid_match.group(1))
-                # Initialize an empty dictionary for this grid element if it's new
-                if current_grid_element not in hydrograph_data:
-                    hydrograph_data[current_grid_element] = {}
-
-            # Check for hydrograph data lines
-            hydrograph_match = hydrograph_pattern.match(line)
-            if hydrograph_match and current_grid_element is not None:
-                time_step = float(hydrograph_match.group(1))
-                flow_value = float(hydrograph_match.group(2))
-
-                # Add the time step to the set of all time steps
-                all_time_steps.add(time_step)
-
-                # Add the flow value for the current time step to the current grid element's data
-                hydrograph_data[current_grid_element][time_step] = flow_value
-
-    # Convert the time steps set to a sorted list for consistent indexing
-    sorted_time_steps = sorted(all_time_steps)
-
-    # Create a dictionary to hold the series data for each grid element
-    series_dict = {}
-
-    # Use pd.concat for more efficient data addition
-    for grid_element, hydrograph in hydrograph_data.items():
-        series_data = pd.Series(hydrograph, index=sorted_time_steps)
-        series_dict[grid_element] = series_data
-
-    # Create a DataFrame from the series dictionary
-    df_hydrographs = pd.concat(series_dict, axis=1)
-
-    # Fill missing data with 0 as default
-    df_hydrographs = df_hydrographs.fillna(0)
-    df_hydrographs.index.name = 'Time (hours)'
-
-    return df_hydrographs
+    
+    if not os.path.exists(file_path):
+        logger.error(f"INFLOW.DAT file not found at {file_path}")
+        raise FileNotFoundError(f"INFLOW.DAT file not found at {file_path}")
+    
+    try:
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+            
+        # Store data as {grid_id: {time: flow}} to handle different time steps per grid
+        hydrograph_data = {}
+        current_cell = None
+        all_time_steps = set()
+        
+        for line in lines:
+            parts = line.split()
+            if not parts:
+                continue
+                
+            if parts[0] == 'F':
+                # Extract grid element ID from the last part
+                current_cell = parts[-1]
+                if current_cell not in hydrograph_data:
+                    hydrograph_data[current_cell] = {}
+                    
+            elif parts[0] == 'H' and current_cell is not None:
+                try:
+                    time_step = float(parts[1])
+                    flow_value = float(parts[2])
+                    
+                    # Store flow value for this time step
+                    hydrograph_data[current_cell][time_step] = flow_value
+                    
+                    # Track all unique time steps
+                    all_time_steps.add(time_step)
+                    
+                except (ValueError, IndexError) as e:
+                    logger.warning(f"Invalid hydrograph data in line: {line.strip()}. Error: {e}")
+                    continue
+                    
+        if not hydrograph_data:
+            logger.warning(f"No inflow data found in {file_path}")
+            return pd.DataFrame()
+        
+        # Create sorted list of all time steps
+        sorted_time_steps = sorted(all_time_steps)
+        
+        # Create a dictionary to hold series data for each grid element
+        series_dict = {}
+        
+        # Create series for each grid element, filling missing time steps with NaN
+        for grid_element, time_flow_dict in hydrograph_data.items():
+            series_data = pd.Series(time_flow_dict, index=sorted_time_steps)
+            series_dict[grid_element] = series_data
+        
+        # Create DataFrame from the series dictionary
+        df = pd.concat(series_dict, axis=1)
+        
+        # Fill missing data with 0 as default to maintain consistency
+        df = df.fillna(0)
+        df.index.name = 'Time (hours)'
+        
+        logger.info(f"Successfully extracted inflow data for {len(df.columns)} grid elements with {len(df)} time steps")
+        return df
+        
+    except IOError as e:
+        logger.error(f"Error reading INFLOW.DAT file: {e}")
+        return pd.DataFrame()
+    except Exception as e:
+        logger.error(f"Unexpected error processing INFLOW.DAT file: {e}", exc_info=True)
+        return pd.DataFrame()

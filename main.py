@@ -31,6 +31,7 @@ from core.utilities import create_required_folders
 from extraction.dat.arf_dat_extraction import extract_area_reduction_factors, merge_arf_with_model_data
 from extraction.dat.hystruc_dat_extraction import extract_hystruc_results
 from extraction.dat.inflow_dat_extraction import extract_inflow_hydrographs
+from extraction.dat.outflow_dat_extraction import extract_outflow_data
 from extraction.dat.swmm_dat_extraction import extract_swmm_data
 from extraction.dat.swmmflort_dat_extraction import extract_swmm_rating_tables
 from extraction.out.channel_extraction import extract_channel_data
@@ -38,6 +39,7 @@ from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_data
 from extraction.out.hydrostruct_out_extraction import parse_hydrograph_data
 from extraction.out.hycross_out_extraction import extract_fpxsec_results
 from extraction.out.super_out_extraction import extract_super_out
+from extraction.out.outnq_out_extraction import extract_outnq_time_series
 from extraction.out.time_out_extraction import extract_time_out_data
 from processing.spatial.geospatial import calculate_cell_size, convert_to_geo_dataframe
 from processing.spatial.rasterization import create_raster_from_gdf
@@ -45,6 +47,7 @@ from processing.spatial.vectorization import convert_gdf_to_shapefile
 from processing.vectorization.fpxsec_vectorization import create_fpxsec_shapefile
 from processing.vectorization.hystruc_vectorization import create_hystruc_shapefile
 from processing.vectorization.inflow_vectorization import create_inflow_points
+from processing.vectorization.outflow_vectorization import create_outflow_points
 from processing.vectorization.swmm_vectorization import create_swmm_shapefiles
 from reporting.spreadsheets.channel_spreadsheet import channel_spreadsheet_and_plots
 from reporting.spreadsheets.hycross_spreadsheet import hycross_spreadsheet_and_plots
@@ -53,6 +56,7 @@ from reporting.spreadsheets.hystruc_spreadsheet import (
     create_rating_curve_spreadsheet, hystruc_spreadsheet_and_plots, plot_rating_curves_to_pdf
 )
 from reporting.spreadsheets.inflow_spreadsheets import create_pdf_plots, export_hydrograph_to_excel
+from reporting.spreadsheets.outnq_spreadsheets import create_outnq_spreadsheets_and_plots
 from reporting.spreadsheets.rain_spreadsheet import rain_spreadsheet_and_plot
 from reporting.spreadsheets.swmm_inlets_spreadsheet import swmm_inlet_spreadsheets_and_pdf
 from reporting.spreadsheets.swmm_rating_tables_spreadsheet import swmm_rating_tables_and_plots
@@ -350,7 +354,46 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         # create_pdf_plots(inflow_data, os.path.join(plots_outpath, 'inflow_plots.pdf'))
         # timing_logger.log(f"Inflow plots PDF created: {os.path.join(plots_outpath, 'inflow_plots.pdf')}")
 
-    # Step 8: Process Floodplain Cross Sections
+    # Step 8: Process Outflow Data
+    outflow_dat_file = get_file_path(file_path, 'OUTFLOW.DAT')
+    outnq_file = get_file_path(file_path, 'OUTNQ.OUT')
+    
+    if check_file_exists(outflow_dat_file) and check_file_exists(outnq_file):
+        timing_logger.log("Extracting outflow data")
+        
+        # Extract outflow grid data from OUTFLOW.DAT
+        outflow_grid_data = extract_outflow_data(file_path)
+        
+        # Extract outflow hydrograph data from OUTNQ.OUT
+        outflow_hydrograph_data = extract_outnq_time_series(file_path)
+        
+        if not outflow_hydrograph_data.empty:
+            # Create outflow spreadsheets (PDF generation disabled)
+            excel_path, pdf_path = create_outnq_spreadsheets_and_plots(plots_outpath, outflow_hydrograph_data)
+            if excel_path:
+                timing_logger.log(f"Outflow data spreadsheet created: {excel_path}")
+            # PDF creation is disabled for outflow data
+            
+            # Create outflow node vector output
+            outflow_points = create_outflow_points(
+                outflow_hydrograph_data,
+                outflow_grid_data,
+                model_data,
+                coord_system,
+                shp_outpath,
+                output_format=output_format,
+            )
+            if outflow_points:
+                timing_logger.log(f"Outflow node points {output_format} created at: {outflow_points}")
+        else:
+            logger.warning("No outflow hydrograph data found in OUTNQ.OUT")
+    else:
+        if not check_file_exists(outflow_dat_file):
+            logger.info("OUTFLOW.DAT file not found. Skipping outflow data extraction.")
+        if not check_file_exists(outnq_file):
+            logger.info("OUTNQ.OUT file not found. Skipping outflow data extraction.")
+
+    # Step 9: Process Floodplain Cross Sections
     fpxsec_requirements_met, missing_fpxsec = check_special_processor_requirements(file_path, 'FPXSEC_HYCROSS')
     if fpxsec_requirements_met:
         timing_logger.log("Processing Floodplain Cross Sections")
@@ -362,7 +405,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info("Floodplain Cross Sections data not found. Skipping this step.")
 
-    # Step 9: Process Hydraulic Structures
+    # Step 10: Process Hydraulic Structures
     hystruc_file = get_file_path(file_path, 'HYSTRUC.DAT')
     if check_file_exists(hystruc_file):
         timing_logger.log("Processing Hydraulic Structures")
@@ -406,7 +449,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info("Hydraulic Structures data not found. Skipping this step.")
 
-    # Step 10: Create Rainfall Spreadsheet and Plot
+    # Step 11: Create Rainfall Spreadsheet and Plot
     rain_file = get_file_path(file_path, 'RAIN.DAT')
     if check_file_exists(rain_file):
         timing_logger.log("Generating Rainfall Spreadsheet and Plot")
@@ -415,7 +458,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info("Rainfall data not found. Skipping this step.")
 
-    # Step 11: Process SWMM Data
+    # Step 12: Process SWMM Data
     swmm_file = get_file_path(file_path, 'SWMM.inp')
     if check_file_exists(swmm_file):
         timing_logger.log("Extracting SWMM Data from SWMM.inp")
@@ -438,7 +481,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info("SWMM Input File (SWMM.inp) not found. Skipping SWMM Data Extraction.")
 
-    # Step 12: Extract SWMM Rating Tables
+    # Step 13: Extract SWMM Rating Tables
     swmm_rating_file = get_file_path(file_path, 'SWMMFLORT.DAT')
     if check_file_exists(swmm_rating_file):
         timing_logger.log("Extracting SWMM Rating Tables")
@@ -450,7 +493,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info("SWMM Rating Tables data not found. Skipping this step.")
 
-    # Step 13: Process Channel Data
+    # Step 14: Process Channel Data
     channel_requirements_met, missing_channel = check_special_processor_requirements(file_path, 'CHANNEL')
     has_required_files = channel_requirements_met
     
@@ -471,12 +514,12 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info(f"Channel data processing skipped. Missing required files: {missing_channel}")
 
-    # Step 14: Calculate Cell Size for Raster Creation
+    # Step 15: Calculate Cell Size for Raster Creation
     timing_logger.log("Calculating cell size for raster generation")
     cell_size = calculate_cell_size(geo_df)
     timing_logger.log(f"Calculated cell size: {cell_size} units")
 
-    # Step 15: Create Rasters for Specified Columns
+    # Step 16: Create Rasters for Specified Columns
     desired_columns = [
         'depth_max', 'xksat', 'psif', 'dtheta', 'abstrinf', 'rtimpf', 'soil_depth',
         'velocity', 'q_max', 'wse_max', 'infil_depth', 'infil_stop', 'time_of_oneft',
@@ -504,7 +547,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             except Exception as e:
                 logger.error(f"Failed to create raster for column '{column}'. Error: {e}")
 
-    # Step 16: Apply Styles to Shapefiles and Rasters (if provided)
+    # Step 17: Apply Styles to Shapefiles and Rasters (if provided)
     if style_folder:
         timing_logger.log("Applying style files to shapefiles and rasters")
         apply_styles(file_path, style_folder, logger)

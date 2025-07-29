@@ -45,6 +45,10 @@ TIME_TO_PEAK = 'time_to_peak'
 TIME_MAX_DISCHARGE = 'time_max_discharge'
 TIME_MAX_STAGE = 'time_max_stage'
 
+# Outflow-specific Columns
+MAX_Q = 'max_q'
+TIME_PEAK = 'time_peak'
+
 # Infiltration Columns
 XKSAT = 'xksat'
 PSIF = 'psif'
@@ -83,6 +87,9 @@ INFLOW = 'inflow'
 OUTFLOW = 'outflow'
 STAGE = 'stage'
 FLOW = 'flow'
+
+# Outflow Data Columns
+OUTFLOW_CODE = 'outflow_code'
 
 # HYSTRUC.DAT Structure Field Constants
 IFPROCHAN = 'ifprochan'
@@ -220,6 +227,8 @@ FLO2D_FILES = {
     'EVACUATEDFP': 'EVACUATEDFP.OUT',
     'TIME': 'TIME.OUT',
     'VELFP': 'VELFP.OUT',
+    'OUTFLOW': 'OUTFLOW.DAT',
+    'OUTNQ': 'OUTNQ.OUT',
 }
 
 # Output formats
