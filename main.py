@@ -44,6 +44,7 @@ from processing.spatial.rasterization import create_raster_from_gdf
 from processing.spatial.vectorization import convert_gdf_to_shapefile
 from processing.vectorization.fpxsec_vectorization import create_fpxsec_shapefile
 from processing.vectorization.hystruc_vectorization import create_hystruc_shapefile
+from processing.vectorization.inflow_vectorization import create_inflow_points
 from processing.vectorization.swmm_vectorization import create_swmm_shapefiles
 from reporting.spreadsheets.channel_spreadsheet import channel_spreadsheet_and_plots
 from reporting.spreadsheets.hycross_spreadsheet import hycross_spreadsheet_and_plots
@@ -334,6 +335,17 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         output_excel_path = os.path.join(plots_outpath, 'inflow_data.xlsx')
         export_hydrograph_to_excel(inflow_data, output_excel_path)
         timing_logger.log(f"Inflow data spreadsheet created: {output_excel_path}")
+
+        # Create inflow node vector output
+        inflow_points = create_inflow_points(
+            inflow_data,
+            model_data,
+            coord_system,
+            shp_outpath,
+            output_format=output_format,
+        )
+        if inflow_points:
+            timing_logger.log(f"Inflow node points {output_format} created at: {inflow_points}")
         # Uncomment below lines if PDF plots are desired
         # create_pdf_plots(inflow_data, os.path.join(plots_outpath, 'inflow_plots.pdf'))
         # timing_logger.log(f"Inflow plots PDF created: {os.path.join(plots_outpath, 'inflow_plots.pdf')}")
