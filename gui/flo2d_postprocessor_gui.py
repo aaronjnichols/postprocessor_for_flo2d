@@ -108,8 +108,7 @@ class FLO2DPostProcessorGUI:
         # Customize Listbox with black background and white text
         self.folder_listbox = tk.Listbox(folder_frame, width=50, height=5, bg="#000000", fg="#FFFFFF", selectmode=tk.MULTIPLE)
         self.folder_listbox.grid(column=0, row=0, sticky=(tk.W, tk.E))
-        self.folder_listbox.bind('<Double-Button-1>', self.show_folder_contents)
-        ToolTip(self.folder_listbox, "List of FLO-2D project folders to be processed. Double-click to preview folder contents.")
+        ToolTip(self.folder_listbox, "List of FLO-2D project folders to be processed.")
 
         folder_buttons_frame = ttk.Frame(folder_frame)
         folder_buttons_frame.grid(column=1, row=0, sticky=tk.NW, padx=(10,0))
@@ -117,11 +116,8 @@ class FLO2DPostProcessorGUI:
         add_btn.grid(column=0, row=0, sticky=tk.W, pady=(0, 5))
         ToolTip(add_btn, "Add a FLO-2D project folder to the list.")
         remove_btn = ttk.Button(folder_buttons_frame, text="Remove", command=self.remove_folder)
-        remove_btn.grid(column=0, row=1, sticky=tk.W, pady=(0, 5))
+        remove_btn.grid(column=0, row=1, sticky=tk.W)
         ToolTip(remove_btn, "Remove the selected folder(s) from the list.")
-        preview_btn = ttk.Button(folder_buttons_frame, text="Preview", command=self.preview_selected_folder)
-        preview_btn.grid(column=0, row=2, sticky=tk.W)
-        ToolTip(preview_btn, "Preview FLO-2D files in the selected folder.")
 
         # EPSG Number Section
         epsg_label = ttk.Label(main_frame, text="EPSG Number:")
@@ -324,7 +320,14 @@ class FLO2DPostProcessorGUI:
     
     def is_flo2d_folder(self, folder_path):
         """Check if folder contains typical FLO-2D files"""
-        flo2d_files = ['CADPTS.DAT', 'TOPO.DAT', 'FPLAIN.DAT', 'MANNINGS.DAT']
+        flo2d_files = [
+            # Core input files
+            'CADPTS.DAT', 'TOPO.DAT', 'FPLAIN.DAT', 'MANNINGS_N.DAT',
+            # Optional input files
+            'ARF.DAT', 'INFLOW.DAT', 'FPXSEC.DAT', 'HYSTRUC.DAT', 
+            'RAIN.DAT', 'SWMM.inp', 'SWMMFLORT.DAT', 'XSEC.DAT', 
+            'CHAN.DAT', 'INFIL.DAT'
+        ]
         existing_files = os.listdir(folder_path) if os.path.isdir(folder_path) else []
         return any(file in existing_files for file in flo2d_files)
 
@@ -494,100 +497,6 @@ class FLO2DPostProcessorGUI:
         self.output_text.configure(state='disabled')
         self.progress_label.config(text="Output cleared - Ready to process")
         self.stats_label.config(text="")
-    
-    def show_folder_contents(self, event=None):
-        """Show contents of double-clicked folder"""
-        selection = self.folder_listbox.curselection()
-        if selection:
-            folder_path = self.folder_listbox.get(selection[0])
-            self.preview_folder_contents(folder_path)
-    
-    def preview_selected_folder(self):
-        """Preview contents of selected folder"""
-        selection = self.folder_listbox.curselection()
-        if not selection:
-            messagebox.showwarning("No Selection", "Please select a folder to preview.")
-            return
-        folder_path = self.folder_listbox.get(selection[0])
-        self.preview_folder_contents(folder_path)
-    
-    def preview_folder_contents(self, folder_path):
-        """Show folder contents in a popup window"""
-        if not os.path.isdir(folder_path):
-            messagebox.showerror("Error", f"Folder does not exist: {folder_path}")
-            return
-            
-        # Create preview window
-        preview_window = tk.Toplevel(self.master)
-        preview_window.title(f"Folder Preview: {os.path.basename(folder_path)}")
-        preview_window.geometry("600x500")
-        preview_window.configure(bg="#2E2E2E")
-        
-        # Apply theme to preview window
-        preview_style = ThemedStyle(preview_window)
-        preview_style.set_theme("equilux")
-        
-        main_preview_frame = ttk.Frame(preview_window, padding="10")
-        main_preview_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Folder path label
-        path_label = ttk.Label(main_preview_frame, text=f"Path: {folder_path}", font=('TkDefaultFont', 9))
-        path_label.pack(anchor=tk.W, pady=(0,10))
-        
-        # Files list
-        files_label = ttk.Label(main_preview_frame, text="Files in folder:")
-        files_label.pack(anchor=tk.W)
-        
-        # Create listbox with scrollbar
-        list_frame = ttk.Frame(main_preview_frame)
-        list_frame.pack(fill=tk.BOTH, expand=True)
-        
-        files_listbox = tk.Listbox(list_frame, bg="#000000", fg="#FFFFFF", font=('Consolas', 9))
-        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=files_listbox.yview)
-        files_listbox.configure(yscrollcommand=scrollbar.set)
-        
-        files_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        # Populate files list
-        try:
-            files = sorted(os.listdir(folder_path))
-            flo2d_files = ['CADPTS.DAT', 'TOPO.DAT', 'FPLAIN.DAT', 'MANNINGS.DAT', 'HYSTRUC.DAT', 
-                          'FPXSEC.DAT', 'CHAN.DAT', 'XSEC.DAT', 'RAIN.DAT', 'SWMM.inp', 'INFLOW.DAT']
-            
-            for file in files:
-                if os.path.isfile(os.path.join(folder_path, file)):
-                    if file in flo2d_files:
-                        files_listbox.insert(tk.END, f"✓ {file} (FLO-2D file)")
-                        files_listbox.itemconfig(tk.END, {'fg': '#90EE90'})  # Light green
-                    elif file.endswith(('.OUT', '.out')):
-                        files_listbox.insert(tk.END, f"→ {file} (Output file)")
-                        files_listbox.itemconfig(tk.END, {'fg': '#87CEEB'})  # Sky blue
-                    else:
-                        files_listbox.insert(tk.END, f"  {file}")
-                        
-            if not files:
-                files_listbox.insert(tk.END, "No files found in folder")
-                
-        except PermissionError:
-            files_listbox.insert(tk.END, "Permission denied - cannot read folder contents")
-        except Exception as e:
-            files_listbox.insert(tk.END, f"Error reading folder: {str(e)}")
-        
-        # Status frame
-        status_frame = ttk.Frame(main_preview_frame)
-        status_frame.pack(fill=tk.X, pady=(10,0))
-        
-        is_valid = self.is_flo2d_folder(folder_path)
-        status_color = "#90EE90" if is_valid else "#FFB6C1"
-        status_text = "✓ Valid FLO-2D folder" if is_valid else "⚠ No typical FLO-2D files detected"
-        
-        status_label = tk.Label(status_frame, text=status_text, fg=status_color, bg="#2E2E2E")
-        status_label.pack(anchor=tk.W)
-        
-        # Close button
-        close_btn = ttk.Button(main_preview_frame, text="Close", command=preview_window.destroy)
-        close_btn.pack(pady=(10,0))
 
 def main():
     root = tk.Tk()
