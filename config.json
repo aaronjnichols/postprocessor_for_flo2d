@@ -1,9 +1,9 @@
 {
     "flo2d_folders": [
-        "C:/_hh_models/flo2d/pima_wash/100Y24H"
+        "R:/_anichols/Model"
     ],
-    "epsg_number": "2868",
+    "epsg_number": "2223",
     "create_flo2d_points": true,
-    "style_folder": "C:/_gis/styles",
+    "style_folder": "R:/_anichols/Resources/GIS/Styles",
     "output_format": "GeoPackage"
 }
