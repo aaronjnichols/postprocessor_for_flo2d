@@ -636,7 +636,7 @@ def main():
         "--epsg",
         type=int,
         default=2224,
-        help="EPSG code for the coordinate system (default: 2224)."
+        help="EPSG code for the coordinate system (default: 2224). Ensure this matches your FLO-2D model's coordinate system."
     )
     parser.add_argument(
         "--create_flo2d_points",

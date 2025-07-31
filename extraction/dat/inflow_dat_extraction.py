@@ -14,6 +14,7 @@ import pandas as pd
 
 # Local application imports
 from core.logger import setup_logger
+from core.constants import normalize_grid_id
 
 
 def extract_inflow_hydrographs(folder_path):
@@ -46,16 +47,23 @@ def extract_inflow_hydrographs(folder_path):
         current_cell = None
         all_time_steps = set()
         
-        for line in lines:
+        for line_num, line in enumerate(lines, 1):
             parts = line.split()
             if not parts:
                 continue
                 
             if parts[0] == 'F':
-                # Extract grid element ID from the last part
-                current_cell = parts[-1]
-                if current_cell not in hydrograph_data:
-                    hydrograph_data[current_cell] = {}
+                # Extract grid element ID from the last part and validate
+                try:
+                    raw_grid_id = int(parts[-1])
+                    # Normalize grid ID to match coordinate data (1-based to 0-based)
+                    current_cell = normalize_grid_id(raw_grid_id)
+                    if current_cell not in hydrograph_data:
+                        hydrograph_data[current_cell] = {}
+                except (ValueError, IndexError) as e:
+                    logger.warning(f"Invalid grid ID in line {line_num}: {line.strip()}. Error: {e}")
+                    current_cell = None
+                    continue
                     
             elif parts[0] == 'H' and current_cell is not None:
                 try:
@@ -94,7 +102,11 @@ def extract_inflow_hydrographs(folder_path):
         df = df.fillna(0)
         df.index.name = 'Time (hours)'
         
+        # Ensure column names are integers for proper merging
+        df.columns = df.columns.astype(int)
+        
         logger.info(f"Successfully extracted inflow data for {len(df.columns)} grid elements with {len(df)} time steps")
+        logger.info(f"Grid ID range: {df.columns.min()} to {df.columns.max()}")
         return df
         
     except IOError as e:

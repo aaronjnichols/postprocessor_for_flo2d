@@ -23,10 +23,38 @@ def convert_to_geo_dataframe(df):
         
     Raises:
         KeyError: If 'x' or 'y' columns are not found in the DataFrame.
+        ValueError: If coordinate data is invalid.
     """
-    geometry = [Point(xy) for xy in zip(df.x, df.y)]
-    geo_df = gpd.GeoDataFrame(df, geometry=geometry)
-    return geo_df
+    import logging
+    logger = logging.getLogger('FLO2D_Postprocessor')
+    
+    # Validate coordinate columns exist
+    if 'x' not in df.columns or 'y' not in df.columns:
+        missing_cols = [col for col in ['x', 'y'] if col not in df.columns]
+        raise KeyError(f"Missing coordinate columns: {missing_cols}")
+    
+    # Check for missing coordinates
+    missing_coords = df[['x', 'y']].isna().any(axis=1)
+    if missing_coords.any():
+        missing_count = missing_coords.sum()
+        logger.warning(f"Found {missing_count} grid elements with missing coordinates")
+        df = df.dropna(subset=['x', 'y'])
+        logger.info(f"Removed {missing_count} elements. Proceeding with {len(df)} valid elements")
+    
+    # Check for invalid coordinates (e.g., zeros in projected systems)
+    zero_coords = (df['x'] == 0) & (df['y'] == 0)
+    if zero_coords.any():
+        zero_count = zero_coords.sum()
+        logger.warning(f"Found {zero_count} grid elements with (0, 0) coordinates")
+    
+    try:
+        geometry = [Point(xy) for xy in zip(df.x, df.y)]
+        geo_df = gpd.GeoDataFrame(df, geometry=geometry)
+        logger.info(f"Successfully created GeoDataFrame with {len(geo_df)} features")
+        return geo_df
+    except Exception as e:
+        logger.error(f"Error creating geometries: {e}")
+        raise ValueError(f"Failed to create point geometries: {e}")
 
 @time_function
 def calculate_cell_size(geo_df):

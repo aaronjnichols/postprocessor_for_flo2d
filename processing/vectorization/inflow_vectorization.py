@@ -69,15 +69,46 @@ def create_inflow_points(
 
     # Merge coordinates from model_data
     if {GRID_ID, X_COORD, Y_COORD}.issubset(model_data.columns):
+        logger.info(f"Merging coordinates for {len(summary_df)} inflow nodes")
+        logger.info(f"Model data grid ID range: {model_data[GRID_ID].min()} to {model_data[GRID_ID].max()}")
+        logger.info(f"Inflow grid ID range: {summary_df[GRID_ID].min()} to {summary_df[GRID_ID].max()}")
+        
         summary_df = pd.merge(summary_df, model_data[[GRID_ID, X_COORD, Y_COORD]], on=GRID_ID, how="left")
+        
+        # Validate coordinate merging results
+        missing_coords = summary_df[[X_COORD, Y_COORD]].isna().any(axis=1)
+        if missing_coords.any():
+            missing_ids = summary_df.loc[missing_coords, GRID_ID].tolist()
+            logger.warning(f"Missing coordinates for {missing_coords.sum()} inflow nodes with grid IDs: {missing_ids}")
+            logger.warning("These nodes will be skipped in the output shapefile")
+            
+            # Remove nodes with missing coordinates
+            summary_df = summary_df.dropna(subset=[X_COORD, Y_COORD])
+            if summary_df.empty:
+                logger.error("No inflow nodes have valid coordinates after merging")
+                return None
+        else:
+            logger.info("All inflow nodes successfully matched with coordinates")
     else:
         missing = {GRID_ID, X_COORD, Y_COORD} - set(model_data.columns)
         logger.error(f"Model data missing required columns: {missing}")
         raise KeyError(f"Model data missing required columns: {missing}")
 
+    # Validate coordinate values
+    invalid_coords = (summary_df[X_COORD] == 0) & (summary_df[Y_COORD] == 0)
+    if invalid_coords.any():
+        invalid_ids = summary_df.loc[invalid_coords, GRID_ID].tolist()
+        logger.warning(f"Found {invalid_coords.sum()} inflow nodes with (0, 0) coordinates: {invalid_ids}")
+        summary_df = summary_df.loc[~invalid_coords]
+
     # Create geometry
-    geometry = [Point(xy) for xy in zip(summary_df[X_COORD], summary_df[Y_COORD])]
-    gdf = gpd.GeoDataFrame(summary_df, geometry=geometry, crs=f"EPSG:{coord_system}")
+    try:
+        geometry = [Point(xy) for xy in zip(summary_df[X_COORD], summary_df[Y_COORD])]
+        gdf = gpd.GeoDataFrame(summary_df, geometry=geometry, crs=f"EPSG:{coord_system}")
+        logger.info(f"Created GeoDataFrame with {len(gdf)} inflow points")
+    except Exception as e:
+        logger.error(f"Error creating point geometries: {e}")
+        raise
 
     if gdf.empty:
         logger.warning("Inflow GeoDataFrame is empty. Nothing to save.")
