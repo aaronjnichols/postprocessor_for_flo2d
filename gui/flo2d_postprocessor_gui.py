@@ -532,14 +532,15 @@ class FLO2DPostProcessorGUI:
         original_logger.addHandler(gui_handler)
         
         try:
-            # Process with the enhanced logging system
+            # Process with the enhanced logging system - pass our enhanced timing logger
             result = process_flo2d(
                 file_path,
                 coord_system,
                 create_flo2d_points,
                 verbose,
                 style_folder=style_folder,
-                output_format=output_format
+                output_format=output_format,
+                timing_logger=self.enhanced_logger  # Pass the enhanced timing logger
             )
             return result
         finally:

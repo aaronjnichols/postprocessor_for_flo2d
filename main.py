@@ -115,7 +115,7 @@ def setup_logger(level=logging.INFO, log_file=None):
 
     return logger
 
-def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, log_file=None, style_folder=None, output_format="Shapefile"):
+def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, log_file=None, style_folder=None, output_format="Shapefile", timing_logger=None):
     """
     Processes a single FLO-2D project directory.
 
@@ -127,6 +127,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         log_file (str): Path to the log file.
         style_folder (str): Path to the folder containing style files.
         output_format (str): Desired output format ("Shapefile" or "GeoPackage").
+        timing_logger (TimingLogger): Optional timing logger instance (for GUI integration).
 
     Returns:
         str: Status message upon completion.
@@ -137,7 +138,10 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
 
     # Initialize logging
     logger = setup_logger(level=logging.DEBUG if verbose else logging.INFO, log_file=log_file)
-    timing_logger = TimingLogger(logger)
+    
+    # Use provided timing_logger or create a new one
+    if timing_logger is None:
+        timing_logger = TimingLogger(logger)
 
     # Define output directories
     raster_outpath = os.path.join(file_path, 'flo2d_rasters')
@@ -645,7 +649,8 @@ def batch_process_flo2d(file_paths, coord_system, create_flo2d_points, verbose=F
             create_flo2d_points,
             verbose,
             style_folder=style_folder,
-            output_format=output_format  # Pass output_format
+            output_format=output_format,  # Pass output_format
+            timing_logger=None  # Use default timing logger for batch processing
         )
         results.append(f"{file_path}: {result}")
     return "\n".join(results)
