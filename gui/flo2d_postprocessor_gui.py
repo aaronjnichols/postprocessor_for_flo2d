@@ -13,6 +13,8 @@ import shutil
 import threading
 import json
 from ttkthemes import ThemedStyle
+from .message_system import RichMessageFrame, StepIndicator, ProgressTracker
+from .enhanced_logger import EnhancedTimingLogger, GUIMessageHandler
 
 CONFIG_FILE = os.path.join(parent_dir, "config.json")
 
@@ -70,12 +72,16 @@ class FLO2DPostProcessorGUI:
     def __init__(self, master):
         self.master = master
         self.master.title("FLO2D Post-Processor Lite")
-        self.master.geometry("800x800")  # Increased height to accommodate new widgets
+        self.master.geometry("900x900")  # Increased height to accommodate new widgets
         self.master.configure(bg="#2E2E2E")
 
         # Initialize ThemedStyle and set to 'equilux'
         self.style = ThemedStyle(self.master)
         self.style.set_theme("equilux")  # Set 'equilux' as the exclusive theme
+
+        # Initialize progress tracking
+        self.progress_tracker = ProgressTracker()
+        self.enhanced_logger = None
 
         self.create_widgets()
         self.load_settings()
@@ -181,36 +187,56 @@ class FLO2DPostProcessorGUI:
 
         style_frame.columnconfigure(0, weight=1)
 
-        # Output Section
-        output_label = ttk.Label(main_frame, text="Output:")
-        output_label.grid(column=0, row=10, sticky=tk.W, pady=(15, 0))
-        ToolTip(output_label, "Displays the processing logs and results.")
-
-        # Customize Text widget with black background and white text
-        self.output_text = tk.Text(main_frame, wrap=tk.WORD, width=80, height=15, bg="#000000", fg="#FFFFFF", state='disabled')
-        self.output_text.grid(column=0, row=11, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S))
-        ToolTip(self.output_text, "Log output of the processing steps.")
-
+        # Step Indicator Section
+        step_frame = ttk.LabelFrame(main_frame, text="Processing Steps", padding="5")
+        step_frame.grid(column=0, row=10, columnspan=2, sticky=(tk.W, tk.E), pady=(15, 5))
+        step_frame.columnconfigure(0, weight=1)
+        
+        self.step_indicator = StepIndicator(step_frame)
+        self.step_indicator.pack(fill=tk.X, expand=True)
+        
         # Progress Section
-        progress_frame = ttk.Frame(main_frame)
-        progress_frame.grid(column=0, row=12, columnspan=2, sticky=(tk.W, tk.E), pady=(10,0))
+        progress_frame = ttk.LabelFrame(main_frame, text="Progress", padding="5")
+        progress_frame.grid(column=0, row=11, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 5))
         progress_frame.columnconfigure(0, weight=1)
         
-        # Progress Bar
-        self.progress = ttk.Progressbar(progress_frame, mode='indeterminate')
-        self.progress.grid(column=0, row=0, sticky=(tk.W, tk.E), pady=(0,5))
+        # Overall progress bar
+        overall_label = ttk.Label(progress_frame, text="Overall Progress:")
+        overall_label.grid(column=0, row=0, sticky=tk.W)
+        
+        self.overall_progress = ttk.Progressbar(progress_frame, mode='determinate', length=400)
+        self.overall_progress.grid(column=0, row=1, sticky=(tk.W, tk.E), pady=(2, 5))
+        
+        # Current step progress bar
+        step_label = ttk.Label(progress_frame, text="Current Step:")
+        step_label.grid(column=0, row=2, sticky=tk.W)
+        
+        self.step_progress = ttk.Progressbar(progress_frame, mode='determinate', length=400)
+        self.step_progress.grid(column=0, row=3, sticky=(tk.W, tk.E), pady=(2, 5))
         
         # Progress Status Label
         self.progress_label = ttk.Label(progress_frame, text="Ready to process")
-        self.progress_label.grid(column=0, row=1, sticky=tk.W)
+        self.progress_label.grid(column=0, row=4, sticky=tk.W, pady=(5, 0))
         
         # Processing Statistics
         self.stats_label = ttk.Label(progress_frame, text="")
-        self.stats_label.grid(column=0, row=2, sticky=tk.W)
+        self.stats_label.grid(column=0, row=5, sticky=tk.W)
+
+        # Enhanced Message Output Section
+        output_label = ttk.Label(main_frame, text="Processing Messages:")
+        output_label.grid(column=0, row=12, sticky=tk.W, pady=(10, 0))
+        ToolTip(output_label, "Real-time processing messages with enhanced formatting.")
+        
+        # Rich message frame
+        self.rich_message_frame = RichMessageFrame(main_frame)
+        self.rich_message_frame.grid(column=0, row=13, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(5, 0))
+        
+        # Keep the old output_text reference for compatibility
+        self.output_text = self.rich_message_frame.text_widget
 
         # Control buttons frame
         control_frame = ttk.Frame(main_frame)
-        control_frame.grid(column=0, row=13, columnspan=2, sticky=(tk.W, tk.E), pady=(10,0))
+        control_frame.grid(column=0, row=14, columnspan=2, sticky=(tk.W, tk.E), pady=(10,0))
         control_frame.columnconfigure(1, weight=1)
         
         # Clear output button
@@ -226,7 +252,42 @@ class FLO2DPostProcessorGUI:
         # Configure grid weights for responsiveness
         main_frame.columnconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=0)
-        main_frame.rowconfigure(11, weight=1)
+        main_frame.rowconfigure(13, weight=1)  # Updated for rich message frame
+
+    def on_message_received(self, message: str, msg_type: str = 'info'):
+        """Callback for receiving messages from the processing system."""
+        self.master.after(0, lambda: self.rich_message_frame.add_message(message, msg_type))
+        
+    def on_progress_update(self, progress_tracker):
+        """Callback for receiving progress updates."""
+        def update_ui():
+            # Update progress bars
+            overall_progress = progress_tracker.get_overall_progress() * 100
+            step_progress = progress_tracker.current_step_progress * 100
+            
+            self.overall_progress['value'] = overall_progress
+            self.step_progress['value'] = step_progress
+            
+            # Update step indicator
+            # Map progress tracker steps to simple step indicator
+            if progress_tracker.current_step <= 2:
+                step_index = 0  # Setup
+            elif progress_tracker.current_step <= 4:
+                step_index = 1  # Analysis
+            elif progress_tracker.current_step <= 6:
+                step_index = 2  # Mapping
+            elif progress_tracker.current_step <= 8:
+                step_index = 3  # Reports
+            else:
+                step_index = 4  # Complete
+                
+            self.step_indicator.set_current_step(step_index)
+            
+            # Update progress text
+            progress_text = progress_tracker.get_progress_text()
+            self.progress_label.config(text=progress_text)
+            
+        self.master.after(0, update_ui)
 
     def add_folder(self):
         folder_selected = filedialog.askdirectory()
@@ -277,9 +338,19 @@ class FLO2DPostProcessorGUI:
         # Update UI for processing state
         self.set_widgets_state(main_frame=self.master, state='disabled')
         self.run_btn.config(text="⏳ Processing...", state='disabled')
-        self.progress.start()
+        
+        # Reset progress indicators
+        self.overall_progress['value'] = 0
+        self.step_progress['value'] = 0
+        self.step_indicator.set_current_step(0)
         self.progress_label.config(text="Initializing processing...")
         self.stats_label.config(text="")
+        
+        # Clear previous messages
+        self.rich_message_frame.clear_messages()
+        
+        # Add initial message
+        self.rich_message_frame.add_message("🚀 Starting FLO-2D post-processing...", 'processing')
 
         # Run processing in a separate thread to keep GUI responsive
         threading.Thread(target=self.run_process, daemon=True).start()
@@ -348,31 +419,52 @@ class FLO2DPostProcessorGUI:
             return f"{secs} seconds"
 
     def run_process(self):
-        self.output_text.configure(state='normal')
-        self.output_text.delete('1.0', tk.END)
-        self.output_text.configure(state='disabled')
-
         # Record start time
         start_time = time.time()
         file_paths = list(self.folder_listbox.get(0, tk.END))
         total_folders = len(file_paths)
         
-        old_stdout = sys.stdout
-        sys.stdout = RedirectText(self.output_text)
+        # Setup enhanced logging with GUI callbacks
+        import logging
+        
+        # Create a logger for this processing session
+        logger = logging.getLogger('FLO2D_GUI_Processing')
+        logger.setLevel(logging.INFO)
+        
+        # Clear any existing handlers
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+            
+        # Add our GUI handler
+        gui_handler = GUIMessageHandler(self.on_message_received)
+        gui_handler.setLevel(logging.INFO)
+        logger.addHandler(gui_handler)
 
         try:
             for i, file_path in enumerate(file_paths, 1):
-                # Update progress information
-                self.master.after(0, lambda: self.progress_label.config(
-                    text=f"Processing folder {i}/{total_folders}: {os.path.basename(file_path)}"
-                ))
+                # Reset progress tracker for each folder
+                self.progress_tracker = ProgressTracker()
+                
+                # Update folder progress information
+                folder_name = os.path.basename(file_path)
+                folder_message = f"📁 Processing folder {i}/{total_folders}: {folder_name}"
+                self.on_message_received(folder_message, 'step')
+                
+                # Update stats
+                elapsed = time.time() - start_time
                 self.master.after(0, lambda: self.stats_label.config(
-                    text=f"Elapsed: {self.format_time(time.time() - start_time)}"
+                    text=f"Folder {i}/{total_folders} | Elapsed: {self.format_time(elapsed)}"
                 ))
                 
-                print(f"Processing folder {i}/{total_folders}: {file_path}")
-                print("-" * 50)
-                result = process_flo2d(
+                # Create enhanced timing logger for this folder
+                self.enhanced_logger = EnhancedTimingLogger(
+                    logger, 
+                    message_callback=self.on_message_received,
+                    progress_callback=self.on_progress_update
+                )
+                
+                # Process the folder with enhanced logging
+                result = self.process_flo2d_with_enhanced_logging(
                     file_path,
                     int(self.epsg_number.get()),
                     self.create_shapefile.get(),
@@ -380,25 +472,29 @@ class FLO2DPostProcessorGUI:
                     style_folder=self.style_folder.get(),
                     output_format=self.output_format.get()
                 )
-                print(result)
-                print("\n")
+                
+                # Mark folder completion
+                self.on_message_received(f"✅ Completed folder: {folder_name}", 'success')
             
             # Calculate elapsed time
             end_time = time.time()
             elapsed_time = end_time - start_time
             
+            # Final completion
+            self.step_indicator.set_current_step(4)  # Complete
+            self.overall_progress['value'] = 100
+            self.step_progress['value'] = 100
+            
             # Update final status
-            self.master.after(0, lambda: self.progress_label.config(text="Processing completed successfully"))
+            self.master.after(0, lambda: self.progress_label.config(text="All processing completed successfully! 🎉"))
             self.master.after(0, lambda: self.stats_label.config(
                 text=f"Processed {total_folders} folder(s) in {self.format_time(elapsed_time)}"
             ))
             
-            # Final completion message with timing
-            completion_message = "\n" + "=" * 50 + "\n"
-            completion_message += "All FLO-2D folders processed successfully\n"
-            completion_message += f"Total processing time: {self.format_time(elapsed_time)}\n"
-            completion_message += "=" * 50 + "\n"
-            print(completion_message)
+            # Final completion message
+            completion_message = f"🎉 All {total_folders} FLO-2D folders processed successfully!"
+            self.on_message_received(completion_message, 'success')
+            self.on_message_received(f"⏱️ Total processing time: {self.format_time(elapsed_time)}", 'info')
             
         except Exception as e:
             # Calculate elapsed time even for errors
@@ -410,15 +506,45 @@ class FLO2DPostProcessorGUI:
                 text=f"Failed after {self.format_time(elapsed_time)}"
             ))
             
-            error_message = f"\nAn error occurred: {str(e)}\n"
-            error_message += f"Processing stopped after: {self.format_time(elapsed_time)}\n"
-            print(error_message)
+            error_message = f"An error occurred: {str(e)}"
+            self.on_message_received(error_message, 'error')
+            self.on_message_received(f"Processing stopped after: {self.format_time(elapsed_time)}", 'error')
             messagebox.showerror("Processing Error", f"An error occurred during processing:\n{str(e)}")
         finally:
-            sys.stdout = old_stdout
-            self.progress.stop()
             self.set_widgets_state(main_frame=self.master, state='normal')
             self.run_btn.config(text="🚀 Start Processing", state='normal')
+    
+    def process_flo2d_with_enhanced_logging(self, file_path, coord_system, create_flo2d_points, verbose, style_folder, output_format):
+        """Process FLO-2D with enhanced logging that integrates with our GUI system."""
+        # Import here to avoid circular imports
+        import logging
+        from main import process_flo2d
+        
+        # Temporarily redirect the main processing logger to our enhanced system
+        original_logger = logging.getLogger('FLO2D_Postprocessor')
+        
+        # Clear existing handlers and add our GUI handler
+        for handler in original_logger.handlers[:]:
+            original_logger.removeHandler(handler)
+            
+        gui_handler = GUIMessageHandler(self.on_message_received)
+        gui_handler.setLevel(logging.INFO)
+        original_logger.addHandler(gui_handler)
+        
+        try:
+            # Process with the enhanced logging system
+            result = process_flo2d(
+                file_path,
+                coord_system,
+                create_flo2d_points,
+                verbose,
+                style_folder=style_folder,
+                output_format=output_format
+            )
+            return result
+        finally:
+            # Restore original logging setup if needed
+            pass
 
     def set_widgets_state(self, main_frame, state):
         """Recursively set the state of widgets that support the 'state' option."""
@@ -492,9 +618,14 @@ class FLO2DPostProcessorGUI:
     
     def clear_output(self):
         """Clear the output text display"""
-        self.output_text.configure(state='normal')
-        self.output_text.delete('1.0', tk.END)
-        self.output_text.configure(state='disabled')
+        self.rich_message_frame.clear_messages()
+        
+        # Reset progress indicators
+        self.overall_progress['value'] = 0
+        self.step_progress['value'] = 0
+        self.step_indicator.set_current_step(0)
+        
+        # Reset labels
         self.progress_label.config(text="Output cleared - Ready to process")
         self.stats_label.config(text="")
 
