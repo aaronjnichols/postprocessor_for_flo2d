@@ -1,9 +1,9 @@
 {
     "flo2d_folders": [
-        "S:/21002795 - Lake Havasu/Project Documents/Engineering-Planning-Power and Energy/Reports/CLOMR/Models/FLO2D/PROP/PROP_V32"
+        "C:/_hh_models/flo2d/lake_havasu_prop"
     ],
     "epsg_number": "2224",
     "create_flo2d_points": true,
-    "style_folder": "R:/_anichols/Resources/GIS/Styles",
+    "style_folder": "C:/_gis/styles",
     "output_format": "GeoPackage"
 }

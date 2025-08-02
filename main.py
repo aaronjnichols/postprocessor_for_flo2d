@@ -49,6 +49,8 @@ from processing.vectorization.hystruc_vectorization import create_hystruc_shapef
 from processing.vectorization.inflow_vectorization import create_inflow_points
 from processing.vectorization.outflow_vectorization import create_outflow_points
 from processing.vectorization.swmm_vectorization import create_swmm_shapefiles
+from processing.vectorization.channel_xsec_vectorization import create_channel_xsec_shapefile
+from processing.vectorization.channel_bank_vectorization import create_channel_bank_shapefile
 from reporting.spreadsheets.channel_spreadsheet import channel_spreadsheet_and_plots
 from reporting.spreadsheets.hycross_spreadsheet import hycross_spreadsheet_and_plots
 from reporting.spreadsheets.hydrostruct_spreadsheet import hydrostruct_spreadsheet_and_plots
@@ -177,7 +179,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
 
     # Step 4: Convert DataFrame to GeoDataFrame
     timing_logger.log("Converting model data to GeoDataFrame for spatial processing")
-    geo_df = convert_to_geo_dataframe(model_data)
+    geo_df = convert_to_geo_dataframe(model_data, coord_system)
     timing_logger.log("Conversion to GeoDataFrame completed")
 
     # Step 5: Create FLO-2D Points Output (Shapefile or GeoPackage)
@@ -509,6 +511,33 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             channel_pdf = os.path.join(plots_outpath, 'channel_plots.pdf')
             timing_logger.log(f"Channel Spreadsheet created at: {channel_excel}")
             timing_logger.log(f"Channel Cross-Section Plots PDF created at: {channel_pdf}")
+            
+            # Create channel vectorization outputs
+            timing_logger.log("Creating channel cross-section and bank segment shapefiles")
+            try:
+                # Create channel cross-section lines
+                xsec_file = create_channel_xsec_shapefile(
+                    file_path=file_path,
+                    coord_system=coord_system,
+                    output_path=shp_outpath,
+                    output_format=output_format
+                )
+                if xsec_file:
+                    timing_logger.log(f"Channel cross-section lines created at: {xsec_file}")
+                
+                # Create channel bank segments
+                bank_file = create_channel_bank_shapefile(
+                    file_path=file_path,
+                    coord_system=coord_system,
+                    output_path=shp_outpath,
+                    output_format=output_format
+                )
+                if bank_file:
+                    timing_logger.log(f"Channel bank segments created at: {bank_file}")
+                    
+            except Exception as ve:
+                logger.error(f"Failed to create channel vector outputs: {ve}")
+                
         except Exception as e:
             logger.error(f"Failed to process channel data. Error: {e}")
     else:

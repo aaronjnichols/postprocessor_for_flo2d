@@ -1,0 +1,56 @@
+# Comprehensive synthetic CHAN.DAT file for testing all channel types
+# Format: Segment headers followed by channel elements
+# Channel types: R=Rectangular, V=Variable, T=Trapezoidal, N=Natural
+
+# Segment 0 parameters: depinitial, froudc, roughadj, isedn
+0.5 0.8 1.0 0
+
+# Rectangular channels in segment 0
+R 1001 520.5 520.8 0.035 10.0 3.0 100.0
+R 1002 520.8 521.1 0.035 12.0 2.8 95.0
+R 1003 521.1 521.4 0.035 8.0 3.2 110.0
+
+# Segment 1 parameters  
+1.0 0.9 1.2 1
+
+# Trapezoidal channels in segment 1
+T 2001 525.0 525.2 0.040 8.0 4.0 120.0 2.0 1.5
+T 2002 525.2 525.5 0.040 10.0 3.5 115.0 2.5 2.0
+T 2003 525.5 525.8 0.038 6.0 4.2 125.0 1.8 1.8
+
+# Segment 2 parameters
+0.8 0.85 1.1 0
+
+# Variable area channels in segment 2  
+V 3001 530.0 530.3 0.045 5.0 130.0 2.5 1.8 15.0 0.7 25.0 0.5 6.0 3.0 2.1 18.0 0.8 30.0 0.6
+V 3002 530.3 530.6 0.042 4.5 135.0 2.8 1.9 16.0 0.75 28.0 0.55 5.5 3.2 2.0 19.0 0.82 32.0 0.58
+
+# Segment 3 parameters
+1.2 0.75 0.9 1
+
+# Natural channels in segment 3 (reference XSEC.DAT)
+N 4001 0.038 140.0 1
+N 4002 0.040 145.0 2
+N 4003 0.042 150.0 3
+N 4004 0.036 135.0 4
+
+# Confluences - tributary flows into main channel
+C 1003 2001
+C 2003 3001
+C 3002 4001
+
+# No exchange elements - don't exchange flow with floodplain
+E 1001
+E 2001
+E 4001
+E 4002
+E 4003
+
+# Initial water surface elevations
+1001 518.5
+1002 519.2
+2001 523.8
+2002 524.1
+3001 528.5
+4001 532.1
+4002 532.8

@@ -11,7 +11,15 @@ from core.constants import GRID_ID, NODE, CROSS_SECTION_NUMBER
 @time_function
 def combine_channel_data(xsec_df, chanmax_df, chan_df, depch_df, veloc_df):
     """Merge channel related dataframes into a single dataframe"""
-    combined_df = pd.merge(xsec_df, chan_df, on=CROSS_SECTION_NUMBER)
+    # Start with channel data as the base
+    combined_df = chan_df.copy()
+    
+    # Merge XSEC data only for natural channels (N-type) that have xsec_number
+    if not xsec_df.empty and 'xsec_number' in chan_df.columns:
+        # Rename cross_section_number to xsec_number for merging
+        xsec_df_renamed = xsec_df.rename(columns={CROSS_SECTION_NUMBER: 'xsec_number'})
+        combined_df = pd.merge(combined_df, xsec_df_renamed, on='xsec_number', how='left')
+    
     # Rename NODE to GRID_ID for merging since in channel context, NODE represents the grid location
     chanmax_df_renamed = chanmax_df.rename(columns={NODE: GRID_ID})
     combined_df = pd.merge(
@@ -29,8 +37,16 @@ def extract_channel_data(path):
     """Extract and combine channel related data from a FLO-2D project folder."""
     xsec_df = extract_xsec_dat(path)
     chanmax_df = extract_chanmax_out(path)
-    chan_df = extract_chan_dat(path)
-    relevant_grid_ids = set(chan_df[GRID_ID])
+    chan_data = extract_chan_dat(path)
+    chan_df = chan_data['channels']
+    segments_df = chan_data.get('segments', pd.DataFrame())
+    
+    # Convert 0-based segment IDs to 1-based for display
+    if 'segment_id' in chan_df.columns:
+        chan_df = chan_df.copy()
+        chan_df['segment_id'] = chan_df['segment_id'] + 1
+    
+    relevant_grid_ids = set(chan_df[GRID_ID]) if not chan_df.empty else set()
     depch_df = extract_depch_out(path, relevant_grid_ids)
     veloc_df = extract_veloc_out(path, relevant_grid_ids)
     return combine_channel_data(xsec_df, chanmax_df, chan_df, depch_df, veloc_df)

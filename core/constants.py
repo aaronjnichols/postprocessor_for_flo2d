@@ -247,6 +247,17 @@ DEFAULT_EPSG = 4326
 # Infiltration Termination
 INFIL_STOP = 'infil_stop'
 
+# Additional Infiltration Constants
+CURVE_NUMBER = 'curve_number'
+CHANNEL_ELEMENT = 'channel_element'
+HYDCON = 'hydcon'
+REACH_ID = 'reach_id'
+HYDCX_INITIAL = 'hydcx_initial'
+HYDCX_FINAL = 'hydcx_final'
+FHORTI = 'fhorti'
+FHORTF = 'fhortf'
+DECAY_COEFF = 'decay_coeff'
+
 # Table and Structure Identifiers  
 TABLE_ID = 'table_id'
 DATA = 'data' 

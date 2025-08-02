@@ -1,0 +1,11 @@
+  TOP 1000 SUPERCRITICAL OVERLAND FLOW ELEMENTS IN DESCENDING ORDER OF FROUDE NUMBER
+          *** NOTE: THIS LIST MAY NOT EXACTLY CORRELATE WITH THE ROUGH.OUT FILE ***
+                    TO REDUCE THE FROUDE NO: INCREASE FLOODPLAIN n-VALUES OR SHALLOWN FOR LOW FLOWS
+
+       NODE    MAX FROUDE NO     DEPTH (FT OR M)     TIME (HR)     NUMBER OF SUPERCRITICAL TIMESTEPS
+
+          1         2.43              0.46             11.91                    370
+          2         2.26              0.88             12.40                   1126
+          5         2.18              0.61             12.03                    205
+          8         2.14              0.51             11.88                    127
+         10         2.10              0.41             11.76                    360

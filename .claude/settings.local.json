@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
       "Bash(python:*)",
@@ -6,7 +7,13 @@
       "Bash(rmdir:*)",
       "Bash(ls:*)",
       "Bash(rm:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(pip install:*)",
+      "Bash(timeout 600 python \"C:\\_code\\postprocessor_for_flo2d\\main.py\" . --epsg 2223)",
+      "Bash(timeout 300 python \"C:\\_code\\postprocessor_for_flo2d\\main.py\" . --epsg 2223)",
+      "Bash(cat:*)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)"
     ],
     "deny": []
   }
