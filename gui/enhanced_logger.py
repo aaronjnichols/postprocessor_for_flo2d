@@ -27,11 +27,14 @@ class EnhancedTimingLogger:
             "Extracting model data from FLO-2D files": 1,
             "Converting model data to GeoDataFrame for spatial processing": 2,
             "Initiating creation of FLO-2D Points Output": 3,
-            "Creating raster from gdf": 4,
-            "Processing Inflow Data": 5,
-            "Processing Outflow Data": 6,
+            "Initiating raster creation for available data columns": 4,
+            "Extracting inflow data": 5,
+            "Processing Inflow Data": 5,  # Alternative message
+            "Extracting outflow data": 6,
+            "Processing Outflow Data": 6,  # Alternative message
             "Processing Hydraulic Structures": 7,
             "Processing Floodplain Cross Sections": 7,  # Same as structures
+            "Processing Channel Data": 7,  # Also structures/channel processing
             "Applying style files to shapefiles and rasters": 8,
             "=== FLO-2D Postprocessor Completed Successfully ===": 9
         }
@@ -54,24 +57,39 @@ class EnhancedTimingLogger:
         # Update progress tracking if this is a known step
         if clean_message in self.step_mapping:
             step_index = self.step_mapping[clean_message]
-            self.progress_tracker.current_step = step_index + 1
-            self.progress_tracker.current_step_progress = 0.0
+            # Only advance if we're moving to a new step
+            if step_index > self.progress_tracker.current_step - 1:
+                self.progress_tracker.current_step = step_index + 1
+                self.progress_tracker.current_step_progress = 0.0
             
             # Update progress callback if available
             if self.progress_callback:
                 self.progress_callback(self.progress_tracker)
-        
-        # Determine message type based on content
-        if "error" in message.lower() or "failed" in message.lower():
-            msg_type = 'error'
-        elif "warning" in message.lower():
-            msg_type = 'warning'
-        elif "completed" in message.lower() or "created" in message.lower() or "successfully" in message.lower():
-            msg_type = 'success'
-        elif "processing" in message.lower() or "extracting" in message.lower() or "creating" in message.lower():
-            msg_type = 'processing'
         else:
-            msg_type = 'info'
+            # For non-step messages, gradually increment progress within current step
+            if self.progress_tracker.current_step > 0:
+                # Increment progress by small amounts (max 0.9 to save 0.1 for step completion)
+                current_progress = self.progress_tracker.current_step_progress
+                if current_progress < 0.9:
+                    # Gradually increase progress with diminishing increments
+                    increment = max(0.05, (0.9 - current_progress) * 0.2)
+                    self.progress_tracker.current_step_progress = min(0.9, current_progress + increment)
+                    
+                    if self.progress_callback:
+                        self.progress_callback(self.progress_tracker)
+        
+        # Determine message type based on content if not explicitly set
+        if msg_type == 'processing':  # Only auto-detect if using default
+            if "error" in message.lower() or "failed" in message.lower():
+                msg_type = 'error'
+            elif "warning" in message.lower():
+                msg_type = 'warning'
+            elif "completed" in message.lower() or "created" in message.lower() or "successfully" in message.lower():
+                msg_type = 'success'
+            elif "processing" in message.lower() or "extracting" in message.lower() or "creating" in message.lower() or "initiating" in message.lower():
+                msg_type = 'processing'
+            else:
+                msg_type = 'info'
             
         # Create the technical log message with timing
         log_message = f"{clean_message} (Step time: {elapsed:.2f}s, Total time: {total_elapsed:.2f}s)"
