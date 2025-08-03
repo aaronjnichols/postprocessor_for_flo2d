@@ -51,6 +51,7 @@ from processing.vectorization.outflow_vectorization import create_outflow_points
 from processing.vectorization.swmm_vectorization import create_swmm_shapefiles
 from processing.vectorization.channel_xsec_vectorization import create_channel_xsec_shapefile
 from processing.vectorization.channel_bank_vectorization import create_channel_bank_shapefile
+from processing.vectorization.domain_vectorization import create_domain_polygon
 from reporting.spreadsheets.channel_spreadsheet import channel_spreadsheet_and_plots
 from reporting.spreadsheets.hycross_spreadsheet import hycross_spreadsheet_and_plots
 from reporting.spreadsheets.hydrostruct_spreadsheet import hydrostruct_spreadsheet_and_plots
@@ -205,7 +206,20 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             except Exception as e:
                 logger.error(f"Failed to create GeoPackage: {str(e)}")
 
-    # Step 6: Extract and Process SUPER.OUT Data
+    # Step 6: Create Computational Domain Polygon
+    timing_logger.log("Generating computational domain polygon")
+    domain_polygon = create_domain_polygon(
+        geo_df,
+        coord_system,
+        shp_outpath,
+        output_format=output_format,
+    )
+    if domain_polygon:
+        timing_logger.log(
+            f"Computational domain {output_format} created at: {domain_polygon}"
+        )
+
+    # Step 7: Extract and Process SUPER.OUT Data
     super_out_file = get_file_path(file_path, 'SUPER.OUT')
     if check_file_exists(super_out_file):
         timing_logger.log("Extracting data from SUPER.OUT")
@@ -337,7 +351,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info("TIME.OUT file not found. Skipping TIME.OUT data extraction.")
 
-    # Step 7: Process Inflow Data
+    # Step 8: Process Inflow Data
     inflow_file = get_file_path(file_path, 'INFLOW.DAT')
     if check_file_exists(inflow_file):
         timing_logger.log("Extracting inflow data")
@@ -360,7 +374,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         # create_pdf_plots(inflow_data, os.path.join(plots_outpath, 'inflow_plots.pdf'))
         # timing_logger.log(f"Inflow plots PDF created: {os.path.join(plots_outpath, 'inflow_plots.pdf')}")
 
-    # Step 8: Process Outflow Data
+    # Step 9: Process Outflow Data
     outflow_dat_file = get_file_path(file_path, 'OUTFLOW.DAT')
     outnq_file = get_file_path(file_path, 'OUTNQ.OUT')
     
@@ -399,7 +413,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         if not check_file_exists(outnq_file):
             logger.info("OUTNQ.OUT file not found. Skipping outflow data extraction.")
 
-    # Step 9: Process Floodplain Cross Sections
+    # Step 10: Process Floodplain Cross Sections
     fpxsec_requirements_met, missing_fpxsec = check_special_processor_requirements(file_path, 'FPXSEC_HYCROSS')
     if fpxsec_requirements_met:
         timing_logger.log("Processing Floodplain Cross Sections")
@@ -411,7 +425,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info("Floodplain Cross Sections data not found. Skipping this step.")
 
-    # Step 10: Process Hydraulic Structures
+    # Step 11: Process Hydraulic Structures
     hystruc_file = get_file_path(file_path, 'HYSTRUC.DAT')
     if check_file_exists(hystruc_file):
         timing_logger.log("Processing Hydraulic Structures")
@@ -455,7 +469,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info("Hydraulic Structures data not found. Skipping this step.")
 
-    # Step 11: Create Rainfall Spreadsheet and Plot
+    # Step 12: Create Rainfall Spreadsheet and Plot
     rain_file = get_file_path(file_path, 'RAIN.DAT')
     if check_file_exists(rain_file):
         timing_logger.log("Generating Rainfall Spreadsheet and Plot")
@@ -464,7 +478,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info("Rainfall data not found. Skipping this step.")
 
-    # Step 12: Process SWMM Data
+    # Step 13: Process SWMM Data
     swmm_file = get_file_path(file_path, 'SWMM.inp')
     if check_file_exists(swmm_file):
         timing_logger.log("Extracting SWMM Data from SWMM.inp")
@@ -487,7 +501,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info("SWMM Input File (SWMM.inp) not found. Skipping SWMM Data Extraction.")
 
-    # Step 13: Extract SWMM Rating Tables
+    # Step 14: Extract SWMM Rating Tables
     swmm_rating_file = get_file_path(file_path, 'SWMMFLORT.DAT')
     if check_file_exists(swmm_rating_file):
         timing_logger.log("Extracting SWMM Rating Tables")
@@ -499,7 +513,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info("SWMM Rating Tables data not found. Skipping this step.")
 
-    # Step 14: Process Channel Data
+    # Step 15: Process Channel Data
     channel_requirements_met, missing_channel = check_special_processor_requirements(file_path, 'CHANNEL')
     has_required_files = channel_requirements_met
     
@@ -547,12 +561,12 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info(f"Channel data processing skipped. Missing required files: {missing_channel}")
 
-    # Step 15: Calculate Cell Size for Raster Creation
+    # Step 16: Calculate Cell Size for Raster Creation
     timing_logger.log("Calculating cell size for raster generation")
     cell_size = calculate_cell_size(geo_df)
     timing_logger.log(f"Calculated cell size: {cell_size} units")
 
-    # Step 16: Create Rasters for Specified Columns
+    # Step 17: Create Rasters for Specified Columns
     desired_columns = [
         'depth_max', 'xksat', 'psif', 'dtheta', 'abstrinf', 'rtimpf', 'soil_depth',
         'velocity', 'q_max', 'wse_max', 'infil_depth', 'infil_stop', 'time_of_oneft',
@@ -580,7 +594,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             except Exception as e:
                 logger.error(f"Failed to create raster for column '{column}'. Error: {e}")
 
-    # Step 17: Apply Styles to Shapefiles and Rasters (if provided)
+    # Step 18: Apply Styles to Shapefiles and Rasters (if provided)
     if style_folder:
         timing_logger.log("Applying style files to shapefiles and rasters")
         apply_styles(file_path, style_folder, logger)
