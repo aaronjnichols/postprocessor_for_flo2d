@@ -26,6 +26,7 @@ class EnhancedTimingLogger:
             "Creating necessary output directories": 0,
             "Extracting model data from FLO-2D files": 1,
             "Converting model data to GeoDataFrame for spatial processing": 2,
+            "Generating computational domain polygon": 2.5,  # Added domain vectorization step
             "Initiating creation of FLO-2D Points Output": 3,
             "Initiating raster creation for available data columns": 4,
             "Extracting inflow data": 5,
