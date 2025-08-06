@@ -1,6 +1,6 @@
 """
 Enhanced message system for FLO-2D Postprocessor GUI.
-Provides rich formatting, color coding, and user-friendly messaging.
+Provides rich formatting, color coding, and technical messaging for FLO-2D professionals.
 """
 
 import time
@@ -9,55 +9,64 @@ from typing import Dict, Any, Optional
 import tkinter as tk
 from tkinter import ttk
 
+from .message_templates import FLO2DMessageTemplates, FileProcessingResult
+from .smart_message_tracker import SmartMessageTracker
+
 class MessageFormatter:
     """Handles message formatting with colors, icons, and user-friendly text."""
     
     MESSAGE_STYLES = {
-        'info': {'color': '#17a2b8', 'icon': 'ℹ️', 'bg': '#e7f3ff'},
-        'success': {'color': '#28a745', 'icon': '✅', 'bg': '#e8f5e8'}, 
+        # Enhanced technical categories
+        'discovery': {'color': '#6c757d', 'icon': '🔍', 'bg': '#f8f9fa'},
+        'extraction': {'color': '#17a2b8', 'icon': '📄', 'bg': '#e7f3ff'},
         'processing': {'color': '#007bff', 'icon': '⚙️', 'bg': '#e7f1ff'},
-        'warning': {'color': '#ffc107', 'icon': '⚠️', 'bg': '#fff8e1'},
+        'spatial': {'color': '#28a745', 'icon': '🗺️', 'bg': '#e8f5e8'},
+        'validation': {'color': '#ffc107', 'icon': '✅', 'bg': '#fff8e1'},
+        'output': {'color': '#6f42c1', 'icon': '📊', 'bg': '#f3e8ff'},
+        'warning': {'color': '#fd7e14', 'icon': '⚠️', 'bg': '#fff4e6'},
         'error': {'color': '#dc3545', 'icon': '❌', 'bg': '#ffe6e6'},
-        'file': {'color': '#6f42c1', 'icon': '📁', 'bg': '#f3e8ff'},
+        'success': {'color': '#198754', 'icon': '🎉', 'bg': '#d4edda'},
+        
+        # Legacy categories for backward compatibility
+        'info': {'color': '#6c757d', 'icon': 'ℹ️', 'bg': '#f8f9fa'},
+        'file': {'color': '#17a2b8', 'icon': '📁', 'bg': '#e7f3ff'},
         'step': {'color': '#fd7e14', 'icon': '📍', 'bg': '#fff4e6'}
     }
     
     # User-friendly message translations
     FRIENDLY_MESSAGES = {
         # File operations
-        "Extracting model data from FLO-2D files": "📊 Reading your flood model data...",
-        "Model data extraction completed": "📊 Flood model data loaded successfully",
+        "Extracting model data from FLO-2D files": "📊 Extracting model data from FLO-2D files...",
+        "Model data extraction completed": "📊 Model data extraction completed",
         "Creating necessary output directories": "📁 Setting up output folders...",
         "Output directories successfully created": "📁 Output folders ready",
         
         # Data processing
-        "Converting model data to GeoDataFrame for spatial processing": "🗺️ Preparing data for mapping...",
-        "Conversion to GeoDataFrame completed": "🗺️ Geographic data ready for analysis",
-        "Extracting Area Reduction Factors (ARF)": "📊 Reading area reduction data...",
-        "ARF data successfully merged with model data": "📊 Area reduction data integrated",
+        "Converting model data to GeoDataFrame for spatial processing": "🗺️ Converting model data to GeoDataFrame...",
+        "Conversion to GeoDataFrame completed": "🗺️ Converting model data to GeoDataFrame completed",
+        "Extracting Area Reduction Factors (ARF)": "📊 Extracting area reduction factors...",
+        "ARF data successfully merged with model data": "📊 Area reduction factor extraction completed",
         
         # Spatial operations
-        "Initiating creation of FLO-2D Points Output": "📍 Creating flood analysis points...",
-        "Creating raster from gdf": "🖼️ Generating flood depth images...",
-        "Raster creation completed": "🖼️ Flood depth maps created",
+        "Initiating creation of flow direction arrows": "📍 Creating flow direction arrows...",
+        "Creating raster from gdf": "🖼️ Generating model data rasters...",
+        "Raster creation completed": "🖼️ Raster creation completed",
         
         # File processing
-        "Processing Inflow Data": "💧 Analyzing water inflow sources...",
-        "Processing Outflow Data": "🌊 Analyzing water outflow points...",
-        "Extracting outflow data": "🌊 Reading outflow boundary data...",
-        "Extracting inflow data": "💧 Reading inflow boundary data...",
+        "Processing Inflow Data": "💧 Processing inflow data...",
+        "Processing Outflow Data": "🌊 Processing outflow data...",
         
         # Structures
-        "Processing Hydraulic Structures": "🏗️ Analyzing bridges and culverts...",
-        "Processing Floodplain Cross Sections": "📏 Analyzing channel cross-sections...",
+        "Processing Hydraulic Structures": "🏗️ Processing hydraulic structures...",
+        "Processing Floodplain Cross Sections": "📏 Processing floodplain cross-sections...",
         
         # Reports and outputs
-        "Applying style files to shapefiles and rasters": "🎨 Adding visual styling to maps...",
-        "Style application process completed": "🎨 Map styling applied successfully",
+        "Applying style files to shapefiles and rasters": "🎨 Adding GIS styles to geospatial data...",
+        "Style application process completed": "🎨 GIS styling completed",
         
         # Completion
-        "=== FLO-2D Postprocessor Completed Successfully ===": "🎉 Analysis completed successfully!",
-        "FLO-2D Postprocessing completed successfully.": "✅ All flood analysis outputs ready"
+        "=== FLO-2D Postprocessor Completed Successfully ===": "🎉 FLO-2D model postprocessing completed successfully!",
+        "FLO-2D Postprocessing completed successfully.": "✉️ Contact Aaron Nichols for custom postprocessing services."
     }
     
     @classmethod
@@ -106,27 +115,93 @@ class MessageFormatter:
             # Extract the main message before timing info
             return message.split(" (Step time:")[0]
         return message
+    
+    @classmethod
+    def format_file_message(cls, file_type: str, stage: str, result: Optional[FileProcessingResult] = None, 
+                           include_timestamp: bool = True, **kwargs) -> Dict[str, Any]:
+        """
+        Format a technical message for FLO-2D file processing.
+        
+        Args:
+            file_type: FLO-2D file type (e.g., 'TOPO.DAT')
+            stage: Processing stage ('reading', 'processed', 'missing')
+            result: Optional processing result with metadata
+            include_timestamp: Whether to include timestamp
+            **kwargs: Additional template variables
+            
+        Returns:
+            Dictionary with formatted message components
+        """
+        # Get technical message from templates
+        msg_data = FLO2DMessageTemplates.get_file_message(file_type, stage, result, **kwargs)
+        
+        # Format with existing styling system
+        return cls.format_message(
+            message=msg_data['text'],
+            msg_type=msg_data['category'],
+            include_timestamp=include_timestamp
+        )
+    
+    @classmethod
+    def format_processing_message(cls, operation: str, stage: str, include_timestamp: bool = True, **kwargs) -> Dict[str, Any]:
+        """
+        Format a technical message for processing operations.
+        
+        Args:
+            operation: Processing operation type
+            stage: Operation stage ('starting', 'completed')
+            include_timestamp: Whether to include timestamp
+            **kwargs: Template variables
+            
+        Returns:
+            Dictionary with formatted message components
+        """
+        # Get technical message from templates
+        msg_data = FLO2DMessageTemplates.get_processing_message(operation, stage, **kwargs)
+        
+        # Format with existing styling system
+        return cls.format_message(
+            message=msg_data['text'],
+            msg_type=msg_data['category'],
+            include_timestamp=include_timestamp
+        )
 
 
 class ProgressTracker:
-    """Tracks progress across multiple levels (overall and current step)."""
+    """Tracks progress across multiple levels with technical file-specific details."""
     
     def __init__(self):
-        self.total_steps = 10  # Main processing steps
+        self.total_steps = 8  # Streamlined technical steps
         self.current_step = 0
         self.current_step_progress = 0
+        self.current_file = ""
+        self.current_operation = ""
+        self.files_processed = 0
+        self.total_files = 0
+        
+        # Technical step names for FLO-2D professionals
         self.step_names = [
-            "Setup",
-            "Data Loading", 
-            "Spatial Prep",
-            "Point Creation",
-            "Raster Generation",
-            "Inflow Analysis",
-            "Outflow Analysis", 
-            "Structure Analysis",
-            "Report Generation",
-            "Finalization"
+            "File Discovery",
+            "Model Data Extraction", 
+            "Spatial Processing",
+            "Vector Generation",
+            "Raster Creation",
+            "Analysis & Validation",
+            "Output Generation",
+            "Completion"
         ]
+        
+        # Detailed step descriptions
+        self.step_descriptions = {
+            0: "Scanning for FLO-2D model files",
+            1: "Extracting data from .DAT and .OUT files",
+            2: "Converting to geographic coordinate system",
+            3: "Creating shapefiles and vector layers",
+            4: "Generating flood depth and velocity rasters",
+            5: "Validating data integrity and model consistency",
+            6: "Creating technical reports and visualizations",
+            7: "Finalizing outputs and cleanup"
+        }
         
     def set_total_steps(self, total: int):
         """Set the total number of steps."""
@@ -136,10 +211,25 @@ class ProgressTracker:
         """Advance to the next major step."""
         self.current_step = min(self.current_step + 1, self.total_steps)
         self.current_step_progress = 0
+        self.current_file = ""
+        self.current_operation = ""
         
     def set_step_progress(self, progress: float):
         """Set progress within current step (0.0 to 1.0)."""
         self.current_step_progress = max(0.0, min(1.0, progress))
+    
+    def set_current_file(self, filename: str):
+        """Set the current file being processed."""
+        self.current_file = filename
+    
+    def set_current_operation(self, operation: str):
+        """Set the current operation being performed."""
+        self.current_operation = operation
+    
+    def set_file_counts(self, processed: int, total: int):
+        """Set file processing counts."""
+        self.files_processed = processed
+        self.total_files = total
         
     def get_overall_progress(self) -> float:
         """Get overall progress as percentage (0.0 to 1.0)."""
@@ -154,14 +244,33 @@ class ProgressTracker:
         if self.current_step <= len(self.step_names):
             return self.step_names[self.current_step - 1]
         return f"Step {self.current_step}"
+    
+    def get_current_step_description(self) -> str:
+        """Get detailed description of current step."""
+        if self.current_step <= len(self.step_descriptions):
+            return self.step_descriptions.get(self.current_step - 1, "Processing...")
+        return "Processing..."
         
     def get_progress_text(self) -> str:
-        """Get formatted progress text."""
+        """Get formatted technical progress text."""
         overall_pct = int(self.get_overall_progress() * 100)
         step_pct = int(self.current_step_progress * 100)
         step_name = self.get_current_step_name()
         
-        return f"Overall: {overall_pct}% (Step {self.current_step}/{self.total_steps}) | Current: {step_pct}% - {step_name}"
+        # Create detailed progress text for technical users
+        base_text = f"Overall: {overall_pct}% ({self.current_step}/{self.total_steps}) | {step_name}: {step_pct}%"
+        
+        # Add file-specific details if available
+        if self.current_file:
+            base_text += f" - {self.current_file}"
+        elif self.current_operation:
+            base_text += f" - {self.current_operation}"
+        
+        # Add file counts if relevant
+        if self.total_files > 0:
+            base_text += f" ({self.files_processed}/{self.total_files} files)"
+        
+        return base_text
 
 
 class RichMessageFrame(ttk.Frame):
@@ -171,6 +280,8 @@ class RichMessageFrame(ttk.Frame):
         super().__init__(parent, **kwargs)
         self.setup_widgets()
         self.formatter = MessageFormatter()
+        self.message_tracker = SmartMessageTracker(self._message_callback)
+        self.message_map = {}  # message_id -> (start_line, end_line) mapping
         
     def setup_widgets(self):
         """Setup the rich message display widgets."""
@@ -213,24 +324,83 @@ class RichMessageFrame(ttk.Frame):
         self.text_widget.tag_configure('timestamp', foreground='#888888', font=('Segoe UI', 9))
         self.text_widget.tag_configure('success_bold', foreground='#28a745', font=('Segoe UI', 10, 'bold'))
         
-    def add_message(self, message: str, msg_type: str = 'info'):
+    def add_message(self, message: str, msg_type: str = 'info', message_id: str = None):
         """Add a formatted message to the display."""
         formatted = self.formatter.format_message(message, msg_type)
         
         self.text_widget.configure(state='normal')
         
+        # Get current position for message tracking
+        start_line = self.text_widget.index(tk.END)
+        
         # Insert the message with appropriate styling
         self.text_widget.insert(tk.END, formatted['text'] + '\n', msg_type)
+        
+        # Track message position if ID provided
+        if message_id:
+            end_line = self.text_widget.index(tk.END)
+            self.message_map[message_id] = (start_line, end_line)
         
         # Auto-scroll to bottom
         self.text_widget.see(tk.END)
         self.text_widget.configure(state='disabled')
+    
+    def add_file_message(self, file_type: str, stage: str, result: Optional[FileProcessingResult] = None, **kwargs):
+        """Add a technical file processing message."""
+        formatted = self.formatter.format_file_message(file_type, stage, result, **kwargs)
+        self.text_widget.configure(state='normal')
+        self.text_widget.insert(tk.END, formatted['text'] + '\n', formatted['type'])
+        self.text_widget.see(tk.END)
+        self.text_widget.configure(state='disabled')
+    
+    def add_processing_message(self, operation: str, stage: str, **kwargs):
+        """Add a technical processing operation message."""
+        formatted = self.formatter.format_processing_message(operation, stage, **kwargs)
+        self.text_widget.configure(state='normal')
+        self.text_widget.insert(tk.END, formatted['text'] + '\n', formatted['type'])
+        self.text_widget.see(tk.END)
+        self.text_widget.configure(state='disabled')
+    
+    def update_message(self, message_id: str, new_message: str, msg_type: str = 'processing'):
+        """Update an existing message in place."""
+        if message_id not in self.message_map:
+            # Fallback to adding new message
+            self.add_message(new_message, msg_type, message_id)
+            return
         
+        start_line, end_line = self.message_map[message_id]
+        formatted = self.formatter.format_message(new_message, msg_type)
+        
+        self.text_widget.configure(state='normal')
+        self.text_widget.delete(start_line, end_line)
+        self.text_widget.insert(start_line, formatted['text'] + '\n', msg_type)
+        
+        # Update tracking
+        new_end_line = self.text_widget.index(f"{start_line} + 1 line")
+        self.message_map[message_id] = (start_line, new_end_line)
+        
+        self.text_widget.see(tk.END)
+        self.text_widget.configure(state='disabled')
+    
+    def replace_message(self, message_id: str, new_message: str, msg_type: str = 'validation'):
+        """Replace an existing message with new content."""
+        self.update_message(message_id, new_message, msg_type)
+        return message_id
+    
     def clear_messages(self):
         """Clear all messages from display."""
         self.text_widget.configure(state='normal')
         self.text_widget.delete('1.0', tk.END)
         self.text_widget.configure(state='disabled')
+        self.message_map.clear()
+        
+    def _message_callback(self, message: str, category: str, message_id: str = None):
+        """Callback function for the smart message tracker."""
+        self.add_message(message, category, message_id)
+    
+    def get_message_tracker(self) -> SmartMessageTracker:
+        """Get the smart message tracker instance."""
+        return self.message_tracker
 
 
 class StepIndicator(ttk.Frame):

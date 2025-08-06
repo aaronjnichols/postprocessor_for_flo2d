@@ -254,9 +254,9 @@ class FLO2DPostProcessorGUI:
         main_frame.columnconfigure(1, weight=0)
         main_frame.rowconfigure(13, weight=1)  # Updated for rich message frame
 
-    def on_message_received(self, message: str, msg_type: str = 'info'):
+    def on_message_received(self, message: str, msg_type: str = 'info', message_id: str = None):
         """Callback for receiving messages from the processing system."""
-        self.master.after(0, lambda: self.rich_message_frame.add_message(message, msg_type))
+        self.master.after(0, lambda: self.rich_message_frame.add_message(message, msg_type, message_id))
         
     def on_progress_update(self, progress_tracker):
         """Callback for receiving progress updates."""
@@ -349,8 +349,8 @@ class FLO2DPostProcessorGUI:
         # Clear previous messages
         self.rich_message_frame.clear_messages()
         
-        # Add initial message
-        self.rich_message_frame.add_message("🚀 Starting FLO-2D post-processing...", 'processing')
+        # Add initial message using enhanced system
+        self.rich_message_frame.add_message("🔍 Initializing FLO-2D post-processing workflow...", 'discovery')
 
         # Run processing in a separate thread to keep GUI responsive
         threading.Thread(target=self.run_process, daemon=True).start()
@@ -435,33 +435,30 @@ class FLO2DPostProcessorGUI:
         for handler in logger.handlers[:]:
             logger.removeHandler(handler)
             
-        # Add our GUI handler
-        gui_handler = GUIMessageHandler(self.on_message_received)
-        gui_handler.setLevel(logging.INFO)
-        logger.addHandler(gui_handler)
+        # EnhancedTimingLogger will add its own GUI handler, so no need to add one here
+        
+        # Create enhanced timing logger ONCE for the entire processing session
+        self.enhanced_logger = EnhancedTimingLogger(
+            logger, 
+            message_callback=self.on_message_received,
+            progress_callback=self.on_progress_update
+        )
 
         try:
             for i, file_path in enumerate(file_paths, 1):
                 # Reset progress tracker for each folder
                 self.progress_tracker = ProgressTracker()
                 
-                # Update folder progress information
+                # Update folder progress information with technical details
                 folder_name = os.path.basename(file_path)
-                folder_message = f"📁 Processing folder {i}/{total_folders}: {folder_name}"
-                self.on_message_received(folder_message, 'step')
+                folder_message = f"🔍 Scanning FLO-2D project {i}/{total_folders}: {folder_name}"
+                self.on_message_received(folder_message, 'discovery')
                 
                 # Update stats
                 elapsed = time.time() - start_time
                 self.master.after(0, lambda: self.stats_label.config(
                     text=f"Folder {i}/{total_folders} | Elapsed: {self.format_time(elapsed)}"
                 ))
-                
-                # Create enhanced timing logger for this folder
-                self.enhanced_logger = EnhancedTimingLogger(
-                    logger, 
-                    message_callback=self.on_message_received,
-                    progress_callback=self.on_progress_update
-                )
                 
                 # Process the folder with enhanced logging
                 result = self.process_flo2d_with_enhanced_logging(
@@ -523,13 +520,12 @@ class FLO2DPostProcessorGUI:
         # Temporarily redirect the main processing logger to our enhanced system
         original_logger = logging.getLogger('FLO2D_Postprocessor')
         
-        # Clear existing handlers and add our GUI handler
+        # Clear existing handlers - EnhancedTimingLogger will handle GUI messages
         for handler in original_logger.handlers[:]:
             original_logger.removeHandler(handler)
-            
-        gui_handler = GUIMessageHandler(self.on_message_received)
-        gui_handler.setLevel(logging.INFO)
-        original_logger.addHandler(gui_handler)
+        
+        # Prevent propagation to root logger to avoid duplicates
+        original_logger.propagate = False
         
         try:
             # Process with the enhanced logging system - pass our enhanced timing logger

@@ -287,3 +287,19 @@ GFRAGPROB = 'gfragprob'
 LEVFRAGRID = 'levfraggrid'
 LEVFRAGCHAR = 'levfragchar'
 LEVFRAGPROB = 'levfragprob'
+
+# =============================================================================
+# DOMAIN VECTORIZATION CONSTANTS
+# =============================================================================
+
+# Algorithm selection thresholds
+DOMAIN_VECTORIZATION_MIN_GRID_SIZE = 100
+DOMAIN_VECTORIZATION_PRECISION_DECIMALS = 6
+DOMAIN_VECTORIZATION_CHUNK_SIZE = 50000
+
+# Algorithm names
+ALGORITHM_AUTO = 'auto'
+ALGORITHM_BOUNDARY_EDGES = 'boundary_edges'
+ALGORITHM_BOUNDARY_CELLS = 'boundary_cells'
+ALGORITHM_ALL_CELLS = 'all_cells'
+ALGORITHM_BOUNDING_BOX = 'bounding_box'
