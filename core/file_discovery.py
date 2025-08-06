@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple, Optional
 from extraction.out.super_out_extraction import extract_super_out
 from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_data
 from extraction.out.time_out_extraction import extract_time_out_data
-from extraction.dat.arf_dat_extraction import extract_area_reduction_factors
+from extraction.dat.arf_dat_extraction import extract_arf_dat
 from extraction.out.hycross_out_extraction import extract_fpxsec_results
 from extraction.dat.hystruc_dat_extraction import extract_hystruc_results
 from extraction.out.hydrostruct_out_extraction import parse_hydrograph_data
@@ -54,7 +54,7 @@ FLO2D_FILES = {
 }
 
 FILE_EXTRACTORS = {
-    'ARF.DAT': extract_area_reduction_factors,
+    'ARF.DAT': extract_arf_dat,
     'SUPER.OUT': extract_super_out,
     'EVACUATEDFP.OUT': extract_evacuatedfp_data,
     'TIME.OUT': extract_time_out_data,

@@ -66,6 +66,22 @@ postprocessor_for_flo2d/
   def makeFolders(folders):
   ```
 
+- **Helper/Private Functions**: Use leading underscore to indicate internal use
+  ```python
+  # ✅ Good - Public functions
+  def extract_chan_dat(path):
+  def process_channel_data(data):
+  
+  # ✅ Good - Helper/private functions
+  def _parse_segment_header(parts):
+  def _classify_line_type(line):
+  def _validate_channel_geometry(data):
+  
+  # ❌ Bad - Helper functions without underscore
+  def parse_segment_header(parts):  # Should be _parse_segment_header
+  def classify_line_type(line):     # Should be _classify_line_type
+  ```
+
 - **Constants**: Use UPPERCASE with underscores (`SCREAMING_SNAKE_CASE`)
   ```python
   # ✅ Good

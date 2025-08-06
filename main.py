@@ -28,7 +28,7 @@ from core.file_discovery import (
 )
 from core.model_data_extraction import extract_model_data_to_df
 from core.utilities import create_required_folders
-from extraction.dat.arf_dat_extraction import extract_area_reduction_factors, merge_arf_with_model_data
+
 from extraction.dat.hystruc_dat_extraction import extract_hystruc_results
 from extraction.dat.inflow_dat_extraction import extract_inflow_hydrographs
 from extraction.dat.outflow_dat_extraction import extract_outflow_data
@@ -172,15 +172,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     fpxsec_grids = model_data[pd.notna(model_data['fpxsec'])]
     timing_logger.log("Model data extraction completed")
 
-    # Step 3: Extract Area Reduction Factors (ARF)
-    arf_file = get_file_path(file_path, 'ARF.DAT')
-    if check_file_exists(arf_file):
-        timing_logger.log("Extracting Area Reduction Factors (ARF)")
-        arf_df = extract_area_reduction_factors(arf_file)
-        model_data = merge_arf_with_model_data(model_data, arf_df)
-        timing_logger.log("ARF data successfully merged with model data")
-    else:
-        logger.warning(f"ARF file not found at {arf_file}. Skipping ARF extraction.")
+    # Step 3: ARF data is now automatically handled within extract_model_data_to_df
 
     # Step 4: Convert DataFrame to GeoDataFrame
     timing_logger.log("Converting model data to GeoDataFrame for spatial processing")

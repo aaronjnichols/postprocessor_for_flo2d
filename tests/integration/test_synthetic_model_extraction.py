@@ -4,7 +4,7 @@ Integration tests that verify extraction functions work with synthetic model fil
 import pytest
 import pandas as pd
 
-from extraction.dat.arf_dat_extraction import extract_area_reduction_factors
+from extraction.dat.arf_dat_extraction import extract_arf_dat
 from extraction.dat.rain_dat_extraction import extract_rain_data
 from extraction.dat.inflow_dat_extraction import extract_inflow_hydrographs
 from extraction.dat.outflow_dat_extraction import extract_outflow_data
@@ -20,7 +20,7 @@ class TestSyntheticModelExtraction:
         model_path = str(synthetic_model_dir)
         
         # Test ARF extraction
-        arf_df = extract_area_reduction_factors(str(synthetic_model_dir / "ARF.DAT"))
+        arf_df = extract_arf_dat(str(synthetic_model_dir / "ARF.DAT"))
         assert isinstance(arf_df, pd.DataFrame)
         
         # Test RAIN extraction
@@ -63,7 +63,7 @@ class TestSyntheticModelExtraction:
         
         # Test each extractor individually to isolate failures
         try:
-            extract_area_reduction_factors(str(synthetic_model_dir / "ARF.DAT"))
+            extract_arf_dat(str(synthetic_model_dir / "ARF.DAT"))
         except Exception as e:
             errors.append(f"ARF extraction failed: {e}")
             
@@ -100,7 +100,7 @@ class TestSyntheticModelExtraction:
         model_path = str(synthetic_model_dir)
         
         # Extract data from multiple sources
-        arf_df = extract_area_reduction_factors(str(synthetic_model_dir / "ARF.DAT"))
+        arf_df = extract_arf_dat(str(synthetic_model_dir / "ARF.DAT"))
         rain_df = extract_rain_data(model_path)
         
         chan_data = None

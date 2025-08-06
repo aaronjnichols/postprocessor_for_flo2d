@@ -4,7 +4,7 @@ Simple unit tests for ARF.DAT extraction functionality.
 import pytest
 import pandas as pd
 
-from extraction.dat.arf_dat_extraction import extract_area_reduction_factors
+from extraction.dat.arf_dat_extraction import extract_arf_dat
 from core.constants import GRID_ID, AREA_REDUCTION_FACTOR
 
 
@@ -13,7 +13,7 @@ class TestARFExtraction:
     
     def test_extract_arf_from_synthetic_file(self, arf_file):
         """Test that ARF extraction returns expected DataFrame structure."""
-        result_df = extract_area_reduction_factors(str(arf_file))
+        result_df = extract_arf_dat(str(arf_file))
         
         # Basic structure checks
         assert isinstance(result_df, pd.DataFrame)
@@ -34,4 +34,4 @@ class TestARFExtraction:
     def test_arf_file_not_found(self):
         """Test that missing file raises appropriate error."""
         with pytest.raises(FileNotFoundError):
-            extract_area_reduction_factors("nonexistent_file.dat")
+            extract_arf_dat("nonexistent_file.dat")

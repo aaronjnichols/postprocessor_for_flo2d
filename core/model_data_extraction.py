@@ -35,6 +35,7 @@ from extraction.dat.rain_dat_extraction import extract_rain_data
 from extraction.out.super_out_extraction import extract_super_out
 from extraction.dat.infil_dat_extraction import extract_infil_dat
 from extraction.dat.fpxsec_dat_extraction import extract_fpxsec_dat
+from extraction.dat.arf_dat_extraction import extract_arf_dat
 
 
 FILE_EXTRACTORS = {
@@ -52,6 +53,7 @@ FILE_EXTRACTORS = {
     'FINALDEP.OUT': extract_finaldep_out,
     'RAIN.DAT': extract_rain_data,
     'SUPER.OUT': extract_super_out,
+    'ARF.DAT': extract_arf_dat,
 }
 
 
@@ -102,6 +104,14 @@ def extract_model_data_to_df(file_path: str) -> pd.DataFrame:
     logger.info(f"Main dataframe (DEPTH.OUT) shape: {main_df.shape}")
 
     main_df = controlled_merge(main_df, data_frames)
+
+    # Merge ARF data if available
+    if 'ARF.DAT' in data_frames:
+        from core.constants import GRID_ID, AREA_REDUCTION_FACTOR
+        logger.info("Merging ARF.DAT data...")
+        main_df = pd.merge(main_df, data_frames['ARF.DAT'], on=GRID_ID, how='left')
+        main_df[AREA_REDUCTION_FACTOR] = main_df[AREA_REDUCTION_FACTOR].fillna(0.0)
+        logger.info(f"Dataframe shape after merging ARF.DAT: {main_df.shape}")
 
     if 'SUPER.OUT' in data_frames:
         from core.constants import GRID_ID
