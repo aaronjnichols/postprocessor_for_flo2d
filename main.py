@@ -30,12 +30,12 @@ from core.model_data_extraction import extract_model_data_to_df
 from core.utilities import create_required_folders
 
 from extraction.dat.hystruc_dat_extraction import extract_hystruc_results
-from extraction.dat.inflow_dat_extraction import extract_inflow_hydrographs
-from extraction.dat.outflow_dat_extraction import extract_outflow_data
-from extraction.dat.swmm_dat_extraction import extract_swmm_data
-from extraction.dat.swmmflort_dat_extraction import extract_swmm_rating_tables
+from extraction.dat.inflow_dat_extraction import extract_inflow_dat
+from extraction.dat.outflow_dat_extraction import extract_outflow_dat
+from extraction.dat.swmm_inp_extraction import extract_swmm_inp
+from extraction.dat.swmmflort_dat_extraction import extract_swmmflort_dat
 from extraction.out.channel_extraction import extract_channel_data
-from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_data
+from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_out
 from extraction.out.hydrostruct_out_extraction import parse_hydrograph_data
 from extraction.out.hycross_out_extraction import extract_fpxsec_results
 from extraction.out.super_out_extraction import extract_super_out
@@ -259,7 +259,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     evacuatedfp_file = get_file_path(file_path, 'EVACUATEDFP.OUT')
     if check_file_exists(evacuatedfp_file):
         timing_logger.log("Extracting data from EVACUATEDFP.OUT")
-        evacuatedfp_data = extract_evacuatedfp_data(evacuatedfp_file)
+        evacuatedfp_data = extract_evacuatedfp_out(evacuatedfp_file)
         timing_logger.log("EVACUATEDFP.OUT data extraction completed")
 
         # Ensure grid_id is of the same type in both DataFrames
@@ -347,7 +347,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     inflow_file = get_file_path(file_path, 'INFLOW.DAT')
     if check_file_exists(inflow_file):
         timing_logger.log("Extracting inflow data")
-        inflow_data = extract_inflow_hydrographs(file_path)
+        inflow_data = extract_inflow_dat(file_path)
         output_excel_path = os.path.join(plots_outpath, 'inflow_data.xlsx')
         export_hydrograph_to_excel(inflow_data, output_excel_path)
         timing_logger.log(f"Inflow data spreadsheet created: {output_excel_path}")
@@ -374,7 +374,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         timing_logger.log("Extracting outflow data")
         
         # Extract outflow grid data from OUTFLOW.DAT
-        outflow_grid_data = extract_outflow_data(file_path)
+        outflow_grid_data = extract_outflow_dat(file_path)
         
         # Extract outflow hydrograph data from OUTNQ.OUT
         outflow_hydrograph_data = extract_outnq_time_series(file_path)
@@ -474,7 +474,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     swmm_file = get_file_path(file_path, 'SWMM.inp')
     if check_file_exists(swmm_file):
         timing_logger.log("Extracting SWMM Data from SWMM.inp")
-        swmm_data = extract_swmm_data(swmm_file, coord_system)
+        swmm_data = extract_swmm_inp(swmm_file, coord_system)
 
         swmm_qin_file = get_file_path(file_path, 'SWMMQIN.OUT')
         if check_file_exists(swmm_qin_file):
@@ -497,7 +497,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     swmm_rating_file = get_file_path(file_path, 'SWMMFLORT.DAT')
     if check_file_exists(swmm_rating_file):
         timing_logger.log("Extracting SWMM Rating Tables")
-        swmm_rating_tables = extract_swmm_rating_tables(file_path)
+        swmm_rating_tables = extract_swmmflort_dat(file_path)
         timing_logger.log("SWMM Rating Tables extraction completed")
         swmm_rating_tables_and_plots(file_path, swmm_rating_tables)
         rating_tables_excel = os.path.join(plots_outpath, 'swmm_rating_tables.xlsx')
@@ -559,13 +559,32 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     timing_logger.log(f"Calculated cell size: {cell_size} units")
 
     # Step 17: Create Rasters for Specified Columns
-    desired_columns = [
-        'depth_max', 'xksat', 'psif', 'dtheta', 'abstrinf', 'rtimpf', 'soil_depth',
-        'velocity', 'q_max', 'wse_max', 'infil_depth', 'infil_stop', 'time_of_oneft',
-        'time_of_twoft', 'time_to_peak', 'mannings_n', 'topo', 'final_velocity',
-        'final_depth', 'rain_depth', 'arf'
+    # Base columns common to all models
+    base_columns = [
+        'depth_max', 'velocity', 'q_max', 'wse_max', 'infil_depth', 'infil_stop', 
+        'time_of_oneft', 'time_of_twoft', 'time_to_peak', 'mannings_n', 'topo', 
+        'final_velocity', 'final_depth', 'rain_depth', 'arf'
     ]
+    
+    # Add infiltration-specific columns based on what's available in the data
+    infiltration_columns = [
+        # Green-Ampt parameters
+        'xksat', 'psif', 'dtheta', 'abstrinf', 'rtimpf', 'soil_depth',
+        # SCS parameters  
+        'curve_number',
+        # Horton parameters
+        'fhorti', 'fhortf', 'decay_coeff'
+    ]
+    
+    desired_columns = base_columns + infiltration_columns
     raster_columns = [col for col in desired_columns if col in model_data.columns]
+    
+    # Log infiltration-specific columns found
+    found_infiltration_cols = [col for col in infiltration_columns if col in model_data.columns]
+    if found_infiltration_cols:
+        timing_logger.log(f"Found infiltration parameters: {', '.join(found_infiltration_cols)}")
+    else:
+        timing_logger.log("No infiltration parameters found in model data")
 
     timing_logger.log("Initiating raster creation for available data columns")
     logger.debug(f"Available Columns in GeoDataFrame: {list(geo_df.columns)}")
