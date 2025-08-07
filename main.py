@@ -40,7 +40,7 @@ from extraction.out.hydrostruct_out_extraction import extract_hydrostruct_out
 from extraction.out.hycross_out_extraction import extract_hycross_out
 from extraction.out.super_out_extraction import extract_super_out
 from extraction.out.outnq_out_extraction import extract_outnq_out
-from extraction.out.time_out_extraction import extract_time_out_data
+from extraction.out.time_out_extraction import extract_time_out
 from processing.spatial.geospatial import calculate_cell_size, convert_to_geo_dataframe
 from processing.spatial.rasterization import create_raster_from_gdf
 from processing.spatial.vectorization import convert_gdf_to_shapefile
@@ -303,7 +303,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     time_out_file = get_file_path(file_path, 'TIME.OUT')
     if check_file_exists(time_out_file):
         timing_logger.log("Extracting data from TIME.OUT")
-        time_out_data = extract_time_out_data(time_out_file)
+        time_out_data = extract_time_out(file_path)
         timing_logger.log("TIME.OUT data extraction completed")
 
         # Ensure grid_id is of the same type in both DataFrames

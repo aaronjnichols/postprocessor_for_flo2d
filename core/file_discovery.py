@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple, Optional
 
 from extraction.out.super_out_extraction import extract_super_out
 from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_out
-from extraction.out.time_out_extraction import extract_time_out_data
+from extraction.out.time_out_extraction import extract_time_out
 from extraction.dat.arf_dat_extraction import extract_arf_dat
 from extraction.out.hycross_out_extraction import extract_hycross_out
 from extraction.dat.hystruc_dat_extraction import extract_hystruc_results
@@ -57,7 +57,7 @@ FILE_EXTRACTORS = {
     'ARF.DAT': extract_arf_dat,
     'SUPER.OUT': extract_super_out,
     'EVACUATEDFP.OUT': extract_evacuatedfp_out,
-    'TIME.OUT': extract_time_out_data,
+            'TIME.OUT': extract_time_out,
     'INFLOW.DAT': extract_inflow_dat,
     'SWMM.inp': extract_swmm_inp,
     'SWMMFLORT.DAT': extract_swmmflort_dat,
