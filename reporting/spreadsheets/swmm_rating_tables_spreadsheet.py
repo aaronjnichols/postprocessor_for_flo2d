@@ -5,7 +5,7 @@ from openpyxl import Workbook
 from openpyxl.chart import ScatterChart, Reference, Series
 from openpyxl.chart.marker import Marker
 from core.utilities import time_function
-from extraction.dat.swmmflort_dat_extraction import extract_swmm_rating_tables
+from extraction.dat.swmmflort_dat_extraction import extract_swmmflort_dat
 from core.constants import FLOW, STAGE
 
 @time_function
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     
     folder_path = r"R:\_anichols\Projects\_flo2d_postprocessor_tests\Detroit_Basin_Prop100y24h"
     test_file_path = os.path.join(folder_path, "SWMMFLORT.DAT")  # Replace with an actual test file path
-    rating_tables = extract_swmm_rating_tables(test_file_path)
+    rating_tables = extract_swmmflort_dat(test_file_path)
     
     pdf_file, excel_file = swmm_rating_tables_and_plots(test_file_path, rating_tables)
     

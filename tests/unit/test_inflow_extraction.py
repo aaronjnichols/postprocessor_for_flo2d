@@ -4,7 +4,7 @@ Simple unit tests for INFLOW.DAT extraction functionality.
 import pytest
 import pandas as pd
 
-from extraction.dat.inflow_dat_extraction import extract_inflow_hydrographs
+from extraction.dat.inflow_dat_extraction import extract_inflow_dat
 
 
 class TestInflowExtraction:
@@ -12,7 +12,7 @@ class TestInflowExtraction:
     
     def test_extract_inflow_from_synthetic_file(self, synthetic_model_dir):
         """Test that inflow extraction returns expected DataFrame structure."""
-        result_df = extract_inflow_hydrographs(str(synthetic_model_dir))
+        result_df = extract_inflow_dat(str(synthetic_model_dir))
         
         # Basic structure checks
         assert isinstance(result_df, pd.DataFrame)
@@ -39,4 +39,4 @@ class TestInflowExtraction:
         empty_dir.mkdir()
         
         with pytest.raises(FileNotFoundError):
-            extract_inflow_hydrographs(str(empty_dir))
+            extract_inflow_dat(str(empty_dir))

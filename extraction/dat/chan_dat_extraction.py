@@ -1,20 +1,7 @@
-"""
-Module for extracting comprehensive channel data from FLO-2D CHAN.DAT files.
-
-This module provides functions to parse and extract all types of channel data
-from FLO-2D model files, including rectangular, trapezoidal, variable area, and
-natural channels, as well as confluences and other channel-related data.
-"""
-
-# Standard library imports
 import os
 import logging
 from typing import Dict, List, Any, Optional
-
-# Third-party imports
 import pandas as pd
-
-# Local application imports
 from core.utilities import time_function
 from core.constants import GRID_ID
 from core.logger import setup_logger
@@ -361,60 +348,3 @@ def _parse_initial_ws(parts: List[str]) -> Dict[str, Any]:
         GRID_ID: int(parts[0]),
         'initial_ws_elev': float(parts[1])
     }
-
-
-@time_function  
-def validate_chan_data(chan_data: Dict[str, pd.DataFrame]) -> List[str]:
-    """
-    Validate extracted channel data and return list of warnings/errors.
-    
-    Args:
-        chan_data (Dict[str, pd.DataFrame]): Extracted channel data.
-        
-    Returns:
-        List[str]: List of validation warnings and errors.
-    """
-    logger = setup_logger('CHAN_VALIDATION', level=logging.INFO)
-    warnings = []
-    
-    channels_df = chan_data['channels']
-    if not channels_df.empty:
-        # Check for duplicate grid IDs
-        duplicates = channels_df[channels_df[GRID_ID].duplicated()]
-        if not duplicates.empty:
-            warning_msg = f"Duplicate grid IDs found in channels: {duplicates[GRID_ID].tolist()}"
-            warnings.append(warning_msg)
-            logger.warning(warning_msg)
-        
-        # Check for missing Manning's n values
-        missing_n = channels_df[channels_df['manning_n'].isna()]
-        if not missing_n.empty:
-            warning_msg = f"Missing Manning's n values for grids: {missing_n[GRID_ID].tolist()}"
-            warnings.append(warning_msg)
-            logger.warning(warning_msg)
-        
-        # Check for unrealistic Manning's n values
-        bad_n = channels_df[(channels_df['manning_n'] < 0.01) | (channels_df['manning_n'] > 0.25)]
-        if not bad_n.empty:
-            warning_msg = f"Unusual Manning's n values (outside 0.01-0.25): {bad_n[GRID_ID].tolist()}"
-            warnings.append(warning_msg)
-            logger.warning(warning_msg)
-    
-    # Check confluence connectivity
-    confluences_df = chan_data['confluences']
-    if not confluences_df.empty and not channels_df.empty:
-        channel_grids = set(channels_df[GRID_ID])
-        for _, confluence in confluences_df.iterrows():
-            if confluence['tributary_grid'] not in channel_grids:
-                warning_msg = f"Confluence tributary {confluence['tributary_grid']} not in channel elements"
-                warnings.append(warning_msg)
-                logger.warning(warning_msg)
-            if confluence['main_channel_grid'] not in channel_grids:
-                warning_msg = f"Confluence main channel {confluence['main_channel_grid']} not in channel elements"
-                warnings.append(warning_msg)
-                logger.warning(warning_msg)
-    
-    if not warnings:
-        logger.info("Channel data validation completed with no issues")
-    
-    return warnings

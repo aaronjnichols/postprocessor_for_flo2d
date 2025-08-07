@@ -1,23 +1,10 @@
-"""
-Module for extracting outflow data from FLO-2D OUTFLOW.DAT files.
-
-This module provides functions to parse and extract outflow grid cell data
-from FLO-2D model files, identifying grid cells that serve as outflow boundaries.
-"""
-
-# Standard library imports
 import os
 import logging
-
-# Third-party imports
 import pandas as pd
-
-# Local application imports
 from core.constants import OUTFLOW_CODE, GRID_ID
 from core.logger import setup_logger
 
-
-def extract_outflow_data(folder_path):
+def extract_outflow_dat(folder_path):
     """
     Extract outflow grid cell data from OUTFLOW.DAT file.
     

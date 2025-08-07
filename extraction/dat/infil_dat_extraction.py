@@ -18,42 +18,63 @@ from core.logger import setup_logger
 logger = setup_logger('infil_dat_extraction')
 
 
-def extract_infil_dat(path: str) -> pd.DataFrame:
+def get_primary_infiltration_data(infil_data: Dict[str, Union[pd.DataFrame, Dict[str, Any]]]) -> pd.DataFrame:
     """
-    Extract Green-Ampt infiltration data from INFIL.DAT file (backward compatible).
+    Extract the primary spatial infiltration data based on the infiltration method.
     
-    This function maintains backward compatibility by returning only the Green-Ampt
-    spatial data (F lines) as a DataFrame, which matches the original behavior.
+    This function intelligently returns the most relevant spatial data for the given
+    infiltration method, ensuring appropriate data is available for rasterization.
     
     Args:
-        path (str): Path to the directory containing INFIL.DAT file.
+        infil_data (Dict): Result from extract_infil_dat.
         
     Returns:
-        pd.DataFrame: DataFrame with Green-Ampt spatial data columns.
+        pd.DataFrame: Primary spatial infiltration data with GRID_ID column.
         
-    Raises:
-        FileNotFoundError: If INFIL.DAT file is not found.
-        ValueError: If file format is invalid or no Green-Ampt data found.
+    Method-specific behavior:
+        - Method 1 (Green-Ampt): Returns Green-Ampt spatial data
+        - Method 2 (SCS): Returns SCS spatial data  
+        - Method 3 (Combined): Returns merged Green-Ampt + SCS data
+        - Method 4 (Horton): Returns Horton spatial data
     """
-    try:
-        comprehensive_data = extract_infil_dat_comprehensive(path)
-        ga_data = comprehensive_data['green_ampt_spatial']
+    method = infil_data['method_info']['infil_method']
+    
+    if method == 1:  # Green-Ampt only
+        logger.info("Using Green-Ampt spatial data for method 1")
+        return infil_data['green_ampt_spatial']
         
-        if ga_data.empty:
-            logger.warning("No Green-Ampt spatial data found in INFIL.DAT")
-            columns = [GRID_ID, XKSAT, PSIF, DTHETA, ABSTRINF, RTIMPF, SOIL_DEPTH]
-            return pd.DataFrame(columns=columns)
+    elif method == 2:  # SCS Curve Number only
+        logger.info("Using SCS spatial data for method 2")
+        return infil_data['scs_spatial']
+        
+    elif method == 3:  # Combined Green-Ampt and SCS
+        logger.info("Merging Green-Ampt and SCS spatial data for method 3")
+        ga_df = infil_data['green_ampt_spatial']
+        scs_df = infil_data['scs_spatial']
+        
+        if ga_df.empty and scs_df.empty:
+            return pd.DataFrame()
+        elif ga_df.empty:
+            return scs_df
+        elif scs_df.empty:
+            return ga_df
+        else:
+            # Merge Green-Ampt and SCS data on GRID_ID
+            return pd.merge(ga_df, scs_df, on=GRID_ID, how='outer')
             
-        return ga_data
+    elif method == 4:  # Horton
+        logger.info("Using Horton spatial data for method 4")
+        return infil_data['horton_spatial']
         
-    except Exception as e:
-        logger.error(f"Failed to extract infiltration data from {path}: {e}")
-        raise
+    else:
+        logger.warning(f"Unknown infiltration method {method}, returning empty DataFrame")
+        return pd.DataFrame()
 
 
-def extract_infil_dat_comprehensive(path: str) -> Dict[str, Union[pd.DataFrame, Dict[str, Any]]]:
+
+def extract_infil_dat(path: str) -> Dict[str, Union[pd.DataFrame, Dict[str, Any]]]:
     """
-    Extract comprehensive infiltration data from INFIL.DAT file.
+    Extract infiltration data from INFIL.DAT file.
     
     Returns dictionary containing all infiltration data types including method
     information, global parameters, and spatial data for all supported methods.
@@ -325,7 +346,7 @@ def summarize_infil_data(infil_data: Dict[str, Any]) -> Dict[str, Any]:
     Create summary statistics for infiltration data.
     
     Args:
-        infil_data (Dict): Dictionary returned from extract_infil_dat_comprehensive.
+        infil_data (Dict): Dictionary returned from extract_infil_dat.
         
     Returns:
         Dict: Summary statistics including method, counts, and parameter ranges.
@@ -371,7 +392,7 @@ def validate_infil_data(infil_data: Dict[str, Any]) -> List[str]:
     Validate infiltration data and return warnings.
     
     Args:
-        infil_data (Dict): Dictionary returned from extract_infil_dat_comprehensive.
+        infil_data (Dict): Dictionary returned from extract_infil_dat.
         
     Returns:
         List[str]: List of validation warning messages.

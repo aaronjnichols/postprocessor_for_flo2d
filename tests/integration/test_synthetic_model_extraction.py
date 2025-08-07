@@ -5,9 +5,9 @@ import pytest
 import pandas as pd
 
 from extraction.dat.arf_dat_extraction import extract_arf_dat
-from extraction.dat.rain_dat_extraction import extract_rain_data
-from extraction.dat.inflow_dat_extraction import extract_inflow_hydrographs
-from extraction.dat.outflow_dat_extraction import extract_outflow_data
+from extraction.dat.rain_dat_extraction import extract_rain_dat
+from extraction.dat.inflow_dat_extraction import extract_inflow_dat
+from extraction.dat.outflow_dat_extraction import extract_outflow_dat
 from extraction.dat.chan_dat_extraction import extract_chan_dat
 from core.constants import GRID_ID
 
@@ -24,16 +24,16 @@ class TestSyntheticModelExtraction:
         assert isinstance(arf_df, pd.DataFrame)
         
         # Test RAIN extraction
-        rain_df = extract_rain_data(model_path)
+        rain_df = extract_rain_dat(model_path)
         assert isinstance(rain_df, pd.DataFrame)
         
         # Test INFLOW extraction
-        inflow_df = extract_inflow_hydrographs(model_path)
+        inflow_df = extract_inflow_dat(model_path)
         assert isinstance(inflow_df, pd.DataFrame)
         
         # Test OUTFLOW extraction (may fail due to file format)
         try:
-            outflow_df = extract_outflow_data(model_path)
+            outflow_df = extract_outflow_dat(model_path)
             assert isinstance(outflow_df, pd.DataFrame)
         except Exception:
             # Skip if synthetic file format doesn't match expected format
@@ -68,17 +68,17 @@ class TestSyntheticModelExtraction:
             errors.append(f"ARF extraction failed: {e}")
             
         try:
-            extract_rain_data(model_path)
+            extract_rain_dat(model_path)
         except Exception as e:
             errors.append(f"RAIN extraction failed: {e}")
             
         try:
-            extract_inflow_hydrographs(model_path)
+            extract_inflow_dat(model_path)
         except Exception as e:
             errors.append(f"INFLOW extraction failed: {e}")
             
         try:
-            extract_outflow_data(model_path)
+            extract_outflow_dat(model_path)
         except Exception as e:
             # Outflow may fail due to file format - that's acceptable
             pass
@@ -101,7 +101,7 @@ class TestSyntheticModelExtraction:
         
         # Extract data from multiple sources
         arf_df = extract_arf_dat(str(synthetic_model_dir / "ARF.DAT"))
-        rain_df = extract_rain_data(model_path)
+        rain_df = extract_rain_dat(model_path)
         
         chan_data = None
         try:

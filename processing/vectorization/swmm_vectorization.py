@@ -58,7 +58,7 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile"):
     Creates shapefiles or geopackages for SWMM junctions, conduits, and outfalls.
 
     Parameters:
-    - swmm_data: dict of GeoDataFrames from extract_swmm_data
+    - swmm_data: dict of GeoDataFrames from extract_swmm_inp
     - output_path: str, path to save the shapefiles or geopackages
     - output_format: str, "Shapefile" or "GeoPackage"
 
@@ -97,7 +97,7 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile"):
 
 if __name__ == "__main__":
     import sys
-    from extraction.dat.swmm_dat_extraction import extract_swmm_data
+    from extraction.dat.swmm_inp_extraction import extract_swmm_inp
 
     if len(sys.argv) < 4:
         print("Usage: python swmm_vectorization.py <path_to_swmm_file> <epsg_code> <output_format>")
@@ -112,7 +112,7 @@ if __name__ == "__main__":
         print("Output format must be 'Shapefile' or 'GeoPackage'.")
         sys.exit(1)
 
-    swmm_data = extract_swmm_data(file_path, epsg)
+    swmm_data = extract_swmm_inp(file_path, epsg)
 
     output_path = os.path.dirname(file_path)
     shapefile_paths = create_swmm_shapefiles(swmm_data, output_path, output_format)

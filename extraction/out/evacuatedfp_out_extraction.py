@@ -1,7 +1,7 @@
 import pandas as pd
 from core.constants import GRID_ID, NUM_EVACUATIONS
 
-def extract_evacuatedfp_data(file_path):
+def extract_evacuatedfp_out(file_path):
     """
     Extracts data from the EVACUATEDFP.OUT file.
 

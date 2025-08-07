@@ -3,7 +3,6 @@ import pandas as pd
 from extraction.base.extraction_utils import read_with_dask_optimized
 from core.constants import GRID_ID, VELOCITY_MAX, FLOW_DIRECTION, normalize_grid_id
 
-
 def extract_maxqhyd_out(path):
     file_path = os.path.join(path, 'MAXQHYD.OUT')
     df = read_with_dask_optimized(file_path, column_names=None, skiprows=4).compute()

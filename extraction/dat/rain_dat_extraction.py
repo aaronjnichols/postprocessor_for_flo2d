@@ -3,7 +3,7 @@ import pandas as pd
 from core.constants import GRID_ID, RAIN_DEPTH
 
 
-def extract_rain_data(path):
+def extract_rain_dat(path):
     rain_file = os.path.join(path, 'RAIN.DAT')
     with open(rain_file, 'r') as file:
         lines = file.readlines()

@@ -4,7 +4,7 @@ Simple unit tests for OUTFLOW.DAT extraction functionality.
 import pytest
 import pandas as pd
 
-from extraction.dat.outflow_dat_extraction import extract_outflow_data
+from extraction.dat.outflow_dat_extraction import extract_outflow_dat
 from core.constants import OUTFLOW_CODE, GRID_ID
 
 
@@ -13,7 +13,7 @@ class TestOutflowExtraction:
     
     def test_extract_outflow_from_synthetic_file(self, synthetic_model_dir):
         """Test that outflow extraction returns expected DataFrame structure."""
-        result_df = extract_outflow_data(str(synthetic_model_dir))
+        result_df = extract_outflow_dat(str(synthetic_model_dir))
         
         # Basic structure checks
         assert isinstance(result_df, pd.DataFrame)
@@ -33,4 +33,4 @@ class TestOutflowExtraction:
         empty_dir.mkdir()
         
         with pytest.raises(FileNotFoundError):
-            extract_outflow_data(str(empty_dir))
+            extract_outflow_dat(str(empty_dir))

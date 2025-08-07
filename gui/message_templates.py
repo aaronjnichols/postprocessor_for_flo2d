@@ -43,8 +43,8 @@ class FLO2DMessageTemplates:
     FILE_TEMPLATES = {
         # Core Model Files
         'TOPO.DAT': {
-            'description': 'Grid topology and ground elevations',
-            'reading': "Reading TOPO.DAT: Grid topology and ground elevations",
+            'description': 'Grid elevations',
+            'reading': "Reading TOPO.DAT: Grid elevations",
             'processed': "Processed {count:,} grid elements with elevations {min_elev:.1f} to {max_elev:.1f} ft",
             'missing': "TOPO.DAT missing - cannot proceed with flood analysis",
             'category': 'extraction'

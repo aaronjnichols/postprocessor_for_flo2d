@@ -20,8 +20,8 @@ from extraction.base.extraction_utils import (
 )
 from core.file_discovery import get_file_path, check_file_exists
 from extraction.out.depth_out_extraction import extract_depth_out
-from extraction.dat.mannings_n_dat_extraction import extract_mannings_n
-from extraction.dat.topo_dat_extraction import extract_topo
+from extraction.dat.mannings_n_dat_extraction import extract_mannings_n_dat
+from extraction.dat.topo_dat_extraction import extract_topo_dat
 from extraction.out.velfp_out_extraction import extract_velfp_out
 from extraction.out.maxqhyd_out_extraction import extract_maxqhyd_out
 from extraction.out.maxwselev_out_extraction import extract_maxwselev_out
@@ -31,17 +31,17 @@ from extraction.out.timetwoft_out_extraction import extract_timetwoft_out
 from extraction.out.timetopeak_out_extraction import extract_timetopeak_out
 from extraction.out.finalvel_out_extraction import extract_finalvel_out
 from extraction.out.finaldep_out_extraction import extract_finaldep_out
-from extraction.dat.rain_dat_extraction import extract_rain_data
+from extraction.dat.rain_dat_extraction import extract_rain_dat
 from extraction.out.super_out_extraction import extract_super_out
-from extraction.dat.infil_dat_extraction import extract_infil_dat
+from extraction.dat.infil_dat_extraction import extract_infil_dat, get_primary_infiltration_data
 from extraction.dat.fpxsec_dat_extraction import extract_fpxsec_dat
 from extraction.dat.arf_dat_extraction import extract_arf_dat
 
 
 FILE_EXTRACTORS = {
     'DEPTH.OUT': extract_depth_out,
-    'MANNINGS_N.DAT': extract_mannings_n,
-    'TOPO.DAT': extract_topo,
+    'MANNINGS_N.DAT': extract_mannings_n_dat,
+    'TOPO.DAT': extract_topo_dat,
     'VELFP.OUT': extract_velfp_out,
     'MAXQHYD.OUT': extract_maxqhyd_out,
     'MAXWSELEV.OUT': extract_maxwselev_out,
@@ -51,7 +51,7 @@ FILE_EXTRACTORS = {
     'TIMETOPEAK.OUT': extract_timetopeak_out,
     'FINALVEL.OUT': extract_finalvel_out,
     'FINALDEP.OUT': extract_finaldep_out,
-    'RAIN.DAT': extract_rain_data,
+    'RAIN.DAT': extract_rain_dat,
     'SUPER.OUT': extract_super_out,
     'ARF.DAT': extract_arf_dat,
 }
@@ -92,7 +92,9 @@ def extract_model_data_to_df(file_path: str) -> pd.DataFrame:
 
     infil_file = get_file_path(file_path, 'INFIL.DAT')
     if check_file_exists(infil_file):
-        data_frames['INFIL.DAT'] = extract_infil_dat(file_path)
+        # Extract infiltration data and use method-appropriate spatial data
+        infil_data = extract_infil_dat(file_path)
+        data_frames['INFIL.DAT'] = get_primary_infiltration_data(infil_data)
 
     fpxsec_df = extract_fpxsec_dat(file_path)
     if not fpxsec_df.empty:

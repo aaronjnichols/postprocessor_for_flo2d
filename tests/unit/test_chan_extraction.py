@@ -4,7 +4,7 @@ Simple unit tests for CHAN.DAT extraction functionality.
 import pytest
 import pandas as pd
 
-from extraction.dat.chan_dat_extraction import extract_chan_dat, validate_chan_data
+from extraction.dat.chan_dat_extraction import extract_chan_dat
 from core.constants import GRID_ID
 
 
@@ -57,15 +57,3 @@ class TestChanExtraction:
         with pytest.raises(FileNotFoundError):
             extract_chan_dat(str(empty_dir))
             
-    def test_validate_chan_data_with_empty_data(self):
-        """Test validation function with empty data."""
-        empty_data = {
-            'segments': pd.DataFrame(),
-            'channels': pd.DataFrame(),
-            'confluences': pd.DataFrame(),
-            'no_exchange': pd.DataFrame(),
-            'initial_ws': pd.DataFrame()
-        }
-        
-        warnings = validate_chan_data(empty_data)
-        assert isinstance(warnings, list)

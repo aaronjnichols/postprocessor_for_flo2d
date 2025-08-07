@@ -40,7 +40,7 @@ from core.constants import (
 # Set up logger
 logger = logging.getLogger('FLO2D_Postprocessor')
 
-def create_structure_template():
+def _create_structure_template():
     """Create a template dictionary with all possible structure fields."""
     return {
         STRUCTURE_ID: None,
@@ -61,13 +61,13 @@ def create_structure_template():
         STORMDMAXQ: None
     }
 
-def parse_structure_line(line_parts):
+def _parse_structure_line(line_parts):
     """Parse S line - Structure definition."""
     try:
         if len(line_parts) < 10:
             raise ValueError(f"S line requires 10 fields, got {len(line_parts)}")
         
-        structure = create_structure_template()
+        structure = _create_structure_template()
         structure.update({
             STRUCTURE_ID: line_parts[1],
             IFPROCHAN: int(line_parts[2]),
@@ -84,7 +84,7 @@ def parse_structure_line(line_parts):
         logger.warning(f"Error parsing S line: {' '.join(line_parts)}. Error: {e}")
         return None
 
-def parse_rating_curve_line(line_parts, structure_name):
+def _parse_rating_curve_line(line_parts, structure_name):
     """Parse C line - Rating curve data."""
     try:
         if len(line_parts) < 4:
@@ -113,7 +113,7 @@ def parse_rating_curve_line(line_parts, structure_name):
         logger.warning(f"Error parsing C line: {' '.join(line_parts)}. Error: {e}")
         return None
 
-def parse_replacement_curve_line(line_parts, structure_name):
+def _parse_replacement_curve_line(line_parts, structure_name):
     """Parse R line - Replacement rating curve data."""
     try:
         if len(line_parts) < 4:
@@ -142,7 +142,7 @@ def parse_replacement_curve_line(line_parts, structure_name):
         logger.warning(f"Error parsing R line: {' '.join(line_parts)}. Error: {e}")
         return None
 
-def parse_rating_table_line(line_parts, structure_name):
+def _parse_rating_table_line(line_parts, structure_name):
     """Parse T line - Rating table data."""
     try:
         if len(line_parts) < 3:
@@ -158,7 +158,7 @@ def parse_rating_table_line(line_parts, structure_name):
         logger.warning(f"Error parsing T line: {' '.join(line_parts)}. Error: {e}")
         return None
 
-def parse_culvert_line(line_parts, structure_name):
+def _parse_culvert_line(line_parts, structure_name):
     """Parse F line - Culvert equations data."""
     try:
         if len(line_parts) < 6:
@@ -176,7 +176,7 @@ def parse_culvert_line(line_parts, structure_name):
         logger.warning(f"Error parsing F line: {' '.join(line_parts)}. Error: {e}")
         return None
 
-def parse_storm_drain_line(line_parts, structure_name):
+def _parse_storm_drain_line(line_parts, structure_name):
     """Parse D line - Storm drain data."""
     try:
         if len(line_parts) < 3:
@@ -192,23 +192,47 @@ def parse_storm_drain_line(line_parts, structure_name):
         return None
 
 @time_function
-def extract_hystruc_results(file_path):
+def extract_hystruc_results(file_path, return_comprehensive=False):
     """
     Extract hydraulic structure data from HYSTRUC.DAT file.
     
     Args:
         file_path (str): Path to directory containing HYSTRUC.DAT
+        return_comprehensive (bool): If True, return all extracted data types. 
+                                   If False, return legacy tuple format. Default: False
         
     Returns:
-        tuple: (structures_df, rating_curves) where:
-            - structures_df: DataFrame with structure definitions
-            - rating_curves: List of dicts with structure rating curve data for backward compatibility
+        If return_comprehensive=False (default): 
+            tuple: (structures_df, rating_curves) where:
+                - structures_df: DataFrame with structure definitions
+                - rating_curves: List of dicts with structure rating curve data for backward compatibility
+        
+        If return_comprehensive=True:
+            dict: Comprehensive data structure containing:
+                - 'structures_df': DataFrame with structure definitions
+                - 'rating_curves': List of dicts (legacy format for backward compatibility)
+                - 'rating_curves_data': Dict of rating curve coefficients by structure
+                - 'replacement_curves_data': Dict of replacement curve coefficients by structure
+                - 'rating_tables_data': Dict of rating table data by structure
+                - 'culvert_data': Dict of culvert equation parameters by structure
+                - 'storm_drain_data': Dict of storm drain parameters by structure
     """
     hystruc_file_path = os.path.join(file_path, 'HYSTRUC.DAT')
     
     if not os.path.exists(hystruc_file_path):
         logger.error(f"HYSTRUC.DAT not found at {hystruc_file_path}")
-        return pd.DataFrame(), []
+        if return_comprehensive:
+            return {
+                'structures_df': pd.DataFrame(),
+                'rating_curves': [],
+                'rating_curves_data': {},
+                'replacement_curves_data': {},
+                'rating_tables_data': {},
+                'culvert_data': {},
+                'storm_drain_data': {}
+            }
+        else:
+            return pd.DataFrame(), []
     
     # Data containers
     structures = {}
@@ -238,7 +262,7 @@ def extract_hystruc_results(file_path):
             try:
                 if line_type == 'S':
                     # Structure definition
-                    structure = parse_structure_line(line_parts)
+                    structure = _parse_structure_line(line_parts)
                     if structure:
                         structure_name = structure[STRUCTURE_ID]
                         structures[structure_name] = structure
@@ -248,7 +272,7 @@ def extract_hystruc_results(file_path):
                 elif line_type == 'C':
                     # Rating curve
                     if current_structure:
-                        curve_data = parse_rating_curve_line(line_parts, current_structure)
+                        curve_data = _parse_rating_curve_line(line_parts, current_structure)
                         if curve_data:
                             if current_structure not in rating_curves_data:
                                 rating_curves_data[current_structure] = []
@@ -257,7 +281,7 @@ def extract_hystruc_results(file_path):
                 elif line_type == 'R':
                     # Replacement rating curve
                     if current_structure:
-                        replacement_data = parse_replacement_curve_line(line_parts, current_structure)
+                        replacement_data = _parse_replacement_curve_line(line_parts, current_structure)
                         if replacement_data:
                             if current_structure not in replacement_curves_data:
                                 replacement_curves_data[current_structure] = []
@@ -266,7 +290,7 @@ def extract_hystruc_results(file_path):
                 elif line_type == 'T':
                     # Rating table
                     if current_structure:
-                        table_data = parse_rating_table_line(line_parts, current_structure)
+                        table_data = _parse_rating_table_line(line_parts, current_structure)
                         if table_data:
                             if current_structure not in rating_tables_data:
                                 rating_tables_data[current_structure] = []
@@ -275,7 +299,7 @@ def extract_hystruc_results(file_path):
                 elif line_type == 'F':
                     # Culvert equations
                     if current_structure:
-                        culvert_info = parse_culvert_line(line_parts, current_structure)
+                        culvert_info = _parse_culvert_line(line_parts, current_structure)
                         if culvert_info:
                             culvert_data[current_structure] = culvert_info
                             # Update structure with culvert data for backward compatibility
@@ -291,7 +315,7 @@ def extract_hystruc_results(file_path):
                 elif line_type == 'D':
                     # Storm drain
                     if current_structure:
-                        storm_data = parse_storm_drain_line(line_parts, current_structure)
+                        storm_data = _parse_storm_drain_line(line_parts, current_structure)
                         if storm_data:
                             storm_drain_data[current_structure] = storm_data
                             # Update structure with storm drain data
@@ -339,7 +363,19 @@ def extract_hystruc_results(file_path):
                f"{len(rating_curves_data)} rating curve definitions, {len(replacement_curves_data)} replacement curves, "
                f"{len(culvert_data)} culvert definitions, {len(storm_drain_data)} storm drain definitions")
     
-    return structures_df, rating_curves
+    if return_comprehensive:
+        return {
+            'structures_df': structures_df,
+            'rating_curves': rating_curves,
+            'rating_curves_data': rating_curves_data,
+            'replacement_curves_data': replacement_curves_data,
+            'rating_tables_data': rating_tables_data,
+            'culvert_data': culvert_data,
+            'storm_drain_data': storm_drain_data
+        }
+    else:
+        # Backward compatibility - return original tuple format
+        return structures_df, rating_curves
 
 @time_function  
 def extract_rating_curves(file_path):
@@ -381,26 +417,5 @@ def get_comprehensive_structure_data(file_path):
             'storm_drain_data': {}
         }
     
-    # For now, return the basic extraction - this could be enhanced later if needed
-    structures_df, rating_curves = extract_hystruc_results(file_path)
-    
-    return {
-        'structures_df': structures_df,
-        'rating_curves': rating_curves,
-        'rating_curves_data': {},
-        'replacement_curves_data': {},
-        'rating_tables_data': {},
-        'culvert_data': {},
-        'storm_drain_data': {}
-    }
-
-# If you want to test the functions when the script is run directly
-if __name__ == "__main__":
-    test_file_path = "path/to/your/HYSTRUC.DAT"  # Replace with an actual test file path
-    df, rating_curves = extract_hystruc_results(os.path.dirname(test_file_path))
-    print(f"Extracted {len(df)} structures")
-    print(f"Extracted {len(rating_curves)} rating curves")
-    if not df.empty:
-        print("\nStructure columns:", list(df.columns))
-        print("\nFirst few structures:")
-        print(df.head())
+    # Use the enhanced extraction to get all data types
+    return extract_hystruc_results(file_path, return_comprehensive=True)

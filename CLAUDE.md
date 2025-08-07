@@ -171,6 +171,7 @@ Recent optimizations include:
 Follow the comprehensive style guide in `STYLE_GUIDE.md`. Key points:
 - Use `snake_case` for functions and variables
 - Use `PascalCase` for classes
+- **Helper/private functions**: Prefix with underscore (`_helper_function`)
 - Organize imports: standard library → third-party → local
 - Include comprehensive docstrings using Google style
 - Use descriptive function names that indicate purpose

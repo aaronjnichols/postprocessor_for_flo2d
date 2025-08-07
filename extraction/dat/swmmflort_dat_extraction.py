@@ -4,7 +4,7 @@ from core.utilities import time_function
 from core.constants import STAGE, FLOW
 
 @time_function
-def extract_swmm_rating_tables(file_path):
+def extract_swmmflort_dat(file_path):
     """
     Extracts rating tables from a SWMMFLORT.DAT file.
 
@@ -48,15 +48,3 @@ def extract_swmm_rating_tables(file_path):
         return []
 
     return rating_tables
-
-# If you want to test the function when the script is run directly
-if __name__ == "__main__":
-# Example usage
-    folder_path = r"R:\_anichols\Projects\_flo2d_postprocessor_tests\Detroit_Basin_Prop100y24h"
-    rating_data = extract_swmm_rating_tables(folder_path)
-
-    # Print the extracted data
-    for table in rating_data:
-        print(f"Table: {table['Table']}")
-        print(table['Data'])
-        print()

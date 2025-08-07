@@ -1,23 +1,11 @@
-"""
-Module for extracting inflow hydrograph data from FLO-2D INFLOW.DAT files.
-
-This module provides functions to parse and extract inflow hydrograph data
-from FLO-2D model files, creating time series data for each inflow grid element.
-"""
-
-# Standard library imports
 import os
 import logging
-
-# Third-party imports
 import pandas as pd
-
-# Local application imports
 from core.logger import setup_logger
 from core.constants import normalize_grid_id
 
 
-def extract_inflow_hydrographs(folder_path):
+def extract_inflow_dat(folder_path):
     """
     Extract inflow hydrograph data from INFLOW.DAT file.
     

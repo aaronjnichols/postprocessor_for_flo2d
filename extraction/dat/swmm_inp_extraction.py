@@ -14,7 +14,7 @@ from core.constants import (
     INLET_OFFSET, OUTLET_OFFSET, INIT_FLOW, MAX_FLOW, X_COORD, Y_COORD
 )
 
-def extract_swmm_data(file_path, epsg):
+def extract_swmm_inp(file_path, epsg):
     """
     Extracts SWMM data from an input file and returns processed GeoDataFrames.
 
@@ -47,15 +47,15 @@ def extract_swmm_data(file_path, epsg):
 
     results = {}
     if sections['JUNCTIONS']:
-        results['junctions'] = process_junctions(sections['JUNCTIONS'], sections['COORDINATES'], epsg)
+        results['junctions'] = _process_junctions(sections['JUNCTIONS'], sections['COORDINATES'], epsg)
     if sections['OUTFALLS']:
-        results['outfalls'] = process_outfalls(sections['OUTFALLS'], sections['COORDINATES'], epsg)
+        results['outfalls'] = _process_outfalls(sections['OUTFALLS'], sections['COORDINATES'], epsg)
     if sections['CONDUITS']:
-        results['conduits'] = process_conduits(sections['CONDUITS'], sections['XSECTIONS'], sections['COORDINATES'], epsg)
+        results['conduits'] = _process_conduits(sections['CONDUITS'], sections['XSECTIONS'], sections['COORDINATES'], epsg)
 
     return results
 
-def process_junctions(junctions_data, coordinates_data, coord_system):
+def _process_junctions(junctions_data, coordinates_data, coord_system):
     """
     Processes the junctions data into a GeoDataFrame using the coordinates from the COORDINATES section.
 
@@ -97,7 +97,7 @@ def process_junctions(junctions_data, coordinates_data, coord_system):
 
     return gdf
 
-def process_outfalls(outfalls_data, coordinates_data, coord_system):
+def _process_outfalls(outfalls_data, coordinates_data, coord_system):
     """
     Processes the outfalls data into a GeoDataFrame using the coordinates from the COORDINATES section.
 
@@ -139,7 +139,7 @@ def process_outfalls(outfalls_data, coordinates_data, coord_system):
 
     return gdf
 
-def process_conduits(conduits_data, xsections_data, coordinates_data, coord_system):
+def _process_conduits(conduits_data, xsections_data, coordinates_data, coord_system):
     """
     Processes the conduits data into a GeoDataFrame using the coordinates from the COORDINATES section.
 
