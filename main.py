@@ -36,10 +36,10 @@ from extraction.dat.swmm_inp_extraction import extract_swmm_inp
 from extraction.dat.swmmflort_dat_extraction import extract_swmmflort_dat
 from extraction.out.channel_extraction import extract_channel_data
 from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_out
-from extraction.out.hydrostruct_out_extraction import parse_hydrograph_data
-from extraction.out.hycross_out_extraction import extract_fpxsec_results
+from extraction.out.hydrostruct_out_extraction import extract_hydrostruct_out
+from extraction.out.hycross_out_extraction import extract_hycross_out
 from extraction.out.super_out_extraction import extract_super_out
-from extraction.out.outnq_out_extraction import extract_outnq_time_series
+from extraction.out.outnq_out_extraction import extract_outnq_out
 from extraction.out.time_out_extraction import extract_time_out_data
 from processing.spatial.geospatial import calculate_cell_size, convert_to_geo_dataframe
 from processing.spatial.rasterization import create_raster_from_gdf
@@ -377,7 +377,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         outflow_grid_data = extract_outflow_dat(file_path)
         
         # Extract outflow hydrograph data from OUTNQ.OUT
-        outflow_hydrograph_data = extract_outnq_time_series(file_path)
+        outnq_data = extract_outnq_out(file_path)
+        outflow_hydrograph_data = outnq_data['time_series']
         
         if not outflow_hydrograph_data.empty:
             # Create outflow spreadsheets (PDF generation disabled)
@@ -409,7 +410,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     fpxsec_requirements_met, missing_fpxsec = check_special_processor_requirements(file_path, 'FPXSEC_HYCROSS')
     if fpxsec_requirements_met:
         timing_logger.log("Processing Floodplain Cross Sections")
-        fpxsec_results = extract_fpxsec_results(file_path)
+        fpxsec_results = extract_hycross_out(file_path)
         fpxsec_shp = create_fpxsec_shapefile(f_path=file_path, coord_system=coord_system, model_data=model_data, fpxsec_results=fpxsec_results, output_format=output_format)
         timing_logger.log(f"Floodplain Cross Sections Output created at: {fpxsec_shp}")
         hycross_files = hycross_spreadsheet_and_plots(file_path)
@@ -427,7 +428,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             timing_logger.log(f"Hydraulic Structures Output created at: {hystruc_shp}")
             
             # Process hydrograph data with error handling
-            hydrograph_data = parse_hydrograph_data(file_path)
+            hydrostruct_data = extract_hydrostruct_out(file_path)
+            hydrograph_data = hydrostruct_data['hydrographs']
             if hydrograph_data:
                 try:
                     hydrostruct_files = hydrostruct_spreadsheet_and_plots(file_path, hydrograph_data)

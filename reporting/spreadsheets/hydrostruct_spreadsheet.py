@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import os
 from core.constants import TIME, INFLOW, OUTFLOW
-from extraction.out.hydrostruct_out_extraction import parse_hydrograph_data
+from extraction.out.hydrostruct_out_extraction import extract_hydrostruct_out
 
 def create_excel_formats(workbook):
     """Create standardized formats for Excel sheets."""

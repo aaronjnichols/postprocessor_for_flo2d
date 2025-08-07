@@ -171,8 +171,9 @@ def create_outnq_spreadsheets_and_plots(folder_path, hydrograph_data=None):
     # If no hydrograph data provided, try to load it
     if hydrograph_data is None:
         try:
-            from extraction.out.outnq_out_extraction import extract_outnq_time_series
-            hydrograph_data = extract_outnq_time_series(folder_path)
+            from extraction.out.outnq_out_extraction import extract_outnq_out
+            outnq_data = extract_outnq_out(folder_path)
+            hydrograph_data = outnq_data['time_series']
         except Exception as e:
             logger.error(f"Failed to load OUTNQ.OUT data: {e}")
             return None, None

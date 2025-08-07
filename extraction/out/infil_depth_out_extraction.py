@@ -1,66 +1,72 @@
 import os
 import logging
 import pandas as pd
-from core.constants import GRID_ID, X_COORD, Y_COORD, INFIL_DEPTH
+from core.utilities import time_function
+from core.constants import GRID_ID, X_COORD, Y_COORD, INFIL_DEPTH, INFIL_STOP
 
 
+@time_function
 def extract_infil_depth_out(path):
     """
     Extract infiltration depth data from INFIL_DEPTH.OUT file.
     
-    INFIL_DEPTH.OUT format: X_COORD Y_COORD INFIL_DEPTH INFIL_STOP
-    Grid IDs are generated sequentially to match the grid ordering.
+    This function reads infiltration depth and termination data for each grid cell.
+    File format: X_COORD Y_COORD INFIL_DEPTH INFIL_STOP
+    Grid IDs are generated sequentially starting from 0 to match grid ordering.
     
     Args:
-        path (str): Path to the directory containing INFIL_DEPTH.OUT file.
+        path (str): Path to the directory containing INFIL_DEPTH.OUT file
         
     Returns:
-        pd.DataFrame: DataFrame with grid_id, x, y, infil_depth, and infil_stop columns.
+        pd.DataFrame: DataFrame with columns [GRID_ID, X_COORD, Y_COORD, INFIL_DEPTH, INFIL_STOP]
+        
+    Raises:
+        FileNotFoundError: If INFIL_DEPTH.OUT file is not found
+        ValueError: If file is empty or contains no valid data
+        RuntimeError: If error reading file
     """
     logger = logging.getLogger('FLO2D_Postprocessor')
     file_path = os.path.join(path, 'INFIL_DEPTH.OUT')
     
     if not os.path.exists(file_path):
-        logger.warning(f"INFIL_DEPTH.OUT file not found at {file_path}")
-        return pd.DataFrame(columns=[GRID_ID, X_COORD, Y_COORD, INFIL_DEPTH, 'infil_stop'])
+        raise FileNotFoundError(f"INFIL_DEPTH.OUT file not found at {file_path}")
     
     try:
-        # Examine file structure first
-        with open(file_path, 'r') as f:
+        # Examine file structure to detect header lines
+        with open(file_path, 'r') as file:
             sample_lines = []
-            for i, line in enumerate(f):
-                if i >= 10:  # Read first 10 lines
+            for line_num, line in enumerate(file):
+                if line_num >= 10:  # Read first 10 lines to detect format
                     break
                 if line.strip():
                     sample_lines.append(line.strip())
         
         if not sample_lines:
-            logger.warning(f"INFIL_DEPTH.OUT file appears to be empty: {file_path}")
-            return pd.DataFrame(columns=[GRID_ID, X_COORD, Y_COORD, INFIL_DEPTH, 'infil_stop'])
+            raise ValueError(f"INFIL_DEPTH.OUT file appears to be empty: {file_path}")
         
-        # Find where data starts (skip headers)
-        skip_rows = 0
-        for i, line in enumerate(sample_lines):
+        # Detect where numeric data starts (skip any header lines)
+        data_start_row = 0
+        for row_idx, line in enumerate(sample_lines):
             parts = line.split()
-            if len(parts) >= 3:  # Should have at least X, Y, depth
+            if len(parts) >= 3:  # Should have at least X, Y, infiltration_depth
                 try:
                     float(parts[0])  # X coordinate
                     float(parts[1])  # Y coordinate  
                     float(parts[2])  # Infiltration depth
-                    skip_rows = i
+                    data_start_row = row_idx
                     break
                 except ValueError:
                     continue
         
-        logger.info(f"INFIL_DEPTH.OUT: Skipping {skip_rows} header lines")
+        logger.info(f"INFIL_DEPTH.OUT: Skipping {data_start_row} header lines")
         
-        # Read the file - typically has format: X Y INFIL_DEPTH INFIL_STOP
+        # Read the file with expected format: X Y INFIL_DEPTH INFIL_STOP
         df = pd.read_csv(
             file_path,
             delim_whitespace=True,
             header=None,
-            names=[X_COORD, Y_COORD, INFIL_DEPTH, 'infil_stop'],
-            skiprows=skip_rows,
+            names=[X_COORD, Y_COORD, INFIL_DEPTH, INFIL_STOP],
+            skiprows=data_start_row,
             dtype=float
         )
         
@@ -70,7 +76,9 @@ def extract_infil_depth_out(path):
         logger.info(f"Successfully read INFIL_DEPTH.OUT: {len(df)} grid points")
         return df
         
+    except FileNotFoundError:
+        raise
+    except ValueError:
+        raise
     except Exception as e:
-        logger.error(f"Error reading INFIL_DEPTH.OUT file: {e}")
-        # Return empty DataFrame to prevent merge issues
-        return pd.DataFrame(columns=[GRID_ID, X_COORD, Y_COORD, INFIL_DEPTH, 'infil_stop'])
+        raise RuntimeError(f"Error reading INFIL_DEPTH.OUT file: {e}") from e

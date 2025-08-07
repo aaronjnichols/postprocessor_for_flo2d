@@ -3,15 +3,15 @@ import logging
 from typing import Dict, List, Tuple, Optional
 
 from extraction.out.super_out_extraction import extract_super_out
-from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_data
+from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_out
 from extraction.out.time_out_extraction import extract_time_out_data
 from extraction.dat.arf_dat_extraction import extract_arf_dat
-from extraction.out.hycross_out_extraction import extract_fpxsec_results
+from extraction.out.hycross_out_extraction import extract_hycross_out
 from extraction.dat.hystruc_dat_extraction import extract_hystruc_results
-from extraction.out.hydrostruct_out_extraction import parse_hydrograph_data
-from extraction.dat.inflow_dat_extraction import extract_inflow_hydrographs
-from extraction.dat.swmm_dat_extraction import extract_swmm_data
-from extraction.dat.swmmflort_dat_extraction import extract_swmm_rating_tables
+from extraction.out.hydrostruct_out_extraction import extract_hydrostruct_out
+from extraction.dat.inflow_dat_extraction import extract_inflow_dat
+from extraction.dat.swmm_inp_extraction import extract_swmm_inp
+from extraction.dat.swmmflort_dat_extraction import extract_swmmflort_dat
 from extraction.out.channel_extraction import extract_channel_data
 
 
@@ -56,17 +56,17 @@ FLO2D_FILES = {
 FILE_EXTRACTORS = {
     'ARF.DAT': extract_arf_dat,
     'SUPER.OUT': extract_super_out,
-    'EVACUATEDFP.OUT': extract_evacuatedfp_data,
+    'EVACUATEDFP.OUT': extract_evacuatedfp_out,
     'TIME.OUT': extract_time_out_data,
-    'INFLOW.DAT': extract_inflow_hydrographs,
-    'SWMM.inp': extract_swmm_data,
-    'SWMMFLORT.DAT': extract_swmm_rating_tables,
+    'INFLOW.DAT': extract_inflow_dat,
+    'SWMM.inp': extract_swmm_inp,
+    'SWMMFLORT.DAT': extract_swmmflort_dat,
 }
 
 SPECIAL_PROCESSORS = {
-    'FPXSEC_HYCROSS': ('FPXSEC.DAT', 'HYCROSS.OUT', extract_fpxsec_results),
+            'FPXSEC_HYCROSS': ('FPXSEC.DAT', 'HYCROSS.OUT', extract_hycross_out),
     'HYSTRUC': ('HYSTRUC.DAT', None, extract_hystruc_results),
-    'HYDROSTRUCT': ('HYDROSTRUCT.OUT', None, parse_hydrograph_data),
+            'HYDROSTRUCT': ('HYDROSTRUCT.OUT', None, extract_hydrostruct_out),
     'CHANNEL': (['XSEC.DAT', 'CHAN.DAT'], ['CHANMAX.OUT', 'DEPCH.OUT', 'VELOC.OUT'], extract_channel_data),
 }
 

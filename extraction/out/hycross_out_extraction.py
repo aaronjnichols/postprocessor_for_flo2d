@@ -10,12 +10,16 @@ TIME_MAX_PATTERN = re.compile(r'AT TIME:\s+(\d+\.\d+)\s+HOURS')
 VOL_PATTERN = re.compile(r'VOLUME OF DISCHARGE IS:\s+(\d+\.\d+)\s+AF')
 HYDROGRAPH_PATTERN = re.compile(r'^\s*(\d+\.\d+)', re.MULTILINE)
 
-def read_file(file_path):
-    with open(file_path, 'r') as file:
-        return file.read()
-
-
-def extract_max_q_vol_time(file_lines):
+def _extract_max_q_vol_time(file_lines):
+    """
+    Extract maximum discharge, time, and volume data from HYCROSS.OUT file content.
+    
+    Args:
+        file_lines (str): Content of the HYCROSS.OUT file
+        
+    Returns:
+        pd.DataFrame: DataFrame with FPXSEC ID, max discharge time, max discharge, and volume
+    """
     q_max = re.findall(Q_MAX_PATTERN, file_lines)
     time_max = re.findall(TIME_MAX_PATTERN, file_lines)
     vol = re.findall(VOL_PATTERN, file_lines)
@@ -29,18 +33,37 @@ def extract_max_q_vol_time(file_lines):
     return pd.DataFrame.from_dict(data)
 
 
-def get_start_end_time(file_content):
+def _get_start_end_time(file_content):
+    """
+    Extract start and end times from hydrograph data in the file content.
+    
+    Args:
+        file_content (str): Content of the HYCROSS.OUT file
+        
+    Returns:
+        tuple: (start_time, end_time) or (None, None) if no times found
+    """
     hydrograph_times = re.findall(HYDROGRAPH_PATTERN, file_content)
 
     if hydrograph_times:
         hydrograph_times = [float(t) for t in hydrograph_times]
         return min(hydrograph_times), max(hydrograph_times)
     else:
-        pass
         return None, None
     
 
-def extract_max_wse(file_content, start_time, end_time):
+def _extract_max_wse(file_content, start_time, end_time):
+    """
+    Extract maximum water surface elevation for each section within the specified time range.
+    
+    Args:
+        file_content (str): Content of the HYCROSS.OUT file
+        start_time (float): Start time for analysis
+        end_time (float): End time for analysis
+        
+    Returns:
+        list: Maximum water surface elevation values for each section
+    """
     wse_max_values = []
     wse = []
 
@@ -54,38 +77,57 @@ def extract_max_wse(file_content, start_time, end_time):
                 wse.append(float(splt[3]))
             elif splt and len(splt) > 3 and float(splt[0]) == end_time:
                 wse_max_values.append(max(wse))
-        except ValueError as e:
+        except ValueError:
             continue
 
     return wse_max_values
 
 
 @time_function
-def extract_fpxsec_results(file_path):
-    file_content = read_file(os.path.join(file_path, 'HYCROSS.OUT'))
-    start_time, end_time = get_start_end_time(file_content)
-    wse_max_values = extract_max_wse(file_content, start_time, end_time)
-    fpxsec_results = extract_max_q_vol_time(file_content)
+def extract_hycross_out(file_path):
+    """
+    Extract floodplain cross-section results from HYCROSS.OUT file.
+    
+    This function extracts maximum discharge, time, volume, and water surface 
+    elevation data for floodplain cross-sections.
+    
+    Args:
+        file_path (str): Path to the directory containing HYCROSS.OUT file
+        
+    Returns:
+        pd.DataFrame: DataFrame with FPXSEC results including Q_MAX, TIME_MAX_DISCHARGE, 
+                     VOL_ACFT, and WSE_MAX columns
+    """
+    with open(os.path.join(file_path, 'HYCROSS.OUT'), 'r') as file:
+        file_content = file.read()
+    start_time, end_time = _get_start_end_time(file_content)
+    wse_max_values = _extract_max_wse(file_content, start_time, end_time)
+    fpxsec_results = _extract_max_q_vol_time(file_content)
 
     if len(wse_max_values) == len(fpxsec_results):
         fpxsec_results[WSE_MAX] = wse_max_values
-    else:
-        pass
 
     return fpxsec_results
 
 
-def extract_hydrograph_data(file_path):
+def extract_hycross_hydrograph_data(folder_path):
     """
     Extracts hydrograph data (time and discharge) from the HYCROSS.OUT file, integrating the maximum discharge
     at its correct time position and extracting the maximum water surface elevation.
     
     Args:
-        file_path (str): Path to the HYCROSS.OUT file
+        folder_path (str): Path to the project folder containing HYCROSS.OUT file
         
     Returns:
         tuple: (hydrograph_data dict, max_wse_info dict)
+        
+    Raises:
+        FileNotFoundError: If HYCROSS.OUT file is not found in the specified folder
     """
+    file_path = os.path.join(folder_path, 'HYCROSS.OUT')
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"HYCROSS.OUT file not found at {file_path}")
+        
     hydrograph_data = {}
     max_discharge_info = {}  # Store max discharge info for each section
     max_wse_info = {}  # Store max water surface elevation info for each section
@@ -145,13 +187,13 @@ def extract_hydrograph_data(file_path):
     for section in hydrograph_data:
         df = pd.DataFrame(hydrograph_data[section], columns=[TIME, DISCHARGE])
         if section in max_discharge_info:
-            df = integrate_max_discharge_in_df(df, max_discharge_info[section])
+            df = _integrate_max_discharge_in_df(df, max_discharge_info[section])
         hydrograph_data[section] = df
 
     return hydrograph_data, max_wse_info
 
 
-def integrate_max_discharge_in_df(hydrograph_data, max_discharge_info):
+def _integrate_max_discharge_in_df(hydrograph_data, max_discharge_info):
     """
     Integrates the maximum discharge information into the DataFrame at its correct time position.
     
@@ -174,20 +216,3 @@ def integrate_max_discharge_in_df(hydrograph_data, max_discharge_info):
         hydrograph_data = hydrograph_data.sort_values(by=TIME).reset_index(drop=True)
 
     return hydrograph_data
-
-
-def extract_hycross_hydrographs(folder_path):
-    """
-    Wrapper function to extract hydrograph data from HYCROSS.OUT file in a project folder.
-    
-    Args:
-        folder_path (str): Path to the project folder containing HYCROSS.OUT
-        
-    Returns:
-        tuple: (hydrograph_data dict, max_wse_info dict)
-    """
-    file_path = os.path.join(folder_path, 'HYCROSS.OUT')
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"HYCROSS.OUT file not found at {file_path}")
-    
-    return extract_hydrograph_data(file_path)

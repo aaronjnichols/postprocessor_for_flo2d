@@ -1,24 +1,13 @@
-"""
-Module for extracting outflow hydrograph data from FLO-2D OUTNQ.OUT files.
-
-This module provides functions to parse and extract outflow hydrograph time series
-and summary statistics from FLO-2D model output files.
-"""
-
-# Standard library imports
 import os
 import re
 import logging
-
-# Third-party imports
 import pandas as pd
-
-# Local application imports
+from core.utilities import time_function
 from core.constants import GRID_ID, TIME, MAX_Q, TIME_PEAK, DISCHARGE
 from core.logger import setup_logger
 
 
-def extract_outnq_summary(folder_path):
+def _extract_outnq_summary(folder_path):
     """
     Extract summary statistics from OUTNQ.OUT file.
     
@@ -26,12 +15,13 @@ def extract_outnq_summary(folder_path):
         folder_path (str): Path to the directory containing OUTNQ.OUT file.
         
     Returns:
-        pd.DataFrame: DataFrame with columns ['grid_id', 'max_q', 'time_peak'] containing
+        pd.DataFrame: DataFrame with columns [GRID_ID, MAX_Q, TIME_PEAK] containing
                      maximum discharge and time to peak for each outflow element.
-                     Returns empty DataFrame on error.
                      
     Raises:
         FileNotFoundError: If OUTNQ.OUT file is not found.
+        ValueError: If no valid data found in file.
+        RuntimeError: If error reading file.
     """
     logger = setup_logger('OUTNQ_OUT', level=logging.INFO)
     file_path = os.path.join(folder_path, 'OUTNQ.OUT')
@@ -49,8 +39,7 @@ def extract_outnq_summary(folder_path):
         max_q_matches = re.findall(max_q_pattern, content)
         
         if not max_q_matches:
-            logger.warning(f"No maximum discharge data found in {file_path}")
-            return pd.DataFrame(columns=[GRID_ID, MAX_Q, TIME_PEAK])
+            raise ValueError(f"No maximum discharge data found in {file_path}")
         
         # Build summary dataframe from regex matches
         summary_data = []
@@ -69,8 +58,7 @@ def extract_outnq_summary(folder_path):
                 continue
         
         if not summary_data:
-            logger.warning(f"No valid maximum discharge data found in {file_path}")
-            return pd.DataFrame(columns=[GRID_ID, MAX_Q, TIME_PEAK])
+            raise ValueError(f"No valid maximum discharge data found in {file_path}")
         
         summary_df = pd.DataFrame(summary_data)
         
@@ -82,15 +70,17 @@ def extract_outnq_summary(folder_path):
         logger.info(f"Successfully extracted {len(summary_df)} outflow summary records from OUTNQ.OUT")
         return summary_df
         
+    except FileNotFoundError:
+        raise
+    except ValueError:
+        raise
     except IOError as e:
-        logger.error(f"Error reading OUTNQ.OUT file: {e}")
-        return pd.DataFrame(columns=[GRID_ID, MAX_Q, TIME_PEAK])
+        raise RuntimeError(f"Error reading OUTNQ.OUT file: {e}") from e
     except Exception as e:
-        logger.error(f"Unexpected error processing OUTNQ.OUT file: {e}", exc_info=True)
-        return pd.DataFrame(columns=[GRID_ID, MAX_Q, TIME_PEAK])
+        raise RuntimeError(f"Unexpected error processing OUTNQ.OUT file: {e}") from e
 
 
-def extract_outnq_time_series(folder_path):
+def _extract_outnq_time_series(folder_path):
     """
     Extract time series hydrograph data from OUTNQ.OUT file.
     
@@ -99,10 +89,12 @@ def extract_outnq_time_series(folder_path):
         
     Returns:
         pd.DataFrame: DataFrame with time as index and grid IDs as columns,
-                     containing discharge values. Returns empty DataFrame on error.
+                     containing discharge values.
                      
     Raises:
         FileNotFoundError: If OUTNQ.OUT file is not found.
+        ValueError: If no valid time series data found.
+        RuntimeError: If error reading or processing file.
     """
     logger = setup_logger('OUTNQ_OUT', level=logging.INFO)
     file_path = os.path.join(folder_path, 'OUTNQ.OUT')
@@ -166,8 +158,7 @@ def extract_outnq_time_series(folder_path):
                     continue
         
         if not ts_data:
-            logger.warning("No time series data found in OUTNQ.OUT")
-            return pd.DataFrame()
+            raise ValueError("No time series data found in OUTNQ.OUT")
         
         # Create DataFrame from the list of dicts
         raw_ts_df = pd.DataFrame(ts_data)
@@ -194,33 +185,51 @@ def extract_outnq_time_series(folder_path):
             return time_series_df
             
         except Exception as e:
-            logger.error(f"Failed to pivot time series data: {e}", exc_info=True)
-            return pd.DataFrame()
+            raise RuntimeError(f"Failed to pivot time series data: {e}") from e
             
+    except FileNotFoundError:
+        raise
+    except ValueError:
+        raise
     except IOError as e:
-        logger.error(f"Error reading OUTNQ.OUT file: {e}")
-        return pd.DataFrame()
+        raise RuntimeError(f"Error reading OUTNQ.OUT file: {e}") from e
     except Exception as e:
-        logger.error(f"Unexpected error processing OUTNQ.OUT file: {e}", exc_info=True)
-        return pd.DataFrame()
+        raise RuntimeError(f"Unexpected error processing OUTNQ.OUT file: {e}") from e
 
 
-def extract_outnq_data(folder_path):
+@time_function
+def extract_outnq_out(folder_path):
     """
-    Extract both summary and time series data from OUTNQ.OUT file.
+    Extract outflow data from OUTNQ.OUT file.
+    
+    This function extracts both summary statistics and time series hydrograph data
+    for outflow elements from FLO-2D model output.
     
     Args:
-        folder_path (str): Path to the directory containing OUTNQ.OUT file.
+        folder_path (str): Path to the directory containing OUTNQ.OUT file
         
     Returns:
-        tuple: (summary_df, time_series_df) where:
-            - summary_df: DataFrame with max discharge and time to peak
-            - time_series_df: DataFrame with time series data
+        dict: Dictionary containing:
+            - 'summary': DataFrame with max discharge and time to peak for each element
+            - 'time_series': DataFrame with time series hydrograph data
                      
     Raises:
-        FileNotFoundError: If OUTNQ.OUT file is not found.
+        FileNotFoundError: If OUTNQ.OUT file is not found
+        ValueError: If no valid data found in file
+        RuntimeError: If error reading or processing file
     """
-    summary_df = extract_outnq_summary(folder_path)
-    time_series_df = extract_outnq_time_series(folder_path)
+    file_path = os.path.join(folder_path, 'OUTNQ.OUT')
     
-    return summary_df, time_series_df 
+    # Check if file exists
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"OUTNQ.OUT file not found at {file_path}")
+    
+    # Extract both summary and time series data
+    summary_df = _extract_outnq_summary(folder_path)
+    time_series_df = _extract_outnq_time_series(folder_path)
+    
+    return {
+        'summary': summary_df,
+        'time_series': time_series_df
+    }
+ 

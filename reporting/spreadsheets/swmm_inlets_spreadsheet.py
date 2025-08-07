@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import xlsxwriter
 from core.constants import TIME, DISCHARGE
-from extraction.out.swmmqin_out_extraction import extract_hydrograph_data
+from extraction.out.swmmqin_out_extraction import extract_swmmqin_out
 
 
 def create_excel_formats(workbook):
@@ -299,7 +299,7 @@ def swmm_inlet_spreadsheets_and_pdf(folder_path):
     excel_output_path = os.path.join(out_folder_path, 'swmm_inlet_hydrographs.xlsx')
 
     # Extract hydrograph data from the SWMM output file
-    inlet_data = extract_hydrograph_data(folder_path)
+    inlet_data = extract_swmmqin_out(folder_path)
 
     # Create enhanced Excel file
     create_excel_with_plots(inlet_data, excel_output_path)

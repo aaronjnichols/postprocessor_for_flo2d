@@ -4,7 +4,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import os
 import xlsxwriter
 from core.constants import TIME, DISCHARGE
-from extraction.out.hycross_out_extraction import extract_hycross_hydrographs
+from extraction.out.hycross_out_extraction import extract_hycross_hydrograph_data
 
 
 def create_excel_formats(workbook):
@@ -302,7 +302,7 @@ def hycross_spreadsheet_and_plots(folder_path):
     output_pdf_path = os.path.join(out_folder_path, 'fpxsec_plots.pdf')
 
     # Extracting hydrograph data from HYCROSS.OUT
-    hydrograph_data, max_wse_info = extract_hycross_hydrographs(folder_path)
+    hydrograph_data, max_wse_info = extract_hycross_hydrograph_data(folder_path)
 
     # Exporting to Excel
     export_hydrographs_to_excel_with_plots(hydrograph_data, max_wse_info, output_excel_path)

@@ -8,7 +8,7 @@ import os
 from core.utilities import time_function
 import logging
 from core.constants import INFLOW_NODE, OUTFLOW_NODE, GRID_ID, STRUCTURE_ID
-from extraction.out.hydrostruct_out_extraction import extract_hydrostruct_peaks
+from extraction.out.hydrostruct_out_extraction import extract_hydrostruct_out
 
 @time_function
 def create_hystruc_shapefile(hystruc_df, model_data_df, coord_system, folder_path, output_path, output_format="Shapefile"):
@@ -30,7 +30,8 @@ def create_hystruc_shapefile(hystruc_df, model_data_df, coord_system, folder_pat
 
     # Merge peak discharge information from HYDROSTRUCT.OUT if available
     try:
-        peaks_df = extract_hydrostruct_peaks(folder_path)
+        hydrostruct_data = extract_hydrostruct_out(folder_path)
+        peaks_df = hydrostruct_data['peaks']
         hystruc_df = pd.merge(hystruc_df, peaks_df, on=STRUCTURE_ID, how='left')
     except FileNotFoundError:
         logger.warning(f"HYDROSTRUCT.OUT not found in {folder_path}. Skipping peak merge.")
