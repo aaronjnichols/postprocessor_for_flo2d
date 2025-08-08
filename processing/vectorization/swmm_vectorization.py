@@ -29,7 +29,7 @@ def save_geodataframe(gdf, output_path, layer_name, coord_system, output_format,
     if output_format == "Shapefile":
         output_file = os.path.join(output_path, f'{layer_name}.shp')
         try:
-            gdf.to_file(output_file, driver="ESRI Shapefile", crs=f"EPSG:{coord_system}")
+            gdf.to_file(output_file, driver="ESRI Shapefile")
             logger.info(f"SWMM {layer_name.capitalize()} Shapefile created at: {output_file}")
         except Exception as e:
             logger.error(f"Failed to create Shapefile for {layer_name}: {str(e)}")

@@ -15,6 +15,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Third-party imports
 import geopandas as gpd
+try:
+    gpd.options.io_engine = "pyogrio"
+except Exception:
+    pass
 import pandas as pd
 
 # Local application imports
@@ -198,13 +202,14 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             except Exception as e:
                 logger.error(f"Failed to create GeoPackage: {str(e)}")
 
-    # Step 6: Create Computational Domain Polygon
+    # Step 6: Create Computational Domain Polygon (fast path via DEPTH.OUT)
     timing_logger.log("Generating computational domain polygon")
+    depth_out_path = get_file_path(file_path, 'DEPTH.OUT')
     domain_polygon = create_domain_polygon(
-        geo_df,
-        coord_system,
-        shp_outpath,
+        coord_system=coord_system,
+        output_path=shp_outpath,
         output_format=output_format,
+        depth_file_path=depth_out_path,
     )
     if domain_polygon:
         timing_logger.log(
@@ -248,7 +253,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             if driver == "GPKG":
                 super_geo_df.to_file(super_file, driver=driver)
             else:
-                super_geo_df.to_file(super_file, driver=driver, crs=f"EPSG:{coord_system}")
+                super_geo_df.to_file(super_file, driver=driver)
             timing_logger.log(f"SUPER.OUT Points {output_format} created at: {super_file}")
         except Exception as e:
             logger.error(f"Failed to create SUPER.OUT Points {output_format}: {str(e)}")
@@ -295,7 +300,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             if driver == "GPKG":
                 evacuatedfp_geo_df.to_file(evacuatedfp_file, driver=driver)
             else:
-                evacuatedfp_geo_df.to_file(evacuatedfp_file, driver=driver, crs=f"EPSG:{coord_system}")
+                evacuatedfp_geo_df.to_file(evacuatedfp_file, driver=driver)
             timing_logger.log(f"EVACUATEDFP.OUT Points {output_format} created at: {evacuatedfp_file}")
         except Exception as e:
             logger.error(f"Failed to create EVACUATEDFP.OUT Points {output_format}: {str(e)}")
@@ -352,7 +357,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             if driver == "GPKG":
                 time_out_geo_df.to_file(time_out_file, driver=driver)
             else:
-                time_out_geo_df.to_file(time_out_file, driver=driver, crs=f"EPSG:{coord_system}")
+                time_out_geo_df.to_file(time_out_file, driver=driver)
             timing_logger.log(f"TIME.OUT Points {output_format} created at: {time_out_file}")
         except Exception as e:
             logger.error(f"Failed to create TIME.OUT Points {output_format}: {str(e)}")

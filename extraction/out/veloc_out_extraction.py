@@ -25,7 +25,7 @@ def extract_veloc_out(path, relevant_grid_ids=None):
     )
 
     # Normalize GRID_ID to 0-based
-    df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
+    df[GRID_ID] = df[GRID_ID].astype('int64') - 1
 
     if relevant_grid_ids is not None:
         df = df[df[GRID_ID].isin(relevant_grid_ids)]

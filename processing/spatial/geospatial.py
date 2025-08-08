@@ -49,8 +49,9 @@ def convert_to_geo_dataframe(df, coord_system=None):
         logger.warning(f"Found {zero_count} grid elements with (0, 0) coordinates")
     
     try:
-        geometry = [Point(xy) for xy in zip(df.x, df.y)]
-        
+        # Use vectorized point creation for speed
+        geometry = gpd.points_from_xy(df['x'], df['y'])
+
         if coord_system:
             geo_df = gpd.GeoDataFrame(df, geometry=geometry, crs=f"EPSG:{coord_system}")
             logger.info(f"Successfully created GeoDataFrame with {len(geo_df)} features and CRS EPSG:{coord_system}")

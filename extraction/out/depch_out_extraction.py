@@ -19,7 +19,7 @@ def extract_depch_out(path, relevant_grid_ids=None):
         engine='python',
     )
 
-    df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
+    df[GRID_ID] = df[GRID_ID].astype('int64') - 1
 
     if relevant_grid_ids is not None:
         df = df[df[GRID_ID].isin(relevant_grid_ids)]

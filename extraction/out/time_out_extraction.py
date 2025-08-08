@@ -57,7 +57,7 @@ def extract_time_out(folder_path):
 
         df = pd.DataFrame(data, columns=[GRID_ID, NUM_TIME_DECREMENTS])
         if not df.empty:
-            df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
+            df[GRID_ID] = df[GRID_ID].astype('int64') - 1
         
         return df
         

@@ -18,7 +18,10 @@ def filter_model_data(model_data):
 
 def create_linestring_from_data(df, fpxsec_id):
     """Create a LineString geometry from dataframe coordinates."""
-    points = [Point(float(row[X_COORD]), float(row[Y_COORD])) for _, row in df.iterrows()]
+    # Vectorized point creation
+    xs = df[X_COORD].to_numpy(dtype=float, copy=False)
+    ys = df[Y_COORD].to_numpy(dtype=float, copy=False)
+    points = [Point(x, y) for x, y in zip(xs, ys)]
     if len(points) > 1:
         return LineString(points)
     else:
@@ -64,7 +67,7 @@ def save_geodataframe(gdf, f_path, coord_system, output_format, logger):
     if output_format == "Shapefile":
         output_file = os.path.join(output_dir, 'fpxsec.shp')
         try:
-            gdf.to_file(output_file, driver="ESRI Shapefile", crs=f"EPSG:{coord_system}")
+            gdf.to_file(output_file, driver="ESRI Shapefile")
             logger.info(f"FLO-2D FPXSEC Shapefile created at: {output_file}")
         except Exception as e:
             logger.error(f"Failed to create Shapefile: {str(e)}")
