@@ -1,55 +1,54 @@
 """
 Constants for FLO-2D Postprocessor
 
-This module contains all standardized column names, constants, and enums used
-throughout the application to ensure consistency and prevent naming conflicts.
+Standardized column names grouped by the FLO-2D file they correspond to.
+Shared/common columns appear first, then per-file sections (# FILENAME.EXT).
 """
 
 # =============================================================================
-# PRIMARY COLUMN NAMES
+# SHARED / COMMON COLUMNS (multi-file)
 # =============================================================================
 
-# Grid and Spatial Columns
+# Basic grid and spatial
 GRID_ID = 'grid_id'
 X_COORD = 'x'
 Y_COORD = 'y'
 GEOMETRY = 'geometry'
 
-# Depth and Elevation Columns
-DEPTH_MAX = 'depth_max'
-DEPTH_SUPER = 'depth_super'
-FINAL_DEPTH = 'final_depth'
-INFIL_DEPTH = 'infil_depth'
-TOPO_ELEVATION = 'topo_elevation'
-WS_ELEVATION = 'ws_elevation'
-MAX_WS_ELEVATION = 'max_ws_elevation'
-
-# Velocity and Flow Columns
-VELOCITY_MAX = 'velocity_max'
-FINAL_VELOCITY = 'final_velocity'
-FLOW_DIRECTION = 'flow_direction'
-MAX_DISCHARGE = 'max_discharge'
+# Common time series columns
+TIME = 'time'
 DISCHARGE = 'discharge'
 
-# Hydraulic Properties
+# General elevation/depth
+WS_ELEVATION = 'ws_elevation'
+
+# Utility identifiers
+TABLE_ID = 'table_id'
+DATA = 'data'
+
+# =============================================================================
+# TOPO.DAT
+# =============================================================================
+TOPO_ELEVATION = 'topo_elevation'
+
+# =============================================================================
+# MANNINGS_N.DAT
+# =============================================================================
 MANNINGS_N = 'mannings_n'
-MAX_FROUDE_NO = 'max_froude_no'
+
+# =============================================================================
+# ARF.DAT
+# =============================================================================
 AREA_REDUCTION_FACTOR = 'arf'
 
-# Time-related Columns
-TIME = 'time'
-TIME_SUPER = 'time_super'
-TIME_ONEFT = 'time_oneft'
-TIME_TWOFT = 'time_twoft'
-TIME_TO_PEAK = 'time_to_peak'
-TIME_MAX_DISCHARGE = 'time_max_discharge'
-TIME_MAX_STAGE = 'time_max_stage'
+# =============================================================================
+# RAIN.DAT
+# =============================================================================
+RAIN_DEPTH = 'rain_depth'
 
-# Outflow-specific Columns
-MAX_Q = 'max_q'
-TIME_PEAK = 'time_peak'
-
-# Infiltration Columns
+# =============================================================================
+# INFIL.DAT
+# =============================================================================
 XKSAT = 'xksat'
 PSIF = 'psif'
 DTHETA = 'dtheta'
@@ -57,39 +56,136 @@ ABSTRINF = 'abstrinf'
 RTIMPF = 'rtimpf'
 SOIL_DEPTH = 'soil_depth'
 
-# Rain Data
-RAIN_DEPTH = 'rain_depth'
+# Method-specific/derived infiltration fields
+CURVE_NUMBER = 'curve_number'
+CHANNEL_ELEMENT = 'channel_element'
+HYDCON = 'hydcon'
+REACH_ID = 'reach_id'
+HYDCX_INITIAL = 'hydcx_initial'
+HYDCX_FINAL = 'hydcx_final'
+FHORTI = 'fhorti'
+FHORTF = 'fhortf'
+DECAY_COEFF = 'decay_coeff'
 
-# Channel-specific Columns
+# =============================================================================
+# INFIL_DEPTH.OUT
+# =============================================================================
+INFIL_DEPTH = 'infil_depth'
+INFIL_STOP = 'infil_stop'
+
+# =============================================================================
+# DEPTH.OUT
+# =============================================================================
+DEPTH_MAX = 'depth_max'
+
+# =============================================================================
+# FINALDEP.OUT
+# =============================================================================
+FINAL_DEPTH = 'final_depth'
+
+# =============================================================================
+# FINALVEL.OUT
+# =============================================================================
+FINAL_VELOCITY = 'final_velocity'
+
+# =============================================================================
+# VELFP.OUT (also used by MAXQHYD.OUT)
+# =============================================================================
+VELOCITY_MAX = 'velocity_max'
+
+# =============================================================================
+# MAXQHYD.OUT
+# =============================================================================
+FLOW_DIRECTION = 'flow_direction'
+
+# =============================================================================
+# MAXWSELEV.OUT
+# =============================================================================
+MAX_WS_ELEVATION = 'max_ws_elevation'
+
+# =============================================================================
+# SUPER.OUT
+# =============================================================================
+MAX_FROUDE_NO = 'max_froude_no'
+DEPTH_SUPER = 'depth_super'
+TIME_SUPER = 'time_super'
+NUM_SUPERCRITICAL_TIMESTEPS = 'num_supercritical_timesteps'
+
+# =============================================================================
+# TIMEONEFT.OUT
+# =============================================================================
+TIME_ONEFT = 'time_oneft'
+
+# =============================================================================
+# TIMETWOFT.OUT
+# =============================================================================
+TIME_TWOFT = 'time_twoft'
+
+# =============================================================================
+# TIMETOPEAK.OUT
+# =============================================================================
+TIME_TO_PEAK = 'time_to_peak'
+
+# =============================================================================
+# TIME.OUT
+# =============================================================================
+NUM_TIME_DECREMENTS = 'num_time_decrements'
+
+# =============================================================================
+# CHANMAX.OUT
+# =============================================================================
 NODE = 'node'  # For channel data where node != grid_id
+MAX_DISCHARGE = 'max_discharge'
+TIME_MAX_DISCHARGE = 'time_max_discharge'
+MAX_STAGE = 'max_stage'
+TIME_MAX_STAGE = 'time_max_stage'
+
+# =============================================================================
+# DEPCH.OUT
+# =============================================================================
 CHANNEL_DEPTH = 'channel_depth'
 CHANNEL_VELOCITY = 'channel_velocity'
-MAX_STAGE = 'max_stage'
 
-# Cross-section Columns
+# =============================================================================
+# XSEC.DAT
+# =============================================================================
 CROSS_SECTION_NUMBER = 'cross_section_number'
 STATION = 'station'
 ELEVATION = 'elevation'
+
+# =============================================================================
+# FPXSEC.DAT
+# =============================================================================
 FPXSEC = 'fpxsec'
 
-# FPXSEC Results Columns
+# =============================================================================
+# HYCROSS.OUT
+# =============================================================================
 FPXS_ID = 'fpxs_id'
 Q_MAX = 'q_max'
 VOL_ACFT = 'vol_acft'
 WSE_MAX = 'wse_max'
 
-# Hydraulic Structure Columns
+# =============================================================================
+# OUTFLOW.DAT
+# =============================================================================
+OUTFLOW_CODE = 'outflow_code'
+
+# =============================================================================
+# OUTNQ.OUT
+# =============================================================================
+MAX_Q = 'max_q'
+TIME_PEAK = 'time_peak'
+
+# =============================================================================
+# HYSTRUC.DAT
+# =============================================================================
 STRUCTURE_ID = 'structure_id'
 INFLOW_NODE = 'inflow_node'
 OUTFLOW_NODE = 'outflow_node'
 STRUCTURE_TYPE = 'structure_type'
-INFLOW = 'inflow'
-OUTFLOW = 'outflow'
 STAGE = 'stage'
 FLOW = 'flow'
-
-# Outflow Data Columns
-OUTFLOW_CODE = 'outflow_code'
 
 # HYSTRUC.DAT Structure Field Constants
 IFPROCHAN = 'ifprochan'
@@ -119,7 +215,15 @@ RACOEF = 'racoef'
 RAEXP = 'raexp'
 ATABLE = 'atable'
 
-# SWMM-specific Columns
+# =============================================================================
+# HYDROSTRUCT.OUT
+# =============================================================================
+INFLOW = 'inflow'
+OUTFLOW = 'outflow'
+
+# =============================================================================
+# SWMM.inp
+# =============================================================================
 SWMM_NAME = 'name'
 INVERT_ELEVATION = 'invert_elevation'
 MAX_DEPTH = 'max_depth'
@@ -137,10 +241,38 @@ OUTLET_OFFSET = 'outlet_offset'
 INIT_FLOW = 'init_flow'
 MAX_FLOW = 'max_flow'
 
-# Count and Status Columns
-NUM_SUPERCRITICAL_TIMESTEPS = 'num_supercritical_timesteps'
+# =============================================================================
+# EVACUATEDFP.OUT
+# =============================================================================
 NUM_EVACUATIONS = 'num_evacuations'
-NUM_TIME_DECREMENTS = 'num_time_decrements'
+
+# =============================================================================
+# LEVEE.DAT
+# =============================================================================
+RAISELEV = 'raiselev'
+ILEVFAIL = 'ilevfail'
+LGRIDNO = 'lgridno'
+LGRIDNO_ORIGINAL = 'lgridno_original'
+REPORT_OVERTOP = 'report_overtop'
+LINE_NUMBER = 'line_number'
+LDIR = 'ldir'
+LEVCREST = 'levcrest'
+DIRECTION_NAME = 'direction_name'
+LFAILGRID = 'lfailgrid'
+LFAILGRID_ORIGINAL = 'lfailgrid_original'
+IS_GLOBAL = 'is_global'
+LFAILDIR = 'lfaildir'
+FAILEVEL = 'failevel'
+FAILTIME = 'failtime'
+LEVBASE = 'levbase'
+FAILWIDTHMAX = 'failwidthmax'
+FAILRATE = 'failrate'
+FAILWIDRATE = 'failwidrate'
+GFRAGCHAR = 'gfragchar'
+GFRAGPROB = 'gfragprob'
+LEVFRAGRID = 'levfraggrid'
+LEVFRAGCHAR = 'levfragchar'
+LEVFRAGPROB = 'levfragprob'
 
 # =============================================================================
 # LEGACY COLUMN NAMES (for backward compatibility during migration)
@@ -240,53 +372,7 @@ OUTPUT_FORMATS = {
 # Coordinate reference systems
 DEFAULT_EPSG = 4326
 
-# =============================================================================
-# ADDITIONAL SPECIALIZED COLUMN NAMES
-# =============================================================================
 
-# Infiltration Termination
-INFIL_STOP = 'infil_stop'
-
-# Additional Infiltration Constants
-CURVE_NUMBER = 'curve_number'
-CHANNEL_ELEMENT = 'channel_element'
-HYDCON = 'hydcon'
-REACH_ID = 'reach_id'
-HYDCX_INITIAL = 'hydcx_initial'
-HYDCX_FINAL = 'hydcx_final'
-FHORTI = 'fhorti'
-FHORTF = 'fhortf'
-DECAY_COEFF = 'decay_coeff'
-
-# Table and Structure Identifiers  
-TABLE_ID = 'table_id'
-DATA = 'data' 
-
-# Levee Columns
-RAISELEV = 'raiselev'
-ILEVFAIL = 'ilevfail'
-LGRIDNO = 'lgridno'
-LGRIDNO_ORIGINAL = 'lgridno_original'
-REPORT_OVERTOP = 'report_overtop'
-LINE_NUMBER = 'line_number'
-LDIR = 'ldir'
-LEVCREST = 'levcrest'
-DIRECTION_NAME = 'direction_name'
-LFAILGRID = 'lfailgrid'
-LFAILGRID_ORIGINAL = 'lfailgrid_original'
-IS_GLOBAL = 'is_global'
-LFAILDIR = 'lfaildir'
-FAILEVEL = 'failevel'
-FAILTIME = 'failtime'
-LEVBASE = 'levbase'
-FAILWIDTHMAX = 'failwidthmax'
-FAILRATE = 'failrate'
-FAILWIDRATE = 'failwidrate'
-GFRAGCHAR = 'gfragchar'
-GFRAGPROB = 'gfragprob'
-LEVFRAGRID = 'levfraggrid'
-LEVFRAGCHAR = 'levfragchar'
-LEVFRAGPROB = 'levfragprob'
 
 # =============================================================================
 # DOMAIN VECTORIZATION CONSTANTS
