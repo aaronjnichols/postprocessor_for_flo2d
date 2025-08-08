@@ -45,3 +45,13 @@ def inflow_file(synthetic_model_dir):
 def outflow_file(synthetic_model_dir):
     """Path to OUTFLOW.DAT test file."""
     return synthetic_model_dir / "OUTFLOW.DAT"
+
+
+@pytest.fixture
+def temp_model_dir(tmp_path):
+    """Create a temporary model directory with a minimal set of files for discovery tests."""
+    temp_dir = tmp_path / "temp_model"
+    temp_dir.mkdir()
+    # Create at least one known extractable file so get_existing_files() returns non-empty
+    (temp_dir / "ARF.DAT").write_text("# minimal ARF content for testing\n")
+    return temp_dir

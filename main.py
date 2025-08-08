@@ -265,12 +265,15 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         # Ensure grid_id is of the same type in both DataFrames
         evacuatedfp_data[GRID_ID] = evacuatedfp_data[GRID_ID].astype(geo_df[GRID_ID].dtype)
 
-        # Merge the evacuatedfp_data with the main GeoDataFrame
-        evacuatedfp_geo_df = geo_df.merge(evacuatedfp_data, on=GRID_ID, how='left')
-        logger.debug(f"Columns in evacuatedfp_geo_df after merge: {list(evacuatedfp_geo_df.columns)}")
-
-        # Filter rows to include only those with non-null values in the evacuatedfp_data columns
-        evacuatedfp_geo_df = evacuatedfp_geo_df.dropna(subset=[NUM_EVACUATIONS])
+        # If the main geo_df already contains NUM_EVACUATIONS (from pooled extraction), avoid duplicate merge
+        if NUM_EVACUATIONS in geo_df.columns:
+            evacuatedfp_geo_df = geo_df[[GRID_ID, NUM_EVACUATIONS, GEOMETRY]].dropna(subset=[NUM_EVACUATIONS])
+        else:
+            # Merge the evacuatedfp_data with the main GeoDataFrame
+            evacuatedfp_geo_df = geo_df.merge(evacuatedfp_data, on=GRID_ID, how='left')
+            logger.debug(f"Columns in evacuatedfp_geo_df after merge: {list(evacuatedfp_geo_df.columns)}")
+            # Filter rows to include only those with non-null values in the evacuatedfp_data columns
+            evacuatedfp_geo_df = evacuatedfp_geo_df.dropna(subset=[NUM_EVACUATIONS])
 
         # Select only the relevant columns for the output file
         columns_to_select = [GRID_ID, NUM_EVACUATIONS, GEOMETRY]
@@ -309,12 +312,25 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         # Ensure grid_id is of the same type in both DataFrames
         time_out_data[GRID_ID] = time_out_data[GRID_ID].astype(geo_df[GRID_ID].dtype)
 
-        # Merge the time_out_data with the main GeoDataFrame
-        time_out_geo_df = geo_df.merge(time_out_data, on=GRID_ID, how='left')
-        logger.debug(f"Columns in time_out_geo_df after merge: {list(time_out_geo_df.columns)}")
-
-        # Filter rows to include only those with non-null values in the time_out_data columns
-        time_out_geo_df = time_out_geo_df.dropna(subset=[NUM_TIME_DECREMENTS])
+        # If the main geo_df already contains NUM_TIME_DECREMENTS (from pooled extraction), avoid duplicate merge
+        if NUM_TIME_DECREMENTS in geo_df.columns:
+            time_out_geo_df = geo_df[[GRID_ID, NUM_TIME_DECREMENTS, GEOMETRY]].dropna(subset=[NUM_TIME_DECREMENTS])
+        else:
+            # Merge the time_out_data with the main GeoDataFrame
+            time_out_geo_df = geo_df.merge(time_out_data, on=GRID_ID, how='left')
+            logger.debug(f"Columns in time_out_geo_df after merge: {list(time_out_geo_df.columns)}")
+            # Filter rows to include only those with non-null values in the time_out_data columns
+            if NUM_TIME_DECREMENTS in time_out_geo_df.columns:
+                subset_col = NUM_TIME_DECREMENTS
+            elif f"{NUM_TIME_DECREMENTS}_y" in time_out_geo_df.columns:
+                # Handle potential suffixing if duplicates occurred for any reason
+                subset_col = f"{NUM_TIME_DECREMENTS}_y"
+                # Normalize to canonical name for output
+                time_out_geo_df = time_out_geo_df.rename(columns={subset_col: NUM_TIME_DECREMENTS})
+                subset_col = NUM_TIME_DECREMENTS
+            else:
+                subset_col = NUM_TIME_DECREMENTS  # Fallback; will raise if missing, surfacing the issue
+            time_out_geo_df = time_out_geo_df.dropna(subset=[subset_col])
 
         # Select only the relevant columns for the output file
         columns_to_select = [GRID_ID, NUM_TIME_DECREMENTS, GEOMETRY]

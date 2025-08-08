@@ -8,6 +8,7 @@ import logging
 import multiprocessing
 import os
 import time
+from typing import Dict, Tuple, Union, Optional, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
@@ -19,6 +20,7 @@ from extraction.base.extraction_utils import (
     controlled_merge,
 )
 from core.file_discovery import get_file_path, check_file_exists
+from core.constants import GRID_ID, NODE, normalize_grid_id
 from extraction.out.depth_out_extraction import extract_depth_out
 from extraction.dat.mannings_n_dat_extraction import extract_mannings_n_dat
 from extraction.dat.topo_dat_extraction import extract_topo_dat
@@ -36,28 +38,169 @@ from extraction.out.super_out_extraction import extract_super_out
 from extraction.dat.infil_dat_extraction import extract_infil_dat, get_primary_infiltration_data
 from extraction.dat.fpxsec_dat_extraction import extract_fpxsec_dat
 from extraction.dat.arf_dat_extraction import extract_arf_dat
+from extraction.out.veloc_out_extraction import extract_veloc_out
+from extraction.out.depch_out_extraction import extract_depch_out
+from extraction.out.time_out_extraction import extract_time_out
+from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_out
+from extraction.out.outnq_out_extraction import extract_outnq_out
+from extraction.dat.outflow_dat_extraction import extract_outflow_dat
+from extraction.out.chanmax_out_extraction import extract_chanmax_out
+from extraction.out.channel_extraction import extract_channel_data
+
+
+def _adapter_evacuatedfp(path: str) -> pd.DataFrame:
+    """Adapter for EVACUATEDFP.OUT which expects a file path and needs GRID_ID normalization."""
+    try:
+        file_path = os.path.join(path, 'EVACUATEDFP.OUT')
+        df = extract_evacuatedfp_out(file_path)
+        if df is not None and not df.empty and GRID_ID in df.columns:
+            df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
+        return df
+    except Exception:
+        # Let upstream logger capture per-future exceptions
+        return pd.DataFrame()
+
+
+def _adapter_outnq_summary(path: str) -> pd.DataFrame:
+    """Adapter to return only the OUTNQ summary table, with normalized GRID_ID."""
+    try:
+        result = extract_outnq_out(path)
+        df = result.get('summary') if isinstance(result, dict) else pd.DataFrame()
+        if df is not None and not df.empty and GRID_ID in df.columns:
+            df = df.copy()
+            df[GRID_ID] = pd.to_numeric(df[GRID_ID], errors='coerce').astype('Int64')
+            df[GRID_ID] = df[GRID_ID].apply(lambda v: normalize_grid_id(int(v)) if pd.notna(v) else v)
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+
+def _adapter_outflow_dat(path: str) -> pd.DataFrame:
+    """Adapter to standardize OUTFLOW.DAT types and normalize GRID_ID if numeric."""
+    df = extract_outflow_dat(path)
+    if df is not None and not df.empty and GRID_ID in df.columns:
+        # Convert to numeric when possible then normalize
+        df = df.copy()
+        df[GRID_ID] = pd.to_numeric(df[GRID_ID], errors='coerce').astype('Int64')
+        df[GRID_ID] = df[GRID_ID].apply(lambda v: normalize_grid_id(int(v)) if pd.notna(v) else v)
+    return df
+
+
+def _adapter_chanmax(path: str) -> pd.DataFrame:
+    """Adapter to rename NODE to GRID_ID so it can merge on GRID_ID."""
+    df = extract_chanmax_out(path)
+    if df is not None and not df.empty and NODE in df.columns:
+        df = df.rename(columns={NODE: GRID_ID})
+    return df
+
+
+def _adapter_infil_primary(path: str) -> pd.DataFrame:
+    """Adapter for INFIL.DAT to return the primary spatial infiltration dataset keyed by GRID_ID."""
+    try:
+        infil_data = extract_infil_dat(path)
+        df = get_primary_infiltration_data(infil_data)
+        return df if df is not None else pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
 
 
 FILE_EXTRACTORS = {
-    'DEPTH.OUT': extract_depth_out,
-    'MANNINGS_N.DAT': extract_mannings_n_dat,
-    'TOPO.DAT': extract_topo_dat,
-    'VELFP.OUT': extract_velfp_out,
-    'MAXQHYD.OUT': extract_maxqhyd_out,
-    'MAXWSELEV.OUT': extract_maxwselev_out,
-    'INFIL_DEPTH.OUT': extract_infil_depth_out,
-    'TIMEONEFT.OUT': extract_timeoneft_out,
-    'TIMETWOFT.OUT': extract_timetwoft_out,
-    'TIMETOPEAK.OUT': extract_timetopeak_out,
-    'FINALVEL.OUT': extract_finalvel_out,
-    'FINALDEP.OUT': extract_finaldep_out,
-    'RAIN.DAT': extract_rain_dat,
-    'SUPER.OUT': extract_super_out,
-    'ARF.DAT': extract_arf_dat,
+    # NOTE: Replaced by EXTRACTOR_REGISTRY below
+}
+
+# P2: Replace simple dict with a registry and profile support
+# merge_key: 'GRID_ID' means regular merge; 'NONE' means ancillary/no merge into main
+EXTRACTOR_REGISTRY: Dict[str, Dict[str, object]] = {
+    # Core/grid-mergeable, lightweight
+    'DEPTH.OUT':        { 'func': extract_depth_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'MANNINGS_N.DAT':   { 'func': extract_mannings_n_dat,   'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'TOPO.DAT':         { 'func': extract_topo_dat,         'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'VELFP.OUT':        { 'func': extract_velfp_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'MAXQHYD.OUT':      { 'func': extract_maxqhyd_out,      'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'MAXWSELEV.OUT':    { 'func': extract_maxwselev_out,    'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'INFIL_DEPTH.OUT':  { 'func': extract_infil_depth_out,  'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'TIMEONEFT.OUT':    { 'func': extract_timeoneft_out,    'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'TIMETWOFT.OUT':    { 'func': extract_timetwoft_out,    'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'TIMETOPEAK.OUT':   { 'func': extract_timetopeak_out,   'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'FINALVEL.OUT':     { 'func': extract_finalvel_out,     'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'FINALDEP.OUT':     { 'func': extract_finaldep_out,     'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'RAIN.DAT':         { 'func': extract_rain_dat,         'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'SUPER.OUT':        { 'func': extract_super_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'ARF.DAT':          { 'func': extract_arf_dat,          'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    # Added pool-wrapped special cases
+    'INFIL.DAT':        { 'func': _adapter_infil_primary,   'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'FPXSEC.DAT':       { 'func': extract_fpxsec_dat,       'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    # P0 quick wins
+    'VELOC.OUT':        { 'func': extract_veloc_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'DEPCH.OUT':        { 'func': extract_depch_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'TIME.OUT':         { 'func': extract_time_out,         'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'EVACUATEDFP.OUT':  { 'func': _adapter_evacuatedfp,     'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'OUTNQ.OUT':        { 'func': _adapter_outnq_summary,   'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'OUTFLOW.DAT':      { 'func': _adapter_outflow_dat,     'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'CHANMAX.OUT':      { 'func': _adapter_chanmax,         'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    # Virtual/optional heavy module
+    'CHANNEL_COMBINED': { 'func': extract_channel_data,     'enabled': False, 'heavy': True,  'merge_key': 'GRID_ID', 'virtual': True, 'depends_on': ['CHAN.DAT'] },
 }
 
 
-def extract_model_data_to_df(file_path: str) -> pd.DataFrame:
+def _resolve_enabled_extractors(
+    performance_profile: str,
+    enable: Optional[Iterable[str]] = None,
+    disable: Optional[Iterable[str]] = None,
+    enable_channel_combined: bool = False,
+) -> Dict[str, Dict[str, object]]:
+    """Return a filtered registry based on profile and explicit enables/disables."""
+    profile = (performance_profile or 'fast').lower()
+
+    # Start from default enabled flags
+    registry = {name: meta.copy() for name, meta in EXTRACTOR_REGISTRY.items()}
+
+    if profile == 'fast':
+        # Disable heavy extractors by default
+        for name, meta in registry.items():
+            if meta.get('heavy'):
+                meta['enabled'] = False
+    elif profile == 'full':
+        for meta in registry.values():
+            meta['enabled'] = True
+    elif profile == 'custom':
+        # Keep defaults, will apply enable/disable below
+        pass
+    else:
+        # Unknown -> treat as fast
+        for name, meta in registry.items():
+            if meta.get('heavy'):
+                meta['enabled'] = False
+
+    # Back-compat explicit channel flag
+    if enable_channel_combined:
+        registry['CHANNEL_COMBINED']['enabled'] = True
+        # Avoid double work with standalone VELOC/DEPCH when combined on
+        registry['VELOC.OUT']['enabled'] = False
+        registry['DEPCH.OUT']['enabled'] = False
+
+    # Apply explicit enables/disables
+    if enable:
+        for name in enable:
+            if name in registry:
+                registry[name]['enabled'] = True
+    if disable:
+        for name in disable:
+            if name in registry:
+                registry[name]['enabled'] = False
+
+    # If CHANNEL_COMBINED is enabled, ensure its dependencies (files) are checked later
+    return {name: meta for name, meta in registry.items() if meta.get('enabled')}
+
+
+def extract_model_data_to_df(
+    file_path: str,
+    enable_channel_combined: bool = False,
+    return_ancillary: bool = False,
+    performance_profile: str = 'fast',
+    enable: Optional[Iterable[str]] = None,
+    disable: Optional[Iterable[str]] = None,
+) -> Union[pd.DataFrame, Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]]:
     """
     Extract and merge data from all available FLO-2D files into a unified DataFrame.
     
@@ -71,13 +214,41 @@ def extract_model_data_to_df(file_path: str) -> pd.DataFrame:
     logger.info("Starting model data extraction")
     start_time = time.time()
 
-    data_frames = {}
-    max_workers = multiprocessing.cpu_count() or 1
+    data_frames: Dict[str, pd.DataFrame] = {}
+    ancillary: Dict[str, pd.DataFrame] = {}
+
+    # Determine enabled extractors per profile and flags
+    enabled_registry = _resolve_enabled_extractors(
+        performance_profile=performance_profile,
+        enable=enable,
+        disable=disable,
+        enable_channel_combined=enable_channel_combined,
+    )
+
+    # Pre-scan for present files and cap workers accordingly
+    present_extractors = []
+    for name, meta in enabled_registry.items():
+        # Virtual entries resolve via dependency presence, non-virtual check file
+        if meta.get('virtual'):
+            depends = meta.get('depends_on') or []
+            # All required files must be present
+            if all(check_file_exists(get_file_path(file_path, dep)) for dep in depends):
+                present_extractors.append((name, meta['func']))
+            else:
+                logger.debug(f"Skipping {name}: missing dependencies {depends}")
+        else:
+            candidate_path = get_file_path(file_path, name)
+            if check_file_exists(candidate_path):
+                present_extractors.append((name, meta['func']))
+            else:
+                logger.debug(f"Skipping {name}: file not present")
+
+    if not present_extractors:
+        logger.warning("No extractable files found during pre-scan.")
+    max_workers = max(1, min(multiprocessing.cpu_count() or 1, len(present_extractors) or 1))
+
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(func, file_path): name
-            for name, func in FILE_EXTRACTORS.items()
-        }
+        futures = {executor.submit(func, file_path): name for name, func in present_extractors}
         for future in as_completed(futures):
             name = futures[future]
             try:
@@ -86,19 +257,32 @@ def extract_model_data_to_df(file_path: str) -> pd.DataFrame:
                     data_frames[name] = df
                     logger.info(f"Processed {name}: {len(df)} rows")
                 else:
-                    logger.warning(f"{name} is empty or None")
+                    logger.info(f"{name} is empty or returned no rows")
             except Exception as e:
                 logger.error(f"Error processing {name}: {e}")
 
+    # Fallback: if INFIL primary not already added by pool but INFIL.DAT exists
     infil_file = get_file_path(file_path, 'INFIL.DAT')
-    if check_file_exists(infil_file):
-        # Extract infiltration data and use method-appropriate spatial data
+    if 'INFIL.DAT' not in data_frames and check_file_exists(infil_file):
         infil_data = extract_infil_dat(file_path)
         data_frames['INFIL.DAT'] = get_primary_infiltration_data(infil_data)
 
-    fpxsec_df = extract_fpxsec_dat(file_path)
-    if not fpxsec_df.empty:
-        data_frames['FPXSEC.DAT'] = fpxsec_df
+    # Fallback: if FPXSEC not already added by pool
+    if 'FPXSEC.DAT' not in data_frames:
+        fpxsec_df = extract_fpxsec_dat(file_path)
+        if not fpxsec_df.empty:
+            data_frames['FPXSEC.DAT'] = fpxsec_df
+
+    # Ancillary: OUTNQ time series kept out of main merge
+    try:
+        outnq_path = get_file_path(file_path, 'OUTNQ.OUT')
+        if check_file_exists(outnq_path):
+            outnq = extract_outnq_out(file_path)
+            ts = outnq.get('time_series') if isinstance(outnq, dict) else None
+            if ts is not None:
+                ancillary['outnq_time_series'] = ts
+    except Exception:
+        pass
 
     verify_grid_ids(data_frames)
 
@@ -123,4 +307,6 @@ def extract_model_data_to_df(file_path: str) -> pd.DataFrame:
 
     main_df = ensure_unique_columns(main_df)
     log_time("Extracting model data", start_time)
+    if return_ancillary:
+        return main_df, ancillary
     return main_df

@@ -38,6 +38,7 @@ FLO2D_FILES = {
     'optional_inputs': [
         'ARF.DAT',
         'INFLOW.DAT',
+        'OUTFLOW.DAT',
         'FPXSEC.DAT',
         'HYCROSS.OUT',
         'HYSTRUC.DAT',
