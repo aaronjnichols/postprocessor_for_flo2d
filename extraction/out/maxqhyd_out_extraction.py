@@ -10,5 +10,5 @@ def extract_maxqhyd_out(path):
     if df.empty:
         return pd.DataFrame(columns=[GRID_ID, VELOCITY_MAX, FLOW_DIRECTION])
     df = df.iloc[:, [0, 7, 8]].rename(columns={0: GRID_ID, 7: VELOCITY_MAX, 8: FLOW_DIRECTION})
-    df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
+    df[GRID_ID] = df[GRID_ID].astype('int64') - 1
     return df

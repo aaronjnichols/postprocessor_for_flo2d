@@ -92,7 +92,7 @@ def _process_junctions(junctions_data, coordinates_data, coord_system):
     df_coords[[X_COORD, Y_COORD]] = df_coords[[X_COORD, Y_COORD]].apply(pd.to_numeric, errors='coerce')
 
     df_merged = pd.merge(df_junctions, df_coords, on=SWMM_NAME, how='left')
-    geometry = [Point(xy) for xy in zip(df_merged[X_COORD], df_merged[Y_COORD])]
+    geometry = gpd.points_from_xy(df_merged[X_COORD], df_merged[Y_COORD])
     gdf = gpd.GeoDataFrame(df_merged, geometry=geometry, crs=f"EPSG:{coord_system}")
 
     return gdf
@@ -134,7 +134,7 @@ def _process_outfalls(outfalls_data, coordinates_data, coord_system):
     df_coords[['X_Coord', 'Y_Coord']] = df_coords[['X_Coord', 'Y_Coord']].apply(pd.to_numeric, errors='coerce')
 
     df_merged = pd.merge(df_outfalls, df_coords, on='Name', how='left')
-    geometry = [Point(xy) for xy in zip(df_merged['X_Coord'], df_merged['Y_Coord'])]
+    geometry = gpd.points_from_xy(df_merged['X_Coord'], df_merged['Y_Coord'])
     gdf = gpd.GeoDataFrame(df_merged, geometry=geometry, crs=f"EPSG:{coord_system}")
 
     return gdf

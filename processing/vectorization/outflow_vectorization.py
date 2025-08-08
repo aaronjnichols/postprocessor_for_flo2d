@@ -124,7 +124,7 @@ def create_outflow_points(
     if output_format == "Shapefile":
         output_file = os.path.join(output_path, "outflow_nodes.shp")
         try:
-            gdf.to_file(output_file, driver="ESRI Shapefile", crs=f"EPSG:{coord_system}")
+            gdf.to_file(output_file, driver="ESRI Shapefile")
             logger.info(f"Outflow nodes Shapefile created at: {output_file}")
         except Exception as e:
             logger.error(f"Failed to create Shapefile: {e}")
