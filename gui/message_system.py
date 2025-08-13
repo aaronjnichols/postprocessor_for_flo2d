@@ -36,37 +36,37 @@ class MessageFormatter:
     # User-friendly message translations
     FRIENDLY_MESSAGES = {
         # File operations
-        "Extracting model data from FLO-2D files": "📊 Extracting model data from FLO-2D files...",
-        "Model data extraction completed": "📊 Model data extraction completed",
-        "Creating necessary output directories": "📁 Setting up output folders...",
-        "Output directories successfully created": "📁 Output folders ready",
+        "Extracting model data from FLO-2D files": "Extracting model data from FLO-2D files...",
+        "Model data extraction completed": "Model data extraction completed",
+        "Creating necessary output directories": "Setting up output folders...",
+        "Output directories successfully created": "Output folders ready",
         
         # Data processing
-        "Converting model data to GeoDataFrame for spatial processing": "🗺️ Converting model data to GeoDataFrame...",
-        "Conversion to GeoDataFrame completed": "🗺️ Converting model data to GeoDataFrame completed",
-        "Extracting Area Reduction Factors (ARF)": "📊 Extracting area reduction factors...",
-        "ARF data successfully merged with model data": "📊 Area reduction factor extraction completed",
+        "Converting model data to GeoDataFrame for spatial processing": "Converting model data to GeoDataFrame...",
+        "Conversion to GeoDataFrame completed": "Converting model data to GeoDataFrame completed",
+        "Extracting Area Reduction Factors (ARF)": "Extracting area reduction factors...",
+        "ARF data successfully merged with model data": "Area reduction factor extraction completed",
         
         # Spatial operations
-        "Initiating creation of flow direction arrows": "📍 Creating flow direction arrows...",
-        "Creating raster from gdf": "🖼️ Generating model data rasters...",
-        "Raster creation completed": "🖼️ Raster creation completed",
+        "Initiating creation of flow direction arrows": "Creating flow direction arrows...",
+        "Creating raster from gdf": "Generating model data rasters...",
+        "Raster creation completed": "Raster creation completed",
         
         # File processing
-        "Processing Inflow Data": "💧 Processing inflow data...",
-        "Processing Outflow Data": "🌊 Processing outflow data...",
+        "Processing Inflow Data": "Processing inflow data...",
+        "Processing Outflow Data": "Processing outflow data...",
         
         # Structures
-        "Processing Hydraulic Structures": "🏗️ Processing hydraulic structures...",
-        "Processing Floodplain Cross Sections": "📏 Processing floodplain cross-sections...",
+        "Processing Hydraulic Structures": "Processing hydraulic structures...",
+        "Processing Floodplain Cross Sections": "Processing floodplain cross-sections...",
         
         # Reports and outputs
-        "Applying style files to shapefiles and rasters": "🎨 Adding GIS styles to geospatial data...",
-        "Style application process completed": "🎨 GIS styling completed",
+        "Applying style files to shapefiles and rasters": "Adding GIS styles to geospatial data...",
+        "Style application process completed": "GIS styling completed",
         
         # Completion
-        "=== FLO-2D Postprocessor Completed Successfully ===": "🎉 FLO-2D model postprocessing completed successfully!",
-        "FLO-2D Postprocessing completed successfully.": "✉️ Contact Aaron Nichols for custom postprocessing services."
+        "=== FLO-2D Postprocessor Completed Successfully ===": "FLO-2D model postprocessing completed successfully!",
+        "FLO-2D Postprocessing completed successfully.": "Contact Aaron Nichols for custom postprocessing services."
     }
     
     @classmethod

@@ -71,14 +71,8 @@ class EnhancedTimingLogger:
         # Clean message for step extraction
         clean_message = MessageFormatter.extract_step_from_message(message)
         
-        # Check if this is a technical message that should use smart tracking
-        if False:  # Disable enhanced messaging to prevent duplicates
-            # Use smart tracker for file operations to prevent duplication
-            self.message_tracker.send_standalone_message(clean_message, msg_type)
-        else:
-            # Send through regular callback for non-file operations
-            if self.message_callback:
-                self.message_callback(clean_message, msg_type)
+        # Route messages through the logger + GUI handler only to avoid duplicates
+        # (Do not call the GUI message callback directly here.)
         
         # Update progress tracking if this is a known step
         if clean_message in self.step_mapping:

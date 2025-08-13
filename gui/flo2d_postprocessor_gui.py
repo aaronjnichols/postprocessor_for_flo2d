@@ -471,7 +471,7 @@ class FLO2DPostProcessorGUI:
                 )
                 
                 # Mark folder completion
-                self.on_message_received(f"✅ Completed folder: {folder_name}", 'success')
+                self.on_message_received(f"Completed folder: {folder_name}", 'success')
             
             # Calculate elapsed time
             end_time = time.time()
@@ -489,9 +489,9 @@ class FLO2DPostProcessorGUI:
             ))
             
             # Final completion message
-            completion_message = f"🎉 All {total_folders} FLO-2D folders processed successfully!"
+            completion_message = f"All {total_folders} FLO-2D folders processed successfully!"
             self.on_message_received(completion_message, 'success')
-            self.on_message_received(f"⏱️ Total processing time: {self.format_time(elapsed_time)}", 'info')
+            self.on_message_received(f"Total processing time: {self.format_time(elapsed_time)}", 'info')
             
         except Exception as e:
             # Calculate elapsed time even for errors
