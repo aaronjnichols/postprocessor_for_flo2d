@@ -9,8 +9,13 @@ from typing import Dict, Any, Optional
 import tkinter as tk
 from tkinter import ttk
 
-from .message_templates import FLO2DMessageTemplates, FileProcessingResult
-from .smart_message_tracker import SmartMessageTracker
+# Simplified: templates and smart tracker removed in favor of centralized Messenger
+from typing import Optional as _Optional  # alias to preserve type hints below
+try:
+    # Backward-compatible alias for removed type
+    from typing import Any as FileProcessingResult  # type: ignore
+except Exception:  # pragma: no cover
+    FileProcessingResult = object  # fallback
 
 class MessageFormatter:
     """Handles message formatting with colors, icons, and user-friendly text."""
@@ -116,55 +121,7 @@ class MessageFormatter:
             return message.split(" (Step time:")[0]
         return message
     
-    @classmethod
-    def format_file_message(cls, file_type: str, stage: str, result: Optional[FileProcessingResult] = None, 
-                           include_timestamp: bool = True, **kwargs) -> Dict[str, Any]:
-        """
-        Format a technical message for FLO-2D file processing.
-        
-        Args:
-            file_type: FLO-2D file type (e.g., 'TOPO.DAT')
-            stage: Processing stage ('reading', 'processed', 'missing')
-            result: Optional processing result with metadata
-            include_timestamp: Whether to include timestamp
-            **kwargs: Additional template variables
-            
-        Returns:
-            Dictionary with formatted message components
-        """
-        # Get technical message from templates
-        msg_data = FLO2DMessageTemplates.get_file_message(file_type, stage, result, **kwargs)
-        
-        # Format with existing styling system
-        return cls.format_message(
-            message=msg_data['text'],
-            msg_type=msg_data['category'],
-            include_timestamp=include_timestamp
-        )
-    
-    @classmethod
-    def format_processing_message(cls, operation: str, stage: str, include_timestamp: bool = True, **kwargs) -> Dict[str, Any]:
-        """
-        Format a technical message for processing operations.
-        
-        Args:
-            operation: Processing operation type
-            stage: Operation stage ('starting', 'completed')
-            include_timestamp: Whether to include timestamp
-            **kwargs: Template variables
-            
-        Returns:
-            Dictionary with formatted message components
-        """
-        # Get technical message from templates
-        msg_data = FLO2DMessageTemplates.get_processing_message(operation, stage, **kwargs)
-        
-        # Format with existing styling system
-        return cls.format_message(
-            message=msg_data['text'],
-            msg_type=msg_data['category'],
-            include_timestamp=include_timestamp
-        )
+    # Note: file/processing-specific template formatting removed for simplicity.
 
 
 class ProgressTracker:
@@ -280,7 +237,6 @@ class RichMessageFrame(ttk.Frame):
         super().__init__(parent, **kwargs)
         self.setup_widgets()
         self.formatter = MessageFormatter()
-        self.message_tracker = SmartMessageTracker(self._message_callback)
         self.message_map = {}  # message_id -> (start_line, end_line) mapping
         
     def setup_widgets(self):
@@ -345,21 +301,7 @@ class RichMessageFrame(ttk.Frame):
         self.text_widget.see(tk.END)
         self.text_widget.configure(state='disabled')
     
-    def add_file_message(self, file_type: str, stage: str, result: Optional[FileProcessingResult] = None, **kwargs):
-        """Add a technical file processing message."""
-        formatted = self.formatter.format_file_message(file_type, stage, result, **kwargs)
-        self.text_widget.configure(state='normal')
-        self.text_widget.insert(tk.END, formatted['text'] + '\n', formatted['type'])
-        self.text_widget.see(tk.END)
-        self.text_widget.configure(state='disabled')
-    
-    def add_processing_message(self, operation: str, stage: str, **kwargs):
-        """Add a technical processing operation message."""
-        formatted = self.formatter.format_processing_message(operation, stage, **kwargs)
-        self.text_widget.configure(state='normal')
-        self.text_widget.insert(tk.END, formatted['text'] + '\n', formatted['type'])
-        self.text_widget.see(tk.END)
-        self.text_widget.configure(state='disabled')
+    # Removed specialized add_* methods; use add_message for all categories.
     
     def update_message(self, message_id: str, new_message: str, msg_type: str = 'processing'):
         """Update an existing message in place."""
@@ -394,13 +336,7 @@ class RichMessageFrame(ttk.Frame):
         self.text_widget.configure(state='disabled')
         self.message_map.clear()
         
-    def _message_callback(self, message: str, category: str, message_id: str = None):
-        """Callback function for the smart message tracker."""
-        self.add_message(message, category, message_id)
-    
-    def get_message_tracker(self) -> SmartMessageTracker:
-        """Get the smart message tracker instance."""
-        return self.message_tracker
+    # Smart tracker removed; messages are pushed by the centralized Messenger.
 
 
 class StepIndicator(ttk.Frame):
