@@ -14,7 +14,7 @@ import threading
 import json
 from ttkthemes import ThemedStyle
 from .message_system import RichMessageFrame, StepIndicator, ProgressTracker
-from .enhanced_logger import EnhancedTimingLogger, GUIMessageHandler
+from .messaging import Messenger, TkSink, TimingLoggerAdapter
 
 CONFIG_FILE = os.path.join(parent_dir, "config.json")
 
@@ -82,6 +82,7 @@ class FLO2DPostProcessorGUI:
         # Initialize progress tracking
         self.progress_tracker = ProgressTracker()
         self.enhanced_logger = None
+        self.messenger = None
 
         self.create_widgets()
         self.load_settings()
@@ -424,23 +425,10 @@ class FLO2DPostProcessorGUI:
         file_paths = list(self.folder_listbox.get(0, tk.END))
         total_folders = len(file_paths)
         
-        # Setup enhanced logging with GUI callbacks
-        import logging
-        
-        # Create a logger for this processing session
-        logger = logging.getLogger('FLO2D_GUI_Processing')
-        logger.setLevel(logging.INFO)
-        
-        # Clear any existing handlers
-        for handler in logger.handlers[:]:
-            logger.removeHandler(handler)
-            
-        # EnhancedTimingLogger will add its own GUI handler, so no need to add one here
-        
-        # Create enhanced timing logger ONCE for the entire processing session
-        self.enhanced_logger = EnhancedTimingLogger(
-            logger, 
-            message_callback=self.on_message_received,
+        # Initialize centralized messenger and a timing-logger adapter
+        self.messenger = Messenger(TkSink(self.rich_message_frame))
+        self.enhanced_logger = TimingLoggerAdapter(
+            messenger=self.messenger,
             progress_callback=self.on_progress_update
         )
 
@@ -452,7 +440,10 @@ class FLO2DPostProcessorGUI:
                 # Update folder progress information with technical details
                 folder_name = os.path.basename(file_path)
                 folder_message = f"🔍 Scanning FLO-2D project {i}/{total_folders}: {folder_name}"
-                self.on_message_received(folder_message, 'discovery')
+                if self.messenger:
+                    self.messenger.discovery(folder_message)
+                else:
+                    self.on_message_received(folder_message, 'discovery')
                 
                 # Update stats
                 elapsed = time.time() - start_time
@@ -471,7 +462,10 @@ class FLO2DPostProcessorGUI:
                 )
                 
                 # Mark folder completion
-                self.on_message_received(f"Completed folder: {folder_name}", 'success')
+                if self.messenger:
+                    self.messenger.success(f"Completed folder: {folder_name}")
+                else:
+                    self.on_message_received(f"Completed folder: {folder_name}", 'success')
             
             # Calculate elapsed time
             end_time = time.time()
@@ -490,8 +484,12 @@ class FLO2DPostProcessorGUI:
             
             # Final completion message
             completion_message = f"All {total_folders} FLO-2D folders processed successfully!"
-            self.on_message_received(completion_message, 'success')
-            self.on_message_received(f"Total processing time: {self.format_time(elapsed_time)}", 'info')
+            if self.messenger:
+                self.messenger.success(completion_message)
+                self.messenger.info(f"Total processing time: {self.format_time(elapsed_time)}")
+            else:
+                self.on_message_received(completion_message, 'success')
+                self.on_message_received(f"Total processing time: {self.format_time(elapsed_time)}", 'info')
             
         except Exception as e:
             # Calculate elapsed time even for errors
@@ -504,8 +502,12 @@ class FLO2DPostProcessorGUI:
             ))
             
             error_message = f"An error occurred: {str(e)}"
-            self.on_message_received(error_message, 'error')
-            self.on_message_received(f"Processing stopped after: {self.format_time(elapsed_time)}", 'error')
+            if self.messenger:
+                self.messenger.error(error_message)
+                self.messenger.error(f"Processing stopped after: {self.format_time(elapsed_time)}")
+            else:
+                self.on_message_received(error_message, 'error')
+                self.on_message_received(f"Processing stopped after: {self.format_time(elapsed_time)}", 'error')
             messagebox.showerror("Processing Error", f"An error occurred during processing:\n{str(e)}")
         finally:
             self.set_widgets_state(main_frame=self.master, state='normal')
@@ -516,16 +518,6 @@ class FLO2DPostProcessorGUI:
         # Import here to avoid circular imports
         import logging
         from main import process_flo2d
-        
-        # Temporarily redirect the main processing logger to our enhanced system
-        original_logger = logging.getLogger('FLO2D_Postprocessor')
-        
-        # Clear existing handlers - EnhancedTimingLogger will handle GUI messages
-        for handler in original_logger.handlers[:]:
-            original_logger.removeHandler(handler)
-        
-        # Prevent propagation to root logger to avoid duplicates
-        original_logger.propagate = False
         
         try:
             # Process with the enhanced logging system - pass our enhanced timing logger
