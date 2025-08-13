@@ -351,7 +351,7 @@ class FLO2DPostProcessorGUI:
         self.rich_message_frame.clear_messages()
         
         # Add initial message using enhanced system
-        self.rich_message_frame.add_message("🔍 Initializing FLO-2D post-processing workflow...", 'discovery')
+        self.rich_message_frame.add_message("Initializing FLO-2D post-processing workflow...", 'discovery')
 
         # Run processing in a separate thread to keep GUI responsive
         threading.Thread(target=self.run_process, daemon=True).start()
@@ -439,7 +439,7 @@ class FLO2DPostProcessorGUI:
                 
                 # Update folder progress information with technical details
                 folder_name = os.path.basename(file_path)
-                folder_message = f"🔍 Scanning FLO-2D project {i}/{total_folders}: {folder_name}"
+                folder_message = f"Scanning FLO-2D project {i}/{total_folders}: {folder_name}"
                 if self.messenger:
                     self.messenger.discovery(folder_message)
                 else:
