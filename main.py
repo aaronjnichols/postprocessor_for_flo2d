@@ -731,9 +731,10 @@ def main():
     )
     parser.add_argument(
         "--output_format",
-        choices=["Shapefile", "GeoPackage"],
-        default="Shapefile",
-        help="Desired output format for vector data (default: Shapefile)."
+        type=str.lower,
+        choices=["shapefile", "geopackage"],
+        default="shapefile",
+        help="Desired output format for vector data (default: shapefile). Case-insensitive."
     )
     args = parser.parse_args()
 
@@ -745,6 +746,10 @@ def main():
     # Set up root logger
     setup_logger(level=log_level)
 
+    # Normalize CLI output_format to canonical casing used throughout the codebase
+    output_format_map = {"shapefile": "Shapefile", "geopackage": "GeoPackage"}
+    canonical_output_format = output_format_map.get(args.output_format, "Shapefile")
+
     logger = logging.getLogger('FLO2D_Postprocessor')
     logger.info("=== FLO-2D Postprocessor Execution Started ===")
 
@@ -754,7 +759,7 @@ def main():
         args.create_flo2d_points,
         verbose=args.verbose,
         style_folder=args.style_folder,
-        output_format=args.output_format  # Pass output_format
+        output_format=canonical_output_format  # Pass canonical casing
     )
     logger.info("=== FLO-2D Postprocessor Execution Completed ===")
     logger.info(result)
