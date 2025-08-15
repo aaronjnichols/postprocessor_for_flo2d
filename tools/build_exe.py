@@ -159,9 +159,14 @@ def main():
     print("FLO-2D Postprocessor - Executable Builder")
     print("=" * 60)
     
+    # Change to project root directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    os.chdir(project_root)
+    
     # Check if we're in the right directory
     if not os.path.exists('main.py'):
-        print("Error: Please run this script from the project root directory")
+        print("Error: Cannot find project root directory")
         sys.exit(1)
     
     # Clean previous builds

@@ -30,7 +30,8 @@ if %errorlevel% neq 0 (
 
 echo Step 1: Building executable...
 echo.
-python build_exe.py
+cd /d "%~dp0\.."
+python tools\build_exe.py
 if %errorlevel% neq 0 (
     echo Error: Executable build failed
     pause

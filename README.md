@@ -161,6 +161,7 @@ postprocessor_for_flo2d/
 ├── processing/             # Spatial processing and vectorization
 ├── reporting/              # Report and visualization generation
 ├── gui/                   # Graphical user interface
+├── tools/                 # Build scripts and utilities
 ├── tests/                 # Test suite
 └── docs/                  # Documentation
 ```
