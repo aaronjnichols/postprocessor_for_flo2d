@@ -1,0 +1,15 @@
+{
+    "_comment": "This is an example configuration file. Copy to config.json and modify paths as needed.",
+    "flo2d_folders": [
+        "C:/Users/YourName/Documents/FLO2D_Projects/Project1",
+        "C:/Users/YourName/Documents/FLO2D_Projects/Project2"
+    ],
+    "epsg_number": "2224",
+    "_epsg_comment": "Common EPSG codes: 2224 (NAD83 State Plane), 4326 (WGS84), 3857 (Web Mercator)",
+    "create_flo2d_points": true,
+    "_points_comment": "Set to true to create FLO-2D grid points shapefile with flow direction",
+    "style_folder": "C:/Users/YourName/Documents/QGIS_Styles",
+    "_style_comment": "Path to folder containing QML style files for QGIS. Leave empty if not using styles.",
+    "output_format": "GeoPackage",
+    "_format_comment": "Options: 'Shapefile' or 'GeoPackage'. GeoPackage recommended for better performance."
+}

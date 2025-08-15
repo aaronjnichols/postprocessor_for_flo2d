@@ -29,7 +29,9 @@ MANIFEST
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
-*.spec
+# Keep main spec file for builds, ignore others
+FLO2D-Postprocessor-*.spec
+!FLO2D-Postprocessor.spec
 
 # Installer logs
 pip-log.txt
@@ -111,4 +113,20 @@ venv.bak/
 dmypy.json
 
 # Pyre type checker
-.pyre/ 
+.pyre/
+
+# FLO2D Postprocessor specific
+# Output directories
+flo2d_plots/
+flo2d_rasters/
+flo2d_shp/
+
+# User configuration files
+config.json
+
+# Temporary files
+nul
+version_info.txt
+
+# Log files
+*.log 

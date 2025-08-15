@@ -4,174 +4,206 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a FLO-2D hydraulic modeling postprocessor that extracts, analyzes, and visualizes flood simulation data. The system processes FLO-2D model files (.DAT input files and .OUT output files) and generates geospatial outputs (shapefiles, rasters) and analytical reports (Excel, PDF).
+FLO-2D Postprocessor is a Python application that automates the extraction, processing, and visualization of FLO-2D hydraulic modeling data. It processes flood simulation results from various FLO-2D output files and creates geospatial datasets, reports, and visualizations.
 
-## Key Commands
+## Common Commands
 
-### Development Commands
-- **Run tests**: `python run_tests.py` (supports `--unit`, `--integration`, `--coverage`, `--verbose` flags)
-- **Run specific test**: `python run_tests.py --file tests/unit/test_module.py`
-- **Run main processor**: `python main.py <folder_path> --epsg <code>`
-- **Launch GUI**: `python gui\launch_gui.py` or use `scripts\run_gui.bat`
+### Environment Setup
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-### Testing Commands
-- **Unit tests only**: `python run_tests.py --unit`
-- **Integration tests**: `python run_tests.py --integration`  
-- **With coverage**: `python run_tests.py --coverage`
-- **Fast tests (skip slow)**: `python run_tests.py --fast`
+# For development with test dependencies
+pip install -r test-requirements.txt
+```
 
-### Installation
-- **Dependencies**: `pip install -r requirements.txt`
-- **Test dependencies**: `pip install -r test-requirements.txt`
+### Running the Application
+
+#### Command Line Interface
+```bash
+# Process a single project directory
+python main.py /path/to/flo2d/project --epsg 2224
+
+# Process multiple directories with custom options
+python main.py /path/to/project1 /path/to/project2 --epsg 2223 --verbose --output_format geopackage
+
+# Create FLO-2D points output
+python main.py /path/to/project --epsg 2224 --create_flo2d_points
+
+# Apply style files to outputs
+python main.py /path/to/project --epsg 2224 --style_folder /path/to/styles
+```
+
+#### GUI Application
+```bash
+# Launch GUI
+python gui/launch_gui.py
+
+# Or run GUI directly
+python -m gui.flo2d_postprocessor_gui
+```
+
+### Testing
+
+#### Using pytest directly
+```bash
+# Run all tests with coverage
+pytest --cov=. --cov-report=html --cov-report=term-missing
+
+# Run only unit tests
+pytest -m unit
+
+# Run only integration tests  
+pytest -m integration
+
+# Run specific test file
+pytest tests/unit/test_arf_extraction.py
+
+# Skip slow tests
+pytest -m "not slow"
+```
+
+#### Using the test runner script
+```bash
+# Run all tests
+python run_tests.py
+
+# Run with specific options
+python run_tests.py --unit --coverage --verbose
+python run_tests.py --integration --fast
+python run_tests.py --file tests/unit/test_domain_vectorization.py
+```
+
+### Development Tools
+```bash
+# Run type checking (if mypy is configured)
+mypy .
+
+# Format code (if black/isort are configured)
+black .
+isort .
+```
 
 ## Architecture Overview
 
-### Core Data Flow
-```
-FLO-2D Files → Extraction → Processing → Output Generation
-   *.DAT/OUT → DataFrames → GeoDataFrames → Shapefiles/Rasters/Reports
-```
+### Core Processing Pipeline
 
-### Module Structure
-- **`core/`**: Constants, utilities, and foundational functionality
-- **`extraction/`**: File-specific data extractors (organized by `.dat` and `.out` file types)
-- **`processing/`**: Data transformation and spatial operations
-- **`reporting/`**: Output generation (Excel spreadsheets, PDF charts)
-- **`gui/`**: User interface with enhanced messaging system
+1. **File Discovery** (`core/file_discovery.py`): Locates FLO-2D input/output files in project directories
+2. **Data Extraction** (`extraction/`): Extracts data from various FLO-2D file formats (.DAT, .OUT)
+3. **Model Data Consolidation** (`core/model_data_extraction.py`): Merges extracted data into unified DataFrames
+4. **Spatial Processing** (`processing/spatial/`): Converts tabular data to geospatial formats (GeoDataFrame)
+5. **Vectorization** (`processing/vectorization/`): Creates vector outputs (Shapefiles, GeoPackages)
+6. **Rasterization** (`processing/spatial/rasterization.py`): Generates raster outputs (GeoTIFFs)
+7. **Reporting** (`reporting/`): Creates Excel spreadsheets and PDF visualizations
 
-### Key Architectural Patterns
+### Key Modules
 
-**Central DataFrame Pattern**: All extracted data converges into a master DataFrame with standardized column names from `core/constants.py`. This prevents naming conflicts and ensures consistency.
+#### Core Components
+- `main.py`: Main processing entry point with CLI argument parsing
+- `core/constants.py`: Standardized column names and constants used across the codebase
+- `core/model_data_extraction.py`: Coordinates parallel extraction from multiple files and merges results
 
-**Factory Pattern for Extractors**: Each FLO-2D file type has a dedicated extractor following consistent patterns:
-1. File existence check
-2. Data extraction using appropriate method (pandas for small files, Dask for large ones)
-3. Column standardization using constants
-4. Grid ID normalization (FLO-2D uses 1-based, system uses 0-based)
-5. Return standardized DataFrame
+#### Extraction System
+The extraction system is organized by file type:
+- `extraction/dat/`: Extracts from FLO-2D input files (.DAT format)  
+- `extraction/out/`: Extracts from FLO-2D output files (.OUT format)
+- `extraction/base/extraction_utils.py`: Common utilities for data extraction and validation
 
-**Fault-Tolerant Processing**: Missing FLO-2D files are handled gracefully with warnings rather than errors, allowing processing to continue with available data.
+#### Processing Pipeline
+- `processing/spatial/geospatial.py`: Coordinate system handling and GeoDataFrame operations
+- `processing/vectorization/`: Creates point, line, and polygon vector outputs for different FLO-2D components
+- `processing/spatial/rasterization.py`: Converts vector data to raster format using spatial interpolation
 
-## Critical Development Patterns
+### Data Flow Architecture
 
-### Column Names and Constants
-ALWAYS use constants from `core/constants.py` for column names:
+The application follows a standardized data flow:
+
+1. **Raw File Input**: FLO-2D .DAT and .OUT files
+2. **Parallel Extraction**: Multiple extractors run concurrently using ThreadPoolExecutor
+3. **Data Standardization**: All extractors return DataFrames with standardized column names from `core/constants.py`
+4. **Grid ID Normalization**: Ensures consistent grid identifiers across all datasets using `normalize_grid_id()`
+5. **Controlled Merging**: Uses `controlled_merge()` to safely join datasets on `grid_id`
+6. **Geospatial Conversion**: Converts to GeoDataFrame with proper CRS
+7. **Multi-format Output**: Generates Shapefiles, GeoPackages, GeoTIFFs, Excel files, and PDFs
+
+### GUI Architecture
+
+The GUI (`gui/`) provides a user-friendly interface with:
+- `flo2d_postprocessor_gui.py`: Main GUI application using tkinter
+- `message_system.py`: Rich messaging system with progress tracking  
+- `messaging.py`: Enhanced logging and message routing for GUI integration
+
+### Configuration
+
+- `config.json`: Default configuration for GUI including project paths, EPSG codes, and output preferences
+- `pytest.ini`: Test configuration with coverage settings and test markers
+
+## File Type Processors
+
+The application handles these FLO-2D file types:
+
+### Input Files (.DAT)
+- **TOPO.DAT**: Grid elevation data
+- **MANNINGS_N.DAT**: Surface roughness coefficients  
+- **RAIN.DAT**: Rainfall data
+- **INFIL.DAT**: Infiltration parameters (Green-Ampt, SCS, Horton)
+- **INFLOW.DAT**: Inflow boundary conditions
+- **OUTFLOW.DAT**: Outflow boundary locations
+- **HYSTRUC.DAT**: Hydraulic structure definitions
+- **CHAN.DAT**: Channel geometry and properties
+- **SWMM.inp**: SWMM inlet/outlet data
+- **FPXSEC.DAT**: Floodplain cross-section data
+
+### Output Files (.OUT)  
+- **DEPTH.OUT**: Maximum water depths
+- **VELOC.OUT**: Velocity data  
+- **MAXWSELEV.OUT**: Maximum water surface elevations
+- **SUPER.OUT**: Supercritical flow analysis
+- **TIME.OUT**: Time-related hydraulic outputs
+- **CHANMAX.OUT**: Channel maximum values
+- **HYCROSS.OUT**: Cross-section hydraulic data
+
+## Testing Strategy
+
+Tests are organized with pytest markers:
+- `unit`: Fast unit tests for individual functions
+- `integration`: Tests that use fixture data files  
+- `slow`: Long-running tests
+- `data_validation`: Tests that validate data accuracy
+
+Test fixtures are located in `tests/fixtures/synthetic_model/` containing sample FLO-2D files for testing.
+
+## Development Guidelines
+
+### Column Name Standardization
+Always use constants from `core/constants.py` instead of hardcoded strings:
 ```python
-# ✅ Correct
-from core.constants import GRID_ID, DEPTH_MAX, X_COORD, Y_COORD
-df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
+# ✅ Good
+from core.constants import GRID_ID, TOPO_ELEVATION
+df[GRID_ID] = grid_values
+df[TOPO_ELEVATION] = elevation_values
 
-# ❌ Wrong  
-df['grid_id'] = df['grid_id'] - 1
+# ❌ Bad  
+df['grid_id'] = grid_values
+df['topo_elevation'] = elevation_values
 ```
 
-### Grid ID Handling
-FLO-2D uses 1-based grid IDs, but the system standardizes on 0-based. Use `normalize_grid_id()`:
-```python
-from core.constants import normalize_grid_id
-df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
-```
+### Error Handling
+The codebase uses defensive programming with extensive error handling:
+- File existence checks before processing
+- DataFrame validation after extraction  
+- Graceful degradation when optional files are missing
+- Detailed logging of errors and warnings
 
-### File Processing Patterns
-All extractors follow this template:
-```python
-def extract_data(path):
-    """Extract data from FLO-2D file."""
-    file_path = os.path.join(path, 'FILENAME.EXT')
-    
-    if not os.path.exists(file_path):
-        logger.warning(f"File not found: {file_path}")
-        return pd.DataFrame()
-    
-    # Use Dask for large files, pandas for small ones
-    df = read_with_dask_optimized(file_path, columns=COLUMN_NAMES)
-    
-    # Standardize column names and grid IDs
-    df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
-    
-    return df
-```
-
-### Performance Considerations
-- Use `read_with_dask_optimized()` from `extraction/base/extraction_utils.py` for large files
-- The system uses ThreadPoolExecutor for parallel raster creation
-- Domain vectorization was recently optimized to process only boundary cells instead of all grid cells
-
-### Logging and Timing
-The system has sophisticated logging with timing integration:
-```python
-from core.logger import setup_logger
-logger = setup_logger('ModuleName')
-
-# For main processing, use TimingLogger for step tracking
-timing_logger = TimingLogger(logger)
-timing_logger.log("Step completed")
-```
-
-### GUI Integration
-The GUI uses an enhanced messaging system with progress tracking. Key components:
-- `MessageFormatter`: Translates technical messages to user-friendly ones
-- `ProgressTracker`: Manages step-by-step progress indication
-- `EnhancedTimingLogger`: Integrates with GUI callbacks for real-time updates
-
-## File Processing Specifics
-
-### Required Files (Core Data)
-- `TOPO.DAT`: Topographic elevation (X, Y, elevation format)
-- `MANNINGS_N.DAT`: Surface roughness coefficients  
-- `DEPTH.OUT`: Maximum flood depths
-
-### Optional Files (Analysis)
-- `SUPER.OUT`: Supercritical flow analysis
-- `INFLOW.DAT`/`OUTFLOW.DAT`: Boundary conditions
-- `HYSTRUC.DAT`: Hydraulic structures
-- `CHAN.DAT`: Channel geometry
-- Various other `.OUT` files for specialized analysis
+### Parallel Processing
+The application leverages multiprocessing and threading:
+- Data extraction uses ThreadPoolExecutor for I/O-bound operations
+- Raster creation uses ProcessPoolExecutor for CPU-bound operations
+- GUI operations run in separate threads to maintain responsiveness
 
 ### Output Formats
-- **Shapefiles/GeoPackages**: Vector outputs with full attribute support
-- **GeoTIFF Rasters**: All numerical parameters with optimized cell sizing
-- **Excel/PDF Reports**: Analytical outputs with charts and time series
-
-## Testing Framework
-
-The project uses pytest with custom markers:
-- `@pytest.mark.unit`: Unit tests
-- `@pytest.mark.integration`: Integration tests  
-- `@pytest.mark.slow`: Long-running tests
-- `@pytest.mark.data_validation`: Data validation tests
-
-Test fixtures are in `tests/fixtures/synthetic_model/` for consistent testing data.
-
-## Configuration
-
-The system supports configuration through:
-- **JSON config**: `config.json` for persistent GUI settings
-- **Command line args**: Flexible processing options
-- **Style files**: Optional GIS styling for outputs
-
-## Performance Optimizations
-
-Recent optimizations include:
-- **Boundary-only domain vectorization**: Processes only boundary cells instead of all grid cells (7x+ speedup for large models)
-- **Adaptive algorithm selection**: Automatically chooses optimal processing method based on data size
-- **Parallel processing**: Multi-threaded operations where beneficial
-
-## Common Gotchas
-
-1. **Grid ID Conversion**: Always use `normalize_grid_id()` - FLO-2D is 1-based, system is 0-based
-2. **Column Names**: Use constants, never hardcode column names
-3. **File Paths**: Use `os.path.join()` for cross-platform compatibility
-4. **Large Files**: Use Dask utilities for files > 1000 rows
-5. **Spatial Data**: Ensure CRS is properly set when creating GeoDataFrames
-6. **Error Handling**: Log warnings for missing files, don't crash the pipeline
-
-## Style Guide
-
-Follow the comprehensive style guide in `STYLE_GUIDE.md`. Key points:
-- Use `snake_case` for functions and variables
-- Use `PascalCase` for classes
-- **Helper/private functions**: Prefix with underscore (`_helper_function`)
-- Organize imports: standard library → third-party → local
-- Include comprehensive docstrings using Google style
-- Use descriptive function names that indicate purpose
+Supports multiple output formats:
+- **Vector**: Shapefile (.shp) and GeoPackage (.gpkg)
+- **Raster**: GeoTIFF (.tif) 
+- **Tabular**: Excel (.xlsx), CSV
+- **Visualization**: PDF plots and charts

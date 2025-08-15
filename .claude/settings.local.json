@@ -1,20 +1,26 @@
 {
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
-      "Bash(python:*)",
-      "Bash(mv:*)",
-      "Bash(rmdir:*)",
-      "Bash(ls:*)",
-      "Bash(rm:*)",
+      "Bash(git pull:*)",
       "Bash(find:*)",
+      "Bash(true)",
       "Bash(pip install:*)",
-      "Bash(timeout 600 python \"C:\\_code\\postprocessor_for_flo2d\\main.py\" . --epsg 2223)",
-      "Bash(timeout 300 python \"C:\\_code\\postprocessor_for_flo2d\\main.py\" . --epsg 2223)",
-      "Bash(cat:*)",
-      "Bash(git add:*)",
-      "Bash(git reset:*)"
+      "Bash(python:*)",
+      "Bash(. --add-data=requirements.txt)",
+      "Bash(. --add-data=docs)",
+      "Bash(docs:*)",
+      "Bash(tasklist)",
+      "Bash(dir:*)",
+      "Bash(powershell:*)",
+      "Bash(start \"FLO2D Postprocessor Test\" \"C:\\_code\\postprocessor_for_flo2d\\dist\\FLO2D-Postprocessor.exe\")",
+      "Bash(start:*)",
+      "Bash(pip show:*)",
+      "Bash(if exist \"C:\\_code\\postprocessor_for_flo2d\\nul\" del \"C:\\_code\\postprocessor_for_flo2d\\nul\")",
+      "Bash(rm:*)",
+      "Bash(git add:*)"
     ],
-    "deny": []
+    "deny": [],
+    "ask": [],
+    "defaultMode": "acceptEdits"
   }
 }
