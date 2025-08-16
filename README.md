@@ -23,6 +23,11 @@ A comprehensive Python application for automated extraction, processing, and vis
 
 ### Option 2: Python Installation (For Developers)
 
+Windows users can take advantage of the helper batch files in the `scripts` folder:
+
+- `setup.bat` creates a virtual environment and installs dependencies.
+- `run_gui.bat` launches the GUI using that environment.
+
 #### Prerequisites
 - Python 3.8 or higher
 - Windows, macOS, or Linux
@@ -35,9 +40,13 @@ cd postprocessor_for_flo2d
 
 # Install dependencies
 pip install -r requirements.txt
+# Windows users can use the setup script to create a virtual environment and install dependencies
+scripts\setup.bat
 
 # Launch GUI
 python gui/launch_gui.py
+# Or on Windows, use the batch file
+scripts\run_gui.bat
 
 # Or run from command line
 python main.py /path/to/your/flo2d/project --epsg 2224
