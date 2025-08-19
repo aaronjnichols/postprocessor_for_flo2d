@@ -178,6 +178,63 @@ MAX_Q = 'max_q'
 TIME_PEAK = 'time_peak'
 
 # =============================================================================
+# SWMMNODES.RPT
+# =============================================================================
+NODE_ID = 'node_id'
+NODE_TYPE = 'type'
+INV_ELEV = 'inv_elev'
+MAX_DEPTH = 'max_depth'
+POND_AREA = 'pond_area'
+EXT_FLOW = 'ext_flow'
+CONTINUITY_ERROR_PCNT = 'Continuity_Error_Pcnt'
+AVG_DEPTH = 'Avg_Depth'
+MAX_HGL = 'Max_HGL'
+TIME_OF_MAX_DEPTH = 'Time_of_Max_Depth'
+MAX_LATERAL_INFLOW = 'Max_Lateral_Inflow'
+MAX_TOTAL_INFLOW = 'Max_Total_Inflow'
+TIME_OF_MAX_INFLOW = 'Time_of_Max_Inflow'
+LATERAL_INFLOW_VOLUME = 'Lateral_Inflow_Volume'
+TOTAL_INFLOW_VOLUME = 'Total_Inflow_Volume'
+HOURS_SURCHARGED = 'Hours_Surcharged'
+MAX_HEIGHT_ABOVE_CROWN = 'Max_Height_Above_Crown'
+MIN_DEPTH_BELOW_RIM = 'Min_Depth_Below_Rim'
+HOURS_FLOODED = 'Hours_Flooded'
+MAX_FLOODING_RATE = 'Max_Flooding_Rate'
+TIME_OF_MAX_FLOODING = 'Time_of_Max_Flooding'
+TOTAL_FLOOD_VOLUME = 'Total_Flood_Volume'
+MAX_PONDED_DEPTH = 'Max_Ponded_Depth'
+FLOW_FREQ_PCNT = 'Flow_Freq_Pcnt'
+AVG_FLOW_CFS = 'Avg_Flow_CFS'
+MAX_FLOW_CFS = 'Max_Flow_CFS'
+TOTAL_VOLUME_MG = 'Total_Volume_MG'
+
+# =============================================================================
+# SWMMLINKS.RPT
+# =============================================================================
+LINK_ID = 'link_id'
+LINK_TYPE = 'type'
+MAX_FLOW = 'max_flow'
+DAY_MAX = 'day_max'
+TIME_MAX = 'time_max'
+MAX_VEL = 'max_vel'
+FLOW_RATIO = 'flow_ratio'
+DEPTH_RAT = 'depth_rat'
+HRS_FULL = 'hrs_full'
+HRS_FULL_U = 'hrs_full_u'
+HRS_FULL_D = 'hrs_full_d'
+HRS_ABOVE = 'hrs_above'
+HRS_CAP = 'hrs_cap'
+ADJ_LEN = 'adj_len'
+DRY_UP = 'dry_up'
+DRY_DOWN = 'dry_down'
+DRY_SUB = 'dry_sub'
+DRY_SUP = 'dry_sup'
+CRIT_UP = 'crit_up'
+CRIT_DOWN = 'crit_down'
+FROUDE = 'froude'
+FLOW_CHG = 'flow_chg'
+
+# =============================================================================
 # HYSTRUC.DAT
 # =============================================================================
 STRUCTURE_ID = 'structure_id'

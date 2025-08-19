@@ -7,7 +7,9 @@ Separated from extraction logic for better code organization.
 
 import os
 import logging
+import pandas as pd
 from core.utilities import time_function
+from core.constants import NODE_ID, LINK_ID
 
 
 def save_geodataframe(gdf, output_path, layer_name, coord_system, output_format, logger):
@@ -52,15 +54,62 @@ def save_geodataframe(gdf, output_path, layer_name, coord_system, output_format,
     return output_file
 
 
+def _merge_rpt_summary_data(gdf, summary_df, id_column, feature_type):
+    """
+    Merge RPT summary data with SWMM geometry data.
+    
+    Args:
+        gdf (GeoDataFrame): Original SWMM geometry data
+        summary_df (DataFrame): Summary data from RPT extraction
+        id_column (str): Column name for ID matching (NODE_ID or LINK_ID)
+        feature_type (str): Type of feature for logging ('junctions', 'outfalls', 'conduits')
+    
+    Returns:
+        GeoDataFrame: Enhanced GeoDataFrame with RPT summary data
+    """
+    logger = logging.getLogger('FLO2D_Postprocessor')
+    
+    if gdf.empty or summary_df is None or summary_df.empty:
+        logger.info(f"No RPT summary data available for {feature_type}")
+        return gdf
+    
+    # Check if ID column exists in both dataframes
+    if id_column not in gdf.columns:
+        logger.warning(f"ID column '{id_column}' not found in {feature_type} geometry data")
+        return gdf
+    
+    if id_column not in summary_df.columns:
+        logger.warning(f"ID column '{id_column}' not found in {feature_type} summary data")
+        return gdf
+    
+    # Merge the dataframes
+    try:
+        merged_gdf = gdf.merge(summary_df, on=id_column, how='left', suffixes=('', '_rpt'))
+        logger.info(f"Successfully merged RPT summary data for {len(merged_gdf)} {feature_type}")
+        
+        # Log which features got RPT data
+        rpt_data_count = merged_gdf[summary_df.columns.difference([id_column])].notna().any(axis=1).sum()
+        logger.info(f"{rpt_data_count} out of {len(merged_gdf)} {feature_type} have RPT summary data")
+        
+        return merged_gdf
+    except Exception as e:
+        logger.error(f"Failed to merge RPT summary data for {feature_type}: {str(e)}")
+        return gdf
+
+
 @time_function
-def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile"):
+def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile", 
+                          nodes_summary=None, links_summary=None):
     """
     Creates shapefiles or geopackages for SWMM junctions, conduits, and outfalls.
+    Optionally merges RPT summary data into the attribute tables.
 
     Parameters:
     - swmm_data: dict of GeoDataFrames from extract_swmm_inp
     - output_path: str, path to save the shapefiles or geopackages
     - output_format: str, "Shapefile" or "GeoPackage"
+    - nodes_summary: DataFrame, optional summary data for nodes from RPT extraction
+    - links_summary: DataFrame, optional summary data for links from RPT extraction
 
     Returns:
     - list of created file paths
@@ -71,7 +120,12 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile"):
     if 'junctions' in swmm_data:
         junctions_gdf = swmm_data['junctions']
         if not junctions_gdf.empty:
-            shp_path = save_geodataframe(junctions_gdf, output_path, 'junctions', junctions_gdf.crs.to_epsg(), output_format, logger)
+            # Merge RPT summary data for junctions
+            enhanced_junctions = _merge_rpt_summary_data(
+                junctions_gdf, nodes_summary, NODE_ID, 'junctions'
+            )
+            shp_path = save_geodataframe(enhanced_junctions, output_path, 'junctions', 
+                                       enhanced_junctions.crs.to_epsg(), output_format, logger)
             shapefile_paths.append(shp_path)
         else:
             logger.warning("No junctions data to save.")
@@ -79,7 +133,12 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile"):
     if 'outfalls' in swmm_data:
         outfalls_gdf = swmm_data['outfalls']
         if not outfalls_gdf.empty:
-            shp_path = save_geodataframe(outfalls_gdf, output_path, 'outfalls', outfalls_gdf.crs.to_epsg(), output_format, logger)
+            # Merge RPT summary data for outfalls
+            enhanced_outfalls = _merge_rpt_summary_data(
+                outfalls_gdf, nodes_summary, NODE_ID, 'outfalls'
+            )
+            shp_path = save_geodataframe(enhanced_outfalls, output_path, 'outfalls', 
+                                       enhanced_outfalls.crs.to_epsg(), output_format, logger)
             shapefile_paths.append(shp_path)
         else:
             logger.warning("No outfalls data to save.")
@@ -87,7 +146,12 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile"):
     if 'conduits' in swmm_data:
         conduits_gdf = swmm_data['conduits']
         if not conduits_gdf.empty:
-            shp_path = save_geodataframe(conduits_gdf, output_path, 'conduits', conduits_gdf.crs.to_epsg(), output_format, logger)
+            # Merge RPT summary data for conduits
+            enhanced_conduits = _merge_rpt_summary_data(
+                conduits_gdf, links_summary, LINK_ID, 'conduits'
+            )
+            shp_path = save_geodataframe(enhanced_conduits, output_path, 'conduits', 
+                                       enhanced_conduits.crs.to_epsg(), output_format, logger)
             shapefile_paths.append(shp_path)
         else:
             logger.warning("No conduits data to save.")

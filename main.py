@@ -40,6 +40,8 @@ from extraction.out.hydrostruct_out_extraction import extract_hydrostruct_out
 from extraction.out.hycross_out_extraction import extract_hycross_out
 from extraction.out.super_out_extraction import extract_super_out
 from extraction.out.outnq_out_extraction import extract_outnq_out
+from extraction.out.swmmnodes_rpt import extract_swmmnodes_rpt
+from extraction.out.swmmlinks_rpt import extract_swmmlinks_rpt
 from extraction.out.time_out_extraction import extract_time_out
 from processing.spatial.geospatial import calculate_cell_size, convert_to_geo_dataframe
 from processing.spatial.rasterization import create_raster_from_gdf
@@ -58,10 +60,11 @@ from reporting.spreadsheets.hydrostruct_spreadsheet import hydrostruct_spreadshe
 from reporting.spreadsheets.hystruc_spreadsheet import (
     create_rating_curve_spreadsheet, hystruc_spreadsheet_and_plots, plot_rating_curves_to_pdf
 )
+from reporting.spreadsheets.swmm_nodes_spreadsheet import swmm_nodes_spreadsheet_and_plots
+from reporting.spreadsheets.swmm_links_spreadsheet import swmm_links_spreadsheet_and_plots
 from reporting.spreadsheets.inflow_spreadsheets import create_pdf_plots, export_hydrograph_to_excel
 from reporting.spreadsheets.outnq_spreadsheets import create_outnq_spreadsheets_and_plots
 from reporting.spreadsheets.rain_spreadsheet import rain_spreadsheet_and_plot
-from reporting.spreadsheets.swmm_inlets_spreadsheet import swmm_inlet_spreadsheets_and_pdf
 from reporting.spreadsheets.swmm_rating_tables_spreadsheet import swmm_rating_tables_and_plots
 
 class TimingLogger:
@@ -494,17 +497,41 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         timing_logger.log("Extracting SWMM Data from SWMM.inp")
         swmm_data = extract_swmm_inp(swmm_file, coord_system)
 
-        swmm_qin_file = get_file_path(file_path, 'SWMMQIN.OUT')
-        if check_file_exists(swmm_qin_file):
-            timing_logger.log("Generating SWMM Inlet Spreadsheets and PDF")
-            swmm_inlet_files = swmm_inlet_spreadsheets_and_pdf(file_path)
-            timing_logger.log(f"SWMM Inlet Spreadsheets and PDF created at: {swmm_inlet_files}")
-        else:
-            logger.warning(f"SWMMQIN.OUT file not found at {swmm_qin_file}. Skipping SWMM Inlet Spreadsheet and PDF creation.")
+        # Extract SWMM RPT data if available
+        nodes_summary = None
+        links_summary = None
+        
+        try:
+            timing_logger.log("Extracting SWMM Nodes data from RPT file")
+            nodes_data = extract_swmmnodes_rpt(file_path)
+            nodes_summary = nodes_data.get('merged_results', pd.DataFrame())
+            
+            timing_logger.log("Extracting SWMM Links data from RPT file")
+            links_data = extract_swmmlinks_rpt(file_path)
+            links_summary = links_data.get('merged_results', pd.DataFrame())
+            
+            # Generate SWMM analysis spreadsheets and plots
+            if not nodes_data.get('merged_results', pd.DataFrame()).empty:
+                timing_logger.log("Creating SWMM Nodes analysis spreadsheet and plots")
+                nodes_files = swmm_nodes_spreadsheet_and_plots(file_path, nodes_data)
+                timing_logger.log(f"SWMM Nodes analysis files created: {nodes_files}")
+            
+            if not links_data.get('merged_results', pd.DataFrame()).empty:
+                timing_logger.log("Creating SWMM Links analysis spreadsheet and plots")
+                links_files = swmm_links_spreadsheet_and_plots(file_path, links_data)
+                timing_logger.log(f"SWMM Links analysis files created: {links_files}")
+                
+        except FileNotFoundError:
+            logger.info("SWMM RPT file not found. Proceeding with geometry-only SWMM processing.")
+        except Exception as e:
+            logger.warning(f"Error processing SWMM RPT data: {str(e)}. Proceeding with geometry-only processing.")
 
-        # Create SWMM Shapefiles and GeoPackages
+        # Create SWMM Shapefiles and GeoPackages with enhanced attributes
         timing_logger.log("Creating SWMM Shapefiles and GeoPackages")
-        swmm_files = create_swmm_shapefiles(swmm_data, shp_outpath, output_format=output_format)
+        swmm_files = create_swmm_shapefiles(swmm_data, shp_outpath, 
+                                          output_format=output_format,
+                                          nodes_summary=nodes_summary,
+                                          links_summary=links_summary)
         for swmm_file_created in swmm_files:
             timing_logger.log(f"SWMM File created at: {swmm_file_created}")
         timing_logger.log("SWMM Data Extraction and File Creation completed successfully")

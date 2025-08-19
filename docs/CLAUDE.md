@@ -10,7 +10,10 @@ FLO-2D Postprocessor is a Python application that automates the extraction, proc
 
 ### Environment Setup
 ```bash
-# Install dependencies
+# Windows: Use the provided setup script (creates venv and installs dependencies)
+scripts\setup.bat
+
+# Manual installation
 pip install -r requirements.txt
 
 # For development with test dependencies
@@ -36,7 +39,10 @@ python main.py /path/to/project --epsg 2224 --style_folder /path/to/styles
 
 #### GUI Application
 ```bash
-# Launch GUI
+# Windows: Use the provided script
+scripts\run_gui.bat
+
+# Manual launch
 python gui/launch_gui.py
 
 # Or run GUI directly
@@ -76,12 +82,14 @@ python run_tests.py --file tests/unit/test_domain_vectorization.py
 
 ### Development Tools
 ```bash
-# Run type checking (if mypy is configured)
-mypy .
+# Build executable (Windows)
+python tools/build_exe.py
 
-# Format code (if black/isort are configured)
-black .
-isort .
+# Build installer (Windows)
+tools/build_installer.bat
+
+# Note: No linting tools are currently configured
+# The project uses manual code review and testing for quality assurance
 ```
 
 ## Architecture Overview
@@ -162,6 +170,8 @@ The application handles these FLO-2D file types:
 - **TIME.OUT**: Time-related hydraulic outputs
 - **CHANMAX.OUT**: Channel maximum values
 - **HYCROSS.OUT**: Cross-section hydraulic data
+- **SWMMNODES.RPT**: SWMM node results with summary statistics and time series
+- **SWMMLINKS.RPT**: SWMM link results with summary statistics and time series
 
 ## Testing Strategy
 
@@ -203,7 +213,16 @@ The application leverages multiprocessing and threading:
 
 ### Output Formats
 Supports multiple output formats:
-- **Vector**: Shapefile (.shp) and GeoPackage (.gpkg)
+- **Vector**: Shapefile (.shp) and GeoPackage (.gpkg) with enhanced SWMM attributes from RPT analysis
 - **Raster**: GeoTIFF (.tif) 
 - **Tabular**: Excel (.xlsx), CSV
 - **Visualization**: PDF plots and charts
+
+### SWMM Analysis Features
+Enhanced SWMM processing now includes:
+- **Nodes Analysis**: Junctions and outfalls with depth, inflow, surcharge, and flooding statistics
+- **Links Analysis**: Conduits with flow, surcharge, and classification statistics  
+- **Time Series Reporting**: Individual node inflow and link flow hydrographs
+- **Comprehensive Excel Reports**: Multi-sheet workbooks with summary statistics and time series data
+- **PDF Visualization**: 4-per-page hydrograph plots for nodes and flow plots for links
+- **Enhanced Shapefiles**: Geometry data merged with RPT summary statistics in attribute tables
