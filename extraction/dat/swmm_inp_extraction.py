@@ -176,24 +176,32 @@ def _process_conduits(conduits_data, xsections_data, coordinates_data, coord_sys
     df_coords = pd.DataFrame(coords, columns=coords_columns)
     df_coords[[X_COORD, Y_COORD]] = df_coords[[X_COORD, Y_COORD]].apply(pd.to_numeric, errors='coerce')
 
+    # Store the original conduit name column before merging (this is the conduit ID)
+    conduit_names = df_conduits[SWMM_NAME].copy()
+    
     # Merge conduit start (From_Node) and end (To_Node) coordinates
     # First merge: add FROM node coordinates
     df_merged_from = pd.merge(df_conduits, df_coords, left_on=FROM_NODE, right_on=SWMM_NAME, how='left', suffixes=('', '_from'))
-    # Rename the coordinate columns to avoid conflicts in second merge and remove duplicate
+    # Rename the coordinate columns to avoid conflicts in second merge
+    # NOTE: We're renaming the SWMM_NAME from coords data, not the original conduit name
     df_merged_from = df_merged_from.rename(columns={
-        SWMM_NAME: f"{SWMM_NAME}_from",
+        f"{SWMM_NAME}_from": f"from_node_{SWMM_NAME}",  # This is the coordinate's name column
         X_COORD: f"{X_COORD}_from", 
         Y_COORD: f"{Y_COORD}_from"
     })
     
     # Second merge: add TO node coordinates  
     df_merged_to = pd.merge(df_merged_from, df_coords, left_on=TO_NODE, right_on=SWMM_NAME, how='left', suffixes=('', '_to'))
-    # Rename the TO node coordinate columns for clarity and remove duplicate
+    # Rename the TO node coordinate columns for clarity
     df_merged_to = df_merged_to.rename(columns={
-        SWMM_NAME: f"{SWMM_NAME}_to",
+        f"{SWMM_NAME}_to": f"to_node_{SWMM_NAME}",  # This is the coordinate's name column
         X_COORD: f"{X_COORD}_to",
         Y_COORD: f"{Y_COORD}_to"
     })
+    
+    # Ensure the original conduit name column is preserved
+    if SWMM_NAME not in df_merged_to.columns:
+        df_merged_to[SWMM_NAME] = conduit_names
     
     # Remove duplicate columns if they exist
     columns_to_check = list(df_merged_to.columns)

@@ -37,6 +37,11 @@ def test_geopackage_fix(model_folder):
         junctions_summary = full_nodes_summary[full_nodes_summary['type'] == 'JUNCTION'].copy()
         outfalls_summary = full_nodes_summary[full_nodes_summary['type'] == 'OUTFALL'].copy()
     
+    # Extract links data
+    from extraction.out.swmmlinks_rpt import extract_swmmlinks_rpt
+    links_data = extract_swmmlinks_rpt(model_folder)
+    links_summary = links_data.get('merged_results', pd.DataFrame())
+    
     # Test GeoPackage creation
     output_path = os.path.join(model_folder, "test_geopackage_fix")
     os.makedirs(output_path, exist_ok=True)
@@ -48,7 +53,7 @@ def test_geopackage_fix(model_folder):
             output_format="GeoPackage",
             junctions_summary=junctions_summary,
             outfalls_summary=outfalls_summary,
-            links_summary=pd.DataFrame()  # Empty for now since conduits have issues
+            links_summary=links_summary
         )
         
         print(f"\n✅ SUCCESS: GeoPackage files created without field errors!")
