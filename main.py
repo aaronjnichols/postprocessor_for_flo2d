@@ -62,6 +62,7 @@ from reporting.spreadsheets.hystruc_spreadsheet import (
 )
 from reporting.spreadsheets.swmm_nodes_spreadsheet import swmm_nodes_spreadsheet_and_plots
 from reporting.spreadsheets.swmm_links_spreadsheet import swmm_links_spreadsheet_and_plots
+from reporting.spreadsheets.swmm_outfalls_spreadsheet import swmm_outfalls_spreadsheet_and_plots
 from reporting.spreadsheets.inflow_spreadsheets import create_pdf_plots, export_hydrograph_to_excel
 from reporting.spreadsheets.outnq_spreadsheets import create_outnq_spreadsheets_and_plots
 from reporting.spreadsheets.rain_spreadsheet import rain_spreadsheet_and_plot
@@ -498,13 +499,19 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         swmm_data = extract_swmm_inp(swmm_file, coord_system)
 
         # Extract SWMM RPT data if available
-        nodes_summary = None
+        junctions_summary = None
+        outfalls_summary = None
         links_summary = None
         
         try:
             timing_logger.log("Extracting SWMM Nodes data from RPT file")
             nodes_data = extract_swmmnodes_rpt(file_path)
-            nodes_summary = nodes_data.get('merged_results', pd.DataFrame())
+            full_nodes_summary = nodes_data.get('merged_results', pd.DataFrame())
+            
+            # Separate junctions and outfalls summary data for vectorization
+            if not full_nodes_summary.empty:
+                junctions_summary = full_nodes_summary[full_nodes_summary['type'] == 'JUNCTION'].copy()
+                outfalls_summary = full_nodes_summary[full_nodes_summary['type'] == 'OUTFALL'].copy()
             
             timing_logger.log("Extracting SWMM Links data from RPT file")
             links_data = extract_swmmlinks_rpt(file_path)
@@ -512,14 +519,58 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             
             # Generate SWMM analysis spreadsheets and plots
             if not nodes_data.get('merged_results', pd.DataFrame()).empty:
-                timing_logger.log("Creating SWMM Nodes analysis spreadsheet and plots")
-                nodes_files = swmm_nodes_spreadsheet_and_plots(file_path, nodes_data)
-                timing_logger.log(f"SWMM Nodes analysis files created: {nodes_files}")
+                # Separate junctions and outfalls data
+                junctions_data = {
+                    'merged_results': nodes_data.get('merged_results', pd.DataFrame()),
+                    'node_time_series': nodes_data.get('node_time_series', pd.DataFrame())
+                }
+                
+                # Filter for junctions only (exclude outfalls)
+                if not junctions_data['merged_results'].empty:
+                    junctions_only = junctions_data['merged_results'][junctions_data['merged_results']['type'] == 'JUNCTION'].copy()
+                    junctions_data['merged_results'] = junctions_only
+                    
+                    # Filter time series data to include only junction node IDs
+                    if not junctions_only.empty and not junctions_data['node_time_series'].empty:
+                        junction_ids = junctions_only['node_id'].tolist()
+                        # Keep time column and only junction columns
+                        time_series_cols = ['time'] if 'time' in junctions_data['node_time_series'].columns else []
+                        junction_cols = [col for col in junctions_data['node_time_series'].columns if col in junction_ids]
+                        junctions_data['node_time_series'] = junctions_data['node_time_series'][time_series_cols + junction_cols]
+                    
+                    if not junctions_only.empty:
+                        timing_logger.log("Creating SWMM Junctions analysis spreadsheet and plots")
+                        junctions_files = swmm_nodes_spreadsheet_and_plots(file_path, junctions_data)
+                        timing_logger.log(f"SWMM Junctions analysis files created: {junctions_files}")
+                
+                # Process outfalls separately
+                outfalls_data = {
+                    'merged_results': nodes_data.get('merged_results', pd.DataFrame()),
+                    'outfall_time_series': nodes_data.get('node_time_series', pd.DataFrame())
+                }
+                
+                # Filter for outfalls only
+                if not outfalls_data['merged_results'].empty:
+                    outfalls_only = outfalls_data['merged_results'][outfalls_data['merged_results']['type'] == 'OUTFALL'].copy()
+                    outfalls_data['merged_results'] = outfalls_only
+                    
+                    # Filter time series data to include only outfall node IDs
+                    if not outfalls_only.empty and not outfalls_data['outfall_time_series'].empty:
+                        outfall_ids = outfalls_only['node_id'].tolist()
+                        # Keep time column and only outfall columns
+                        time_series_cols = ['time'] if 'time' in outfalls_data['outfall_time_series'].columns else []
+                        outfall_cols = [col for col in outfalls_data['outfall_time_series'].columns if col in outfall_ids]
+                        outfalls_data['outfall_time_series'] = outfalls_data['outfall_time_series'][time_series_cols + outfall_cols]
+                    
+                    if not outfalls_only.empty:
+                        timing_logger.log("Creating SWMM Outfalls analysis spreadsheet and plots")
+                        outfalls_files = swmm_outfalls_spreadsheet_and_plots(file_path, outfalls_data)
+                        timing_logger.log(f"SWMM Outfalls analysis files created: {outfalls_files}")
             
             if not links_data.get('merged_results', pd.DataFrame()).empty:
-                timing_logger.log("Creating SWMM Links analysis spreadsheet and plots")
+                timing_logger.log("Creating SWMM Conduits analysis spreadsheet and plots")
                 links_files = swmm_links_spreadsheet_and_plots(file_path, links_data)
-                timing_logger.log(f"SWMM Links analysis files created: {links_files}")
+                timing_logger.log(f"SWMM Conduits analysis files created: {links_files}")
                 
         except FileNotFoundError:
             logger.info("SWMM RPT file not found. Proceeding with geometry-only SWMM processing.")
@@ -530,7 +581,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         timing_logger.log("Creating SWMM Shapefiles and GeoPackages")
         swmm_files = create_swmm_shapefiles(swmm_data, shp_outpath, 
                                           output_format=output_format,
-                                          nodes_summary=nodes_summary,
+                                          junctions_summary=junctions_summary,
+                                          outfalls_summary=outfalls_summary,
                                           links_summary=links_summary)
         for swmm_file_created in swmm_files:
             timing_logger.log(f"SWMM File created at: {swmm_file_created}")

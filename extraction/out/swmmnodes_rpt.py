@@ -182,6 +182,15 @@ def _extract_node_time_series(raw_lines):
 
     df_timeseries.index.name = "Time"
     df_timeseries.reset_index(inplace=True)
+    
+    # Convert Time to hours since start for plotting
+    if not df_timeseries.empty and "Time" in df_timeseries.columns:
+        start_time = df_timeseries["Time"].min()
+        df_timeseries["Time"] = (df_timeseries["Time"] - start_time).dt.total_seconds() / 3600.0
+        
+    # Rename Time column to match constant
+    if "Time" in df_timeseries.columns:
+        df_timeseries.rename(columns={"Time": "time"}, inplace=True)
     return df_timeseries
 
 

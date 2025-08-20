@@ -1,7 +1,7 @@
 """
-SWMM Nodes Spreadsheet and Plotting Module
+SWMM Nodes (Junctions) Spreadsheet and Plotting Module
 
-Creates Excel spreadsheets and PDF plots for SWMM node analysis data including
+Creates Excel spreadsheets and PDF plots for SWMM junction analysis data including
 time series hydrographs and summary statistics.
 """
 
@@ -19,7 +19,7 @@ def create_excel_formats(workbook):
     """Create standardized formats for Excel sheets."""
     formats = {
         "header": workbook.add_format(
-            {"bold": True, "bg_color": "#4472C4", "font_color": "white", "border": 1}
+            {"bold": True, "bg_color": "#808080", "font_color": "white", "border": 1}
         ),
         "subheader": workbook.add_format(
             {"bold": True, "bg_color": "#D3D3D3", "border": 1, "align": "center"}
@@ -28,6 +28,7 @@ def create_excel_formats(workbook):
         "integer": workbook.add_format({"num_format": "0", "border": 1}),
         "percent": workbook.add_format({"num_format": "0.0%", "border": 1}),
         "timestamp": workbook.add_format({"num_format": "yyyy-mm-dd hh:mm:ss", "border": 1}),
+        "link": workbook.add_format({"font_color": "#505050", "underline": True}),
         "title": workbook.add_format(
             {"bold": True, "font_size": 14, "align": "center"}
         ),
@@ -37,8 +38,146 @@ def create_excel_formats(workbook):
         "hours": workbook.add_format({"num_format": "#,##0.0", "border": 1}),
         "flow": workbook.add_format({"num_format": "#,##0.00", "border": 1}),
         "volume": workbook.add_format({"num_format": "#,##0.0", "border": 1}),
+        "time_hr": workbook.add_format({"num_format": "#,##0.00", "border": 1}),
+        "time_hr_right": workbook.add_format({"num_format": "#,##0.00", "border": 1, "align": "right"}),
     }
     return formats
+
+
+def create_readme_sheet(workbook, formats, num_junctions, folder_path):
+    """Create README sheet with metadata and documentation."""
+    worksheet = workbook.get_worksheet_by_name("README")
+    worksheet.set_column("A:A", 28)
+    worksheet.set_column("B:B", 100)
+    worksheet.merge_range("A1:B1", "SWMM Junctions Analysis README", formats["title"])
+
+    # Metadata section
+    worksheet.merge_range("A3:B3", "Metadata", formats["subheader"])
+    metadata = [
+        ["Generated On", pd.Timestamp.now()],
+        ["Model Path", str(folder_path)],
+        ["Number of Junctions Processed", num_junctions],
+    ]
+    for row_offset, (key, value) in enumerate(metadata):
+        row_idx = 4 + row_offset
+        worksheet.write(row_idx, 0, key, formats["border"])
+        cell_format = formats["timestamp"] if key == "Generated On" else formats["border"]
+        worksheet.write(row_idx, 1, value, cell_format)
+
+    # Sheet descriptions
+    worksheet.merge_range("A8:B8", "Sheet Descriptions", formats["subheader"])
+    descriptions = [
+        ["Dashboard", "Overview of all junctions with key metrics (peak inflow, max HGL) and navigation links."],
+        ["Junction Sheets", "Individual sheets for each junction with time series data and hydrograph chart."],
+    ]
+    for row_offset, (key, value) in enumerate(descriptions):
+        row_idx = 9 + row_offset
+        worksheet.write(row_idx, 0, key, formats["border"])
+        worksheet.write(row_idx, 1, value, formats["border"])
+
+    # Column descriptions
+    worksheet.merge_range("A12:B12", "Data Column Descriptions", formats["subheader"])
+    column_desc = [
+        ["Junction ID", "SWMM junction identifier"],
+        ["Type", "Junction type (JUNCTION)"],
+        ["Inv Elev (ft)", "Invert elevation of the junction"],
+        ["Max Depth (ft)", "Maximum depth of water in the junction"],
+        ["Pond Area (sqft)", "Surface area available for ponding"],
+        ["Avg Depth (ft)", "Average depth of water in the junction"],
+        ["Max HGL (ft)", "Maximum hydraulic grade line elevation"],
+        ["Max Lateral Inflow (cfs)", "Maximum lateral inflow to the junction"],
+        ["Max Total Inflow (cfs)", "Maximum total inflow to the junction"],
+        ["Hours Surcharged", "Total hours the junction was surcharged"],
+        ["Hours Flooded", "Total hours the junction experienced flooding"],
+        ["Max Flooding Rate (cfs)", "Maximum flooding rate at the junction"],
+        ["Total Flood Volume (MG)", "Total flood volume discharged (million gallons)"],
+        ["Time", "Time (hr relative to start)"],
+        ["Inflow (cfs)", "Inflow discharge to junction"],
+    ]
+    for row_offset, (key, value) in enumerate(column_desc):
+        row_idx = 13 + row_offset
+        worksheet.write(row_idx, 0, key, formats["border"])
+        worksheet.write(row_idx, 1, value, formats["border"])
+
+
+def create_dashboard_sheet(workbook, formats, merged_results, node_time_series, node_sheet_names):
+    """Create dashboard sheet with overview of all junctions."""
+    worksheet = workbook.get_worksheet_by_name("Dashboard")
+    worksheet.set_column("A:A", 15)
+    worksheet.set_column("B:E", 18)
+    worksheet.merge_range("A1:E1", "SWMM Junctions Dashboard", formats["title"])
+    worksheet.write("A3", "Generated:", formats["subheader"])
+    worksheet.write("B3", pd.Timestamp.now(), formats["timestamp"])
+
+    # Dashboard headers
+    dashboard_headers = ["Junction ID", "Max HGL (ft)", "Peak Discharge (cfs)", "Time to Peak (hr)", "Total Flood Volume (MG)"]
+    for col, header in enumerate(dashboard_headers):
+        worksheet.write(4, col, header, formats["header"])
+
+    if merged_results.empty:
+        worksheet.write(5, 0, "No junction summary data available", formats["border"])
+        return
+
+    for row, (_, node_row) in enumerate(merged_results.iterrows(), start=5):
+        node_id = node_row.get(NODE_ID, "")
+        
+        # Create navigation link to junction sheet
+        if node_id in node_sheet_names:
+            sheet_name = node_sheet_names[node_id]
+            worksheet.write_url(row, 0, f"internal:'{sheet_name}'!A1", formats["link"], str(node_id))
+        else:
+            worksheet.write(row, 0, str(node_id), formats["border"])
+
+        # Extract summary statistics
+        max_hgl = node_row.get("Max_HGL", "")
+        max_total_inflow = node_row.get("Max_Total_Inflow", "")
+        total_flood_volume = node_row.get("Total_Flood_Volume", "")
+
+        # Calculate time to peak from time series if available
+        time_to_peak = ""
+        if not node_time_series.empty and node_id in node_time_series.columns:
+            node_data = node_time_series[node_id].dropna()
+            if len(node_data) > 0:
+                peak_idx = node_data.idxmax()
+                if TIME in node_time_series.columns:
+                    time_to_peak = node_time_series.loc[peak_idx, TIME]
+                else:
+                    time_to_peak = peak_idx
+
+        # Write data
+        data_values = [
+            (max_hgl, "number"),
+            (max_total_inflow, "flow"),
+            (time_to_peak, "time_hr"),
+            (total_flood_volume, "volume"),
+        ]
+        
+        for col, (value, format_name) in enumerate(data_values, start=1):
+            if pd.notna(value) and value != "":
+                worksheet.write(row, col, value, formats[format_name])
+            else:
+                worksheet.write(row, col, "", formats["border"])
+
+    # Add conditional formatting for key metrics
+    if not merged_results.empty:
+        last_row = 5 + len(merged_results) - 1
+        # Max HGL conditional formatting
+        worksheet.conditional_format(5, 1, last_row, 1, {
+            "type": "3_color_scale", 
+            "min_color": "#63BE7B", 
+            "mid_color": "#FFEB84", 
+            "max_color": "#F8696B"
+        })
+        # Peak discharge conditional formatting
+        worksheet.conditional_format(5, 2, last_row, 2, {
+            "type": "3_color_scale", 
+            "min_color": "#63BE7B", 
+            "mid_color": "#FFEB84", 
+            "max_color": "#F8696B"
+        })
+        worksheet.autofilter(4, 0, 4 + len(merged_results), len(dashboard_headers) - 1)
+
+    worksheet.freeze_panes(5, 0)
 
 
 def write_summary_sheet(workbook, formats, merged_results):
@@ -46,19 +185,19 @@ def write_summary_sheet(workbook, formats, merged_results):
     worksheet = workbook.add_worksheet("Node Summary")
     
     if merged_results.empty:
-        worksheet.write(0, 0, "No SWMM node summary data available", formats["header"])
+        worksheet.write(0, 0, "No SWMM junction summary data available", formats["header"])
         return
     
     # Write title
-    worksheet.write(0, 0, "SWMM Nodes Summary Statistics", formats["title"])
-    worksheet.merge_range(0, 0, 0, 10, "SWMM Nodes Summary Statistics", formats["title"])
+    worksheet.write(0, 0, "SWMM Junctions Summary Statistics", formats["title"])
+    worksheet.merge_range(0, 0, 0, 10, "SWMM Junctions Summary Statistics", formats["title"])
     
     # Write headers
     row = 2
     col = 0
     
     headers = [
-        ("Node ID", "border"),
+        ("Junction ID", "border"),
         ("Type", "border"),
         ("Inv Elev (ft)", "number"),
         ("Max Depth (ft)", "number"), 
@@ -110,18 +249,159 @@ def write_summary_sheet(workbook, formats, merged_results):
         worksheet.set_column(i, i, max(len(header) + 2, 12))
 
 
+def create_junction_sheet(workbook, formats, node_id, merged_results, node_time_series, sheet_name):
+    """Create individual junction sheet with data, chart, and summary statistics."""
+    # Get junction summary data
+    node_summary = merged_results[merged_results[NODE_ID] == node_id].iloc[0] if not merged_results.empty else pd.Series()
+    
+    # Get time series data for this junction
+    if not node_time_series.empty and node_id in node_time_series.columns:
+        time_data = node_time_series[TIME] if TIME in node_time_series.columns else node_time_series.index
+        inflow_data = node_time_series[node_id].dropna()
+        
+        # Create DataFrame for this junction's time series
+        if len(inflow_data) > 0:
+            if TIME in node_time_series.columns:
+                plot_time = node_time_series.loc[inflow_data.index, TIME]
+                node_data = pd.DataFrame({
+                    TIME: plot_time,
+                    'Inflow (cfs)': inflow_data
+                })
+            else:
+                node_data = pd.DataFrame({
+                    TIME: inflow_data.index,
+                    'Inflow (cfs)': inflow_data
+                })
+        else:
+            node_data = pd.DataFrame()
+    else:
+        node_data = pd.DataFrame()
+
+    worksheet = workbook.get_worksheet_by_name(sheet_name)
+
+    # Add back to dashboard link
+    worksheet.write_url("A1", "internal:'Dashboard'!A1", formats["link"], "← Back to Dashboard")
+
+    if not node_data.empty:
+        # Write headers
+        for col, header in enumerate(node_data.columns):
+            worksheet.write(1, col, header, formats["header"])
+        
+        # Write data
+        for row, (_, data_row) in enumerate(node_data.iterrows(), start=2):
+            for col, value in enumerate(data_row):
+                if pd.notna(value):
+                    if col == 0:  # Time column
+                        worksheet.write(row, col, value, formats["border"])
+                    else:  # Flow column
+                        worksheet.write(row, col, value, formats["flow"])
+                else:
+                    worksheet.write(row, col, "", formats["border"])
+
+        # Set column widths
+        worksheet.set_column("A:B", 16)
+
+        # Calculate summary statistics
+        peak_inflow = node_data['Inflow (cfs)'].max() if 'Inflow (cfs)' in node_data.columns else 0
+        peak_time = node_data[TIME][node_data['Inflow (cfs)'].idxmax()] if not node_data.empty and 'Inflow (cfs)' in node_data.columns else 0
+    else:
+        peak_inflow = 0
+        peak_time = 0
+        worksheet.write(2, 0, "No time series data available for this junction", formats["border"])
+
+    # Summary statistics box
+    summary_box_start_row = 1
+    summary_box_start_col = 4
+    worksheet.merge_range(
+        summary_box_start_row, summary_box_start_col,
+        summary_box_start_row, summary_box_start_col + 1,
+        "Summary Statistics", formats["subheader"]
+    )
+
+    # Extract summary data from merged results
+    inv_elev = node_summary.get("inv_elev", "N/A")
+    max_depth = node_summary.get("max_depth", "N/A")
+    pond_area = node_summary.get("pond_area", "N/A")
+    avg_depth = node_summary.get("Avg_Depth", "N/A") 
+    max_hgl = node_summary.get("Max_HGL", "N/A")
+    max_lateral_inflow = node_summary.get("Max_Lateral_Inflow", "N/A")
+    max_total_inflow = node_summary.get("Max_Total_Inflow", "N/A")
+    hours_surcharged = node_summary.get("Hours_Surcharged", "N/A")
+    hours_flooded = node_summary.get("Hours_Flooded", "N/A")
+    max_flooding_rate = node_summary.get("Max_Flooding_Rate", "N/A")
+    total_flood_volume = node_summary.get("Total_Flood_Volume", "N/A")
+
+    stats_data = [
+        ["Invert Elevation (ft)", inv_elev, formats["number_right"]],
+        ["Max Depth (ft)", max_depth, formats["number_right"]],
+        ["Pond Area (sqft)", pond_area, formats["number_right"]],
+        ["Average Depth (ft)", avg_depth, formats["number_right"]],
+        ["Max HGL (ft)", max_hgl, formats["number_right"]],
+        ["Peak Inflow (cfs)", max(peak_inflow, max_total_inflow if pd.notna(max_total_inflow) and max_total_inflow != "N/A" else 0), formats["flow"]],
+        ["Time to Peak (hr)", peak_time, formats["time_hr_right"]],
+        ["Max Lateral Inflow (cfs)", max_lateral_inflow, formats["flow"]],
+        ["Hours Surcharged", hours_surcharged, formats["hours"]],
+        ["Hours Flooded", hours_flooded, formats["hours"]],
+        ["Max Flooding Rate (cfs)", max_flooding_rate, formats["flow"]],
+        ["Total Flood Volume (MG)", total_flood_volume, formats["volume"]],
+    ]
+
+    for i, (stat, value, value_format) in enumerate(stats_data):
+        current_row = summary_box_start_row + 1 + i
+        worksheet.write(current_row, summary_box_start_col, stat, formats["border"])
+        if isinstance(value, (int, float)) and pd.notna(value) and value != "N/A":
+            worksheet.write_number(current_row, summary_box_start_col + 1, value, value_format)
+        else:
+            worksheet.write_string(current_row, summary_box_start_col + 1, 
+                                 str(value) if pd.notna(value) and value != "N/A" else 'N/A', formats["border_right"])
+
+    # Create chart if we have data
+    if not node_data.empty and len(node_data) > 1:
+        line_chart = workbook.add_chart({'type': 'line'})
+        
+        # Chart data series
+        first_data_row_excel = 3
+        last_data_row_excel = first_data_row_excel + len(node_data) - 1
+        
+        line_chart.add_series({
+            'name': 'Inflow',
+            'categories': [sheet_name, first_data_row_excel, 0, last_data_row_excel, 0],  # Time column
+            'values': [sheet_name, first_data_row_excel, 1, last_data_row_excel, 1],      # Inflow column
+            'line': {'color': 'blue', 'width': 2},
+        })
+
+        # Chart formatting
+        peak_str = f"{peak_inflow:.2f}"
+        time_str = f"{peak_time:.2f}"
+        chart_title = f"Hydrograph for Junction {node_id}\nPeak Discharge: {peak_str} cfs | Time to Peak: {time_str} hr"
+
+        line_chart.set_title({'name': chart_title})
+        line_chart.set_x_axis({
+            'name': "Time (hr)",
+            'major_gridlines': {'visible': True},
+        })
+        line_chart.set_y_axis({'name': "Discharge (cfs)", 'major_gridlines': {'visible': True}})
+        line_chart.set_legend({'position': 'bottom'})
+        line_chart.set_size({'width': 720, 'height': 480})
+        
+        # Insert chart
+        worksheet.insert_chart('G2', line_chart)
+
+    worksheet.freeze_panes(2, 0)
+
+
 def write_time_series_sheet(workbook, formats, node_time_series, node_id):
     """Write individual node time series data to a worksheet."""
-    sheet_name = f"Node_{node_id}"[:31]  # Excel sheet name limit
+    sheet_name = f"Junction_{node_id}"[:31]  # Excel sheet name limit
     worksheet = workbook.add_worksheet(sheet_name)
     
     if node_time_series.empty or node_id not in node_time_series.columns:
-        worksheet.write(0, 0, f"No time series data for node {node_id}", formats["header"])
+        worksheet.write(0, 0, f"No time series data for junction {node_id}", formats["header"])
         return
     
     # Write title
-    worksheet.write(0, 0, f"Node {node_id} - Inflow Time Series", formats["title"])
-    worksheet.merge_range(0, 0, 0, 2, f"Node {node_id} - Inflow Time Series", formats["title"])
+    worksheet.write(0, 0, f"Junction {node_id} - Inflow Time Series", formats["title"])
+    worksheet.merge_range(0, 0, 0, 2, f"Junction {node_id} - Inflow Time Series", formats["title"])
     
     # Write headers
     worksheet.write(2, 0, "Time", formats["header"])
@@ -144,30 +424,31 @@ def write_time_series_sheet(workbook, formats, node_time_series, node_id):
 
 
 @time_function
-def plot_node_hydrographs_to_pdf(node_time_series, pdf_filename):
+def plot_node_hydrographs_to_pdf(node_time_series, merged_results, pdf_filename):
     """
-    Plot node inflow hydrographs to a PDF file with 4 plots per page.
+    Plot junction inflow hydrographs to a PDF file with 4 plots per page.
     
     Args:
         node_time_series (DataFrame): Time series data with time index and node columns
+        merged_results (DataFrame): Summary data for junctions
         pdf_filename (str): Output PDF file path
     """
     logger = logging.getLogger('FLO2D_Postprocessor')
     
     if node_time_series.empty:
-        logger.warning("No node time series data available for plotting")
+        logger.warning("No junction time series data available for plotting")
         return
     
     # Get node columns (exclude TIME column if present)
     node_columns = [col for col in node_time_series.columns if col != TIME]
     
     if not node_columns:
-        logger.warning("No node data columns found for plotting")
+        logger.warning("No junction data columns found for plotting")
         return
     
     with PdfPages(pdf_filename) as pdf:
         num_plots_per_page = 4
-        fig, axes = plt.subplots(2, 2, figsize=(11, 8.5))
+        fig, axes = plt.subplots(2, 2, figsize=(8.5, 11))
         fig.subplots_adjust(hspace=0.4, wspace=0.3)
         
         plot_count = 0
@@ -186,20 +467,43 @@ def plot_node_hydrographs_to_pdf(node_time_series, pdf_filename):
                 else:
                     plot_time = node_data.index
                 
-                ax.plot(plot_time, node_data, color='blue', linewidth=1.5, marker='o', markersize=2)
-                ax.set_title(f'Node {node_id} - Inflow Hydrograph', fontsize=10, weight='bold')
-                ax.set_xlabel('Time', fontsize=8)
+                ax.plot(plot_time, node_data, color='blue', linewidth=1.5)
+                ax.set_title(f'Junction {node_id}', fontsize=10, weight='bold')
+                ax.set_xlabel('Time (hours)', fontsize=8)
                 ax.set_ylabel('Inflow (cfs)', fontsize=8)
                 ax.grid(True, alpha=0.3)
                 ax.tick_params(axis='both', which='major', labelsize=7)
+                
+                # Add summary statistics
+                peak_inflow = node_data.max()
+                peak_time = plot_time[node_data.idxmax()]
+                
+                # Get additional stats from merged_results if available
+                if not merged_results.empty:
+                    node_summary = merged_results[merged_results[NODE_ID] == node_id]
+                    if not node_summary.empty:
+                        max_hgl = node_summary.iloc[0].get("Max_HGL", "N/A")
+                        total_flood_volume = node_summary.iloc[0].get("Total_Flood_Volume", "N/A")
+                        
+                        if pd.notna(max_hgl) and max_hgl != "N/A":
+                            label = f'Peak Discharge: {peak_inflow:.2f} cfs\nMax HGL: {max_hgl:.2f} ft\nTime of Peak: {peak_time:.2f} hrs'
+                        else:
+                            label = f'Peak Discharge: {peak_inflow:.2f} cfs\nTime of Peak: {peak_time:.2f} hrs'
+                    else:
+                        label = f'Peak Discharge: {peak_inflow:.2f} cfs\nTime of Peak: {peak_time:.2f} hrs'
+                else:
+                    label = f'Peak Discharge: {peak_inflow:.2f} cfs\nTime of Peak: {peak_time:.2f} hrs'
+                
+                ax.text(0.05, 0.95, label, ha='left', va='top', transform=ax.transAxes, fontsize=8,
+                       bbox=dict(facecolor='white', alpha=0.6))
                 
                 # Rotate time labels if they're datetime
                 if pd.api.types.is_datetime64_any_dtype(plot_time.dtype):
                     ax.tick_params(axis='x', rotation=45)
             else:
-                ax.text(0.5, 0.5, f'No data for Node {node_id}', 
+                ax.text(0.5, 0.5, f'No data for Junction {node_id}', 
                        ha='center', va='center', transform=ax.transAxes)
-                ax.set_title(f'Node {node_id}', fontsize=10)
+                ax.set_title(f'Junction {node_id}', fontsize=10)
             
             plot_count += 1
             
@@ -215,21 +519,21 @@ def plot_node_hydrographs_to_pdf(node_time_series, pdf_filename):
                 
                 # Start new page if more nodes to plot
                 if node_id != node_columns[-1]:
-                    fig, axes = plt.subplots(2, 2, figsize=(11, 8.5))
+                    fig, axes = plt.subplots(2, 2, figsize=(8.5, 11))
                     fig.subplots_adjust(hspace=0.4, wspace=0.3)
                     plot_count = 0
     
-    logger.info(f"SWMM node hydrographs plotted to: {pdf_filename}")
+    logger.info(f"SWMM junction hydrographs plotted to: {pdf_filename}")
 
 
 @time_function
 def swmm_nodes_spreadsheet_and_plots(folder_path, nodes_data):
     """
-    Create Excel spreadsheet and PDF plots for SWMM nodes analysis.
+    Create Excel spreadsheet and PDF plots for SWMM junctions analysis.
     
     Args:
         folder_path (str): Path to the FLO-2D project folder
-        nodes_data (dict): Dictionary containing nodes extraction results
+        nodes_data (dict): Dictionary containing junctions extraction results
         
     Returns:
         dict: Dictionary containing paths to created files
@@ -241,38 +545,52 @@ def swmm_nodes_spreadsheet_and_plots(folder_path, nodes_data):
     os.makedirs(plots_dir, exist_ok=True)
     
     # File paths
-    excel_file = os.path.join(plots_dir, "swmm_nodes_analysis.xlsx")
-    pdf_file = os.path.join(plots_dir, "swmm_nodes_plots.pdf")
+    excel_file = os.path.join(plots_dir, "swmm_junctions_analysis.xlsx")
+    pdf_file = os.path.join(plots_dir, "swmm_junctions_plots.pdf")
     
     created_files = {}
     
     try:
+        # Extract data
+        merged_results = nodes_data.get('merged_results', pd.DataFrame())
+        node_time_series = nodes_data.get('node_time_series', pd.DataFrame())
+        
         # Create Excel workbook
         with xlsxwriter.Workbook(excel_file) as workbook:
             formats = create_excel_formats(workbook)
             
-            # Write summary sheet
-            merged_results = nodes_data.get('merged_results', pd.DataFrame())
-            write_summary_sheet(workbook, formats, merged_results)
+            # Create sheets
+            workbook.add_worksheet("README")
+            workbook.add_worksheet("Dashboard")
             
-            # Write individual node time series sheets
-            node_time_series = nodes_data.get('node_time_series', pd.DataFrame())
-            if not node_time_series.empty:
-                node_columns = [col for col in node_time_series.columns if col != TIME]
-                for node_id in node_columns[:20]:  # Limit to first 20 nodes to avoid too many sheets
-                    write_time_series_sheet(workbook, formats, node_time_series, node_id)
+            # Create junction sheet names mapping
+            node_sheet_names = {}
+            if not merged_results.empty:
+                node_ids = merged_results[NODE_ID].tolist()
+                for node_id in node_ids[:20]:  # Limit to 20 junctions for Excel sheet limits
+                    sheet_name = f"Junction {node_id}"[:31]  # Excel sheet name limit
+                    node_sheet_names[node_id] = sheet_name
+                    workbook.add_worksheet(sheet_name)
+
+            # Populate sheets
+            num_junctions = len(merged_results) if not merged_results.empty else 0
+            create_readme_sheet(workbook, formats, num_junctions, folder_path)
+            create_dashboard_sheet(workbook, formats, merged_results, node_time_series, node_sheet_names)
+            
+            # Create individual junction sheets
+            for node_id in node_sheet_names.keys():
+                create_junction_sheet(workbook, formats, node_id, merged_results, node_time_series, node_sheet_names[node_id])
         
         created_files['excel'] = excel_file
-        logger.info(f"SWMM nodes Excel file created: {excel_file}")
+        logger.info(f"SWMM junctions Excel file created: {excel_file}")
         
         # Create PDF plots
-        node_time_series = nodes_data.get('node_time_series', pd.DataFrame())
         if not node_time_series.empty:
-            plot_node_hydrographs_to_pdf(node_time_series, pdf_file)
+            plot_node_hydrographs_to_pdf(node_time_series, merged_results, pdf_file)
             created_files['pdf'] = pdf_file
         
     except Exception as e:
-        logger.error(f"Error creating SWMM nodes spreadsheet and plots: {str(e)}")
+        logger.error(f"Error creating SWMM junctions spreadsheet and plots: {str(e)}")
         raise
     
     return created_files
