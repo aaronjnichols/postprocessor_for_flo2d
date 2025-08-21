@@ -72,15 +72,37 @@ def save_to_pdf(df, variables, output_path):
 
 def rain_spreadsheet_and_plot(folder_path):
     rain_file_path = os.path.join(folder_path, 'RAIN.DAT')
+    
+    # Check if RAIN.DAT file exists
+    if not os.path.exists(rain_file_path):
+        raise FileNotFoundError(f"RAIN.DAT file not found at {rain_file_path}")
+    
     outpath = os.path.join(folder_path, 'flo2d_plots')
     excel_output_path = os.path.join(outpath, 'rainfall_data.xlsx')
     pdf_output_path = os.path.join(outpath, 'rainfall_data.pdf')
     
-    variables = extract_variables(rain_file_path)
-    df = extract_time_series_data(rain_file_path)
-    
-    save_to_excel(df, variables, excel_output_path)
-    save_to_pdf(df, variables, pdf_output_path)
+    try:
+        variables = extract_variables(rain_file_path)
+        df = extract_time_series_data(rain_file_path)
+        
+        # Check if we have valid data before creating outputs
+        if df.empty:
+            raise ValueError("No rainfall time series data found in RAIN.DAT")
+        
+        save_to_excel(df, variables, excel_output_path)
+        save_to_pdf(df, variables, pdf_output_path)
+        
+        return excel_output_path, pdf_output_path
+        
+    except Exception as e:
+        # Clean up any partially created files
+        for output_path in [excel_output_path, pdf_output_path]:
+            if os.path.exists(output_path):
+                try:
+                    os.remove(output_path)
+                except:
+                    pass
+        raise RuntimeError(f"Failed to process RAIN.DAT file: {e}") from e
 
 # Example usage
 #folder_path = r'S:\21002795 - Lake Havasu\Project Documents\Engineering-Planning-Power and Energy\Reports\CLOMR\Models\FLO2D\PROP\20240521_PROP_Riprap_n_values_V2'

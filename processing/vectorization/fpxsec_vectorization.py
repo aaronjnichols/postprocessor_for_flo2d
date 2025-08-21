@@ -10,7 +10,14 @@ from core.constants import FPXSEC, X_COORD, Y_COORD, FPXS_ID
 
 def filter_model_data(model_data):
     """Filter model data for non-zero fpxsec values and return sorted unique fpxsec IDs."""
+    # Check if fpxsec column exists
+    if FPXSEC not in model_data.columns:
+        return pd.Series([], dtype=int)  # Return empty series if no fpxsec column
+    
     fpxsec_grids = model_data[pd.notna(model_data[FPXSEC])]
+    if fpxsec_grids.empty:
+        return pd.Series([], dtype=int)  # Return empty series if no fpxsec data
+    
     fpxsec_grids[FPXSEC] = fpxsec_grids[FPXSEC].astype(int)
     fpxsec_ids = fpxsec_grids[FPXSEC].drop_duplicates().sort_values()
     return fpxsec_ids

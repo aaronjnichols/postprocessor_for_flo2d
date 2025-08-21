@@ -173,7 +173,14 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     # Step 2: Extract model data
     timing_logger.log("Extracting model data from FLO-2D files")
     model_data = extract_model_data_to_df(file_path)
-    fpxsec_grids = model_data[pd.notna(model_data['fpxsec'])]
+    
+    # Check if fpxsec column exists before accessing it
+    if 'fpxsec' in model_data.columns:
+        fpxsec_grids = model_data[pd.notna(model_data['fpxsec'])]
+    else:
+        fpxsec_grids = pd.DataFrame()  # Empty DataFrame if no fpxsec data
+        logger.info("FPXSEC.DAT not found - skipping floodplain cross-section analysis")
+    
     timing_logger.log("Model data extraction completed")
 
     # Step 3: ARF data is now automatically handled within extract_model_data_to_df
@@ -222,40 +229,45 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         super_data = extract_super_out(file_path)
         timing_logger.log("SUPER.OUT data extraction completed")
 
-        # Ensure grid_id is of the same type in both DataFrames
-        super_data[GRID_ID] = super_data[GRID_ID].astype(geo_df[GRID_ID].dtype)
-
-        # Merge the super_data with the main GeoDataFrame
-        super_geo_df = geo_df.merge(super_data, on=GRID_ID, how='left', suffixes=('_orig', ''))
-        logger.debug(f"Columns in super_geo_df after merge: {list(super_geo_df.columns)}")
-
-        # Filter rows to include only those with non-null values in the super_data columns
-        super_geo_df = super_geo_df.dropna(subset=[MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS])
-
-        # Select only the relevant columns for the output file
-        columns_to_select = [GRID_ID, MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS, GEOMETRY]
-        super_geo_df = super_geo_df[columns_to_select]
-
-        # Create a points shapefile or GeoPackage for the SUPER.OUT data
-        if output_format == "Shapefile":
-            super_file = os.path.join(shp_outpath, 'super_out_points.shp')
-            driver = "ESRI Shapefile"
+        # Check if extraction was successful and contains expected columns
+        expected_super_columns = [GRID_ID, MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS]
+        if super_data.empty or not all(col in super_data.columns for col in expected_super_columns):
+            logger.warning("SUPER.OUT data extraction failed or returned incomplete data. Skipping SUPER.OUT processing.")
         else:
-            super_file = os.path.join(shp_outpath, 'super_out_points.gpkg')
-            driver = "GPKG"
+            # Ensure grid_id is of the same type in both DataFrames
+            super_data[GRID_ID] = super_data[GRID_ID].astype(geo_df[GRID_ID].dtype)
 
-        try:
-            # Ensure CRS is set on GeoDataFrame before saving (pyogrio engine doesn't support crs parameter)
-            if super_geo_df.crs is None:
-                super_geo_df.crs = f"EPSG:{coord_system}"
-            
-            if driver == "GPKG":
-                super_geo_df.to_file(super_file, driver=driver)
+            # Merge the super_data with the main GeoDataFrame
+            super_geo_df = geo_df.merge(super_data, on=GRID_ID, how='left', suffixes=('_orig', ''))
+            logger.debug(f"Columns in super_geo_df after merge: {list(super_geo_df.columns)}")
+
+            # Filter rows to include only those with non-null values in the super_data columns
+            super_geo_df = super_geo_df.dropna(subset=[MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS])
+
+            # Select only the relevant columns for the output file
+            columns_to_select = [GRID_ID, MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS, GEOMETRY]
+            super_geo_df = super_geo_df[columns_to_select]
+
+            # Create a points shapefile or GeoPackage for the SUPER.OUT data
+            if output_format == "Shapefile":
+                super_file = os.path.join(shp_outpath, 'super_out_points.shp')
+                driver = "ESRI Shapefile"
             else:
-                super_geo_df.to_file(super_file, driver=driver, crs=f"EPSG:{coord_system}")
-            timing_logger.log(f"SUPER.OUT Points {output_format} created at: {super_file}")
-        except Exception as e:
-            logger.error(f"Failed to create SUPER.OUT Points {output_format}: {str(e)}")
+                super_file = os.path.join(shp_outpath, 'super_out_points.gpkg')
+                driver = "GPKG"
+
+            try:
+                # Ensure CRS is set on GeoDataFrame before saving (pyogrio engine doesn't support crs parameter)
+                if super_geo_df.crs is None:
+                    super_geo_df.crs = f"EPSG:{coord_system}"
+                
+                if driver == "GPKG":
+                    super_geo_df.to_file(super_file, driver=driver)
+                else:
+                    super_geo_df.to_file(super_file, driver=driver, crs=f"EPSG:{coord_system}")
+                timing_logger.log(f"SUPER.OUT Points {output_format} created at: {super_file}")
+            except Exception as e:
+                logger.error(f"Failed to create SUPER.OUT Points {output_format}: {str(e)}")
     else:
         logger.info("SUPER.OUT file not found. Skipping SUPER.OUT data extraction.")
 
@@ -266,43 +278,47 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         evacuatedfp_data = extract_evacuatedfp_out(evacuatedfp_file)
         timing_logger.log("EVACUATEDFP.OUT data extraction completed")
 
-        # Ensure grid_id is of the same type in both DataFrames
-        evacuatedfp_data[GRID_ID] = evacuatedfp_data[GRID_ID].astype(geo_df[GRID_ID].dtype)
-
-        # If the main geo_df already contains NUM_EVACUATIONS (from pooled extraction), avoid duplicate merge
-        if NUM_EVACUATIONS in geo_df.columns:
-            evacuatedfp_geo_df = geo_df[[GRID_ID, NUM_EVACUATIONS, GEOMETRY]].dropna(subset=[NUM_EVACUATIONS])
+        # Check if extraction was successful and contains expected columns
+        if evacuatedfp_data.empty or GRID_ID not in evacuatedfp_data.columns or NUM_EVACUATIONS not in evacuatedfp_data.columns:
+            logger.warning("EVACUATEDFP.OUT data extraction failed or returned incomplete data. Skipping EVACUATEDFP.OUT processing.")
         else:
-            # Merge the evacuatedfp_data with the main GeoDataFrame
-            evacuatedfp_geo_df = geo_df.merge(evacuatedfp_data, on=GRID_ID, how='left')
-            logger.debug(f"Columns in evacuatedfp_geo_df after merge: {list(evacuatedfp_geo_df.columns)}")
-            # Filter rows to include only those with non-null values in the evacuatedfp_data columns
-            evacuatedfp_geo_df = evacuatedfp_geo_df.dropna(subset=[NUM_EVACUATIONS])
+            # Ensure grid_id is of the same type in both DataFrames
+            evacuatedfp_data[GRID_ID] = evacuatedfp_data[GRID_ID].astype(geo_df[GRID_ID].dtype)
 
-        # Select only the relevant columns for the output file
-        columns_to_select = [GRID_ID, NUM_EVACUATIONS, GEOMETRY]
-        evacuatedfp_geo_df = evacuatedfp_geo_df[columns_to_select]
-
-        # Create a points shapefile or GeoPackage for the EVACUATEDFP.OUT data
-        if output_format == "Shapefile":
-            evacuatedfp_file = os.path.join(shp_outpath, 'evacuatedfp_out_points.shp')
-            driver = "ESRI Shapefile"
-        else:
-            evacuatedfp_file = os.path.join(shp_outpath, 'evacuatedfp_out_points.gpkg')
-            driver = "GPKG"
-
-        try:
-            # Ensure CRS is set on GeoDataFrame before saving (pyogrio engine doesn't support crs parameter)
-            if evacuatedfp_geo_df.crs is None:
-                evacuatedfp_geo_df.crs = f"EPSG:{coord_system}"
-            
-            if driver == "GPKG":
-                evacuatedfp_geo_df.to_file(evacuatedfp_file, driver=driver)
+            # If the main geo_df already contains NUM_EVACUATIONS (from pooled extraction), avoid duplicate merge
+            if NUM_EVACUATIONS in geo_df.columns:
+                evacuatedfp_geo_df = geo_df[[GRID_ID, NUM_EVACUATIONS, GEOMETRY]].dropna(subset=[NUM_EVACUATIONS])
             else:
-                evacuatedfp_geo_df.to_file(evacuatedfp_file, driver=driver, crs=f"EPSG:{coord_system}")
-            timing_logger.log(f"EVACUATEDFP.OUT Points {output_format} created at: {evacuatedfp_file}")
-        except Exception as e:
-            logger.error(f"Failed to create EVACUATEDFP.OUT Points {output_format}: {str(e)}")
+                # Merge the evacuatedfp_data with the main GeoDataFrame
+                evacuatedfp_geo_df = geo_df.merge(evacuatedfp_data, on=GRID_ID, how='left')
+                logger.debug(f"Columns in evacuatedfp_geo_df after merge: {list(evacuatedfp_geo_df.columns)}")
+                # Filter rows to include only those with non-null values in the evacuatedfp_data columns
+                evacuatedfp_geo_df = evacuatedfp_geo_df.dropna(subset=[NUM_EVACUATIONS])
+
+            # Select only the relevant columns for the output file
+            columns_to_select = [GRID_ID, NUM_EVACUATIONS, GEOMETRY]
+            evacuatedfp_geo_df = evacuatedfp_geo_df[columns_to_select]
+
+            # Create a points shapefile or GeoPackage for the EVACUATEDFP.OUT data
+            if output_format == "Shapefile":
+                evacuatedfp_file = os.path.join(shp_outpath, 'evacuatedfp_out_points.shp')
+                driver = "ESRI Shapefile"
+            else:
+                evacuatedfp_file = os.path.join(shp_outpath, 'evacuatedfp_out_points.gpkg')
+                driver = "GPKG"
+
+            try:
+                # Ensure CRS is set on GeoDataFrame before saving (pyogrio engine doesn't support crs parameter)
+                if evacuatedfp_geo_df.crs is None:
+                    evacuatedfp_geo_df.crs = f"EPSG:{coord_system}"
+                
+                if driver == "GPKG":
+                    evacuatedfp_geo_df.to_file(evacuatedfp_file, driver=driver)
+                else:
+                    evacuatedfp_geo_df.to_file(evacuatedfp_file, driver=driver, crs=f"EPSG:{coord_system}")
+                timing_logger.log(f"EVACUATEDFP.OUT Points {output_format} created at: {evacuatedfp_file}")
+            except Exception as e:
+                logger.error(f"Failed to create EVACUATEDFP.OUT Points {output_format}: {str(e)}")
     else:
         logger.info("EVACUATEDFP.OUT file not found. Skipping EVACUATEDFP.OUT data extraction.")
 
@@ -313,53 +329,57 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         time_out_data = extract_time_out(file_path)
         timing_logger.log("TIME.OUT data extraction completed")
 
-        # Ensure grid_id is of the same type in both DataFrames
-        time_out_data[GRID_ID] = time_out_data[GRID_ID].astype(geo_df[GRID_ID].dtype)
-
-        # If the main geo_df already contains NUM_TIME_DECREMENTS (from pooled extraction), avoid duplicate merge
-        if NUM_TIME_DECREMENTS in geo_df.columns:
-            time_out_geo_df = geo_df[[GRID_ID, NUM_TIME_DECREMENTS, GEOMETRY]].dropna(subset=[NUM_TIME_DECREMENTS])
+        # Check if extraction was successful and contains expected columns
+        if time_out_data.empty or GRID_ID not in time_out_data.columns or NUM_TIME_DECREMENTS not in time_out_data.columns:
+            logger.warning("TIME.OUT data extraction failed or returned incomplete data. Skipping TIME.OUT processing.")
         else:
-            # Merge the time_out_data with the main GeoDataFrame
-            time_out_geo_df = geo_df.merge(time_out_data, on=GRID_ID, how='left')
-            logger.debug(f"Columns in time_out_geo_df after merge: {list(time_out_geo_df.columns)}")
-            # Filter rows to include only those with non-null values in the time_out_data columns
-            if NUM_TIME_DECREMENTS in time_out_geo_df.columns:
-                subset_col = NUM_TIME_DECREMENTS
-            elif f"{NUM_TIME_DECREMENTS}_y" in time_out_geo_df.columns:
-                # Handle potential suffixing if duplicates occurred for any reason
-                subset_col = f"{NUM_TIME_DECREMENTS}_y"
-                # Normalize to canonical name for output
-                time_out_geo_df = time_out_geo_df.rename(columns={subset_col: NUM_TIME_DECREMENTS})
-                subset_col = NUM_TIME_DECREMENTS
+            # Ensure grid_id is of the same type in both DataFrames
+            time_out_data[GRID_ID] = time_out_data[GRID_ID].astype(geo_df[GRID_ID].dtype)
+
+            # If the main geo_df already contains NUM_TIME_DECREMENTS (from pooled extraction), avoid duplicate merge
+            if NUM_TIME_DECREMENTS in geo_df.columns:
+                time_out_geo_df = geo_df[[GRID_ID, NUM_TIME_DECREMENTS, GEOMETRY]].dropna(subset=[NUM_TIME_DECREMENTS])
             else:
-                subset_col = NUM_TIME_DECREMENTS  # Fallback; will raise if missing, surfacing the issue
-            time_out_geo_df = time_out_geo_df.dropna(subset=[subset_col])
+                # Merge the time_out_data with the main GeoDataFrame
+                time_out_geo_df = geo_df.merge(time_out_data, on=GRID_ID, how='left')
+                logger.debug(f"Columns in time_out_geo_df after merge: {list(time_out_geo_df.columns)}")
+                # Filter rows to include only those with non-null values in the time_out_data columns
+                if NUM_TIME_DECREMENTS in time_out_geo_df.columns:
+                    subset_col = NUM_TIME_DECREMENTS
+                elif f"{NUM_TIME_DECREMENTS}_y" in time_out_geo_df.columns:
+                    # Handle potential suffixing if duplicates occurred for any reason
+                    subset_col = f"{NUM_TIME_DECREMENTS}_y"
+                    # Normalize to canonical name for output
+                    time_out_geo_df = time_out_geo_df.rename(columns={subset_col: NUM_TIME_DECREMENTS})
+                    subset_col = NUM_TIME_DECREMENTS
+                else:
+                    subset_col = NUM_TIME_DECREMENTS  # Fallback; will raise if missing, surfacing the issue
+                time_out_geo_df = time_out_geo_df.dropna(subset=[subset_col])
 
-        # Select only the relevant columns for the output file
-        columns_to_select = [GRID_ID, NUM_TIME_DECREMENTS, GEOMETRY]
-        time_out_geo_df = time_out_geo_df[columns_to_select]
+            # Select only the relevant columns for the output file
+            columns_to_select = [GRID_ID, NUM_TIME_DECREMENTS, GEOMETRY]
+            time_out_geo_df = time_out_geo_df[columns_to_select]
 
-        # Create a points shapefile or GeoPackage for the TIME.OUT data
-        if output_format == "Shapefile":
-            time_out_file = os.path.join(shp_outpath, 'time_out_points.shp')
-            driver = "ESRI Shapefile"
-        else:
-            time_out_file = os.path.join(shp_outpath, 'time_out_points.gpkg')
-            driver = "GPKG"
-
-        try:
-            # Ensure CRS is set on GeoDataFrame before saving (pyogrio engine doesn't support crs parameter)
-            if time_out_geo_df.crs is None:
-                time_out_geo_df.crs = f"EPSG:{coord_system}"
-            
-            if driver == "GPKG":
-                time_out_geo_df.to_file(time_out_file, driver=driver)
+            # Create a points shapefile or GeoPackage for the TIME.OUT data
+            if output_format == "Shapefile":
+                time_out_file = os.path.join(shp_outpath, 'time_out_points.shp')
+                driver = "ESRI Shapefile"
             else:
-                time_out_geo_df.to_file(time_out_file, driver=driver, crs=f"EPSG:{coord_system}")
-            timing_logger.log(f"TIME.OUT Points {output_format} created at: {time_out_file}")
-        except Exception as e:
-            logger.error(f"Failed to create TIME.OUT Points {output_format}: {str(e)}")
+                time_out_file = os.path.join(shp_outpath, 'time_out_points.gpkg')
+                driver = "GPKG"
+
+            try:
+                # Ensure CRS is set on GeoDataFrame before saving (pyogrio engine doesn't support crs parameter)
+                if time_out_geo_df.crs is None:
+                    time_out_geo_df.crs = f"EPSG:{coord_system}"
+                
+                if driver == "GPKG":
+                    time_out_geo_df.to_file(time_out_file, driver=driver)
+                else:
+                    time_out_geo_df.to_file(time_out_file, driver=driver, crs=f"EPSG:{coord_system}")
+                timing_logger.log(f"TIME.OUT Points {output_format} created at: {time_out_file}")
+            except Exception as e:
+                logger.error(f"Failed to create TIME.OUT Points {output_format}: {str(e)}")
     else:
         logger.info("TIME.OUT file not found. Skipping TIME.OUT data extraction.")
 
@@ -487,8 +507,12 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     rain_file = get_file_path(file_path, 'RAIN.DAT')
     if check_file_exists(rain_file):
         timing_logger.log("Generating Rainfall Spreadsheet and Plot")
-        rain_files = rain_spreadsheet_and_plot(file_path)
-        timing_logger.log(f"Rainfall Spreadsheet and Plot created at: {rain_files}")
+        try:
+            rain_files = rain_spreadsheet_and_plot(file_path)
+            timing_logger.log(f"Rainfall Spreadsheet and Plot created at: {rain_files}")
+        except Exception as e:
+            logger.error(f"Failed to create rainfall reports: {e}")
+            timing_logger.log("Rainfall report generation failed")
     else:
         logger.info("Rainfall data not found. Skipping this step.")
 
