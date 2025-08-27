@@ -197,7 +197,10 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         if FLOW_DIRECTION not in geo_df.columns:
             logger.error(f"'{FLOW_DIRECTION}' column is missing in the GeoDataFrame. Output creation aborted.")
         else:
-            geo_df_subset = geo_df[[GRID_ID, FLOW_DIRECTION, GEOMETRY]]
+            # Add 1-based display ID for user-facing output; hide internal grid_id
+            geo_df_subset = geo_df.copy()
+            geo_df_subset['flo2d_grid_id'] = geo_df_subset[GRID_ID] + 1
+            geo_df_subset = geo_df_subset[['flo2d_grid_id', FLOW_DIRECTION, GEOMETRY]]
 
             gpkg_file = os.path.join(shp_outpath, 'flow_direction.gpkg')
             try:
@@ -244,8 +247,9 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             # Filter rows to include only those with non-null values in the super_data columns
             super_geo_df = super_geo_df.dropna(subset=[MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS])
 
-            # Select only the relevant columns for the output file
-            columns_to_select = [GRID_ID, MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS, GEOMETRY]
+            # Add 1-based display ID and select only user-facing columns (hide internal grid_id)
+            super_geo_df['flo2d_grid_id'] = super_geo_df[GRID_ID] + 1
+            columns_to_select = ['flo2d_grid_id', MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS, GEOMETRY]
             super_geo_df = super_geo_df[columns_to_select]
 
             # Create a points shapefile or GeoPackage for the SUPER.OUT data
@@ -295,8 +299,9 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
                 # Filter rows to include only those with non-null values in the evacuatedfp_data columns
                 evacuatedfp_geo_df = evacuatedfp_geo_df.dropna(subset=[NUM_EVACUATIONS])
 
-            # Select only the relevant columns for the output file
-            columns_to_select = [GRID_ID, NUM_EVACUATIONS, GEOMETRY]
+            # Add 1-based display ID and select only user-facing columns (hide internal grid_id)
+            evacuatedfp_geo_df['flo2d_grid_id'] = evacuatedfp_geo_df[GRID_ID] + 1
+            columns_to_select = ['flo2d_grid_id', NUM_EVACUATIONS, GEOMETRY]
             evacuatedfp_geo_df = evacuatedfp_geo_df[columns_to_select]
 
             # Create a points shapefile or GeoPackage for the EVACUATEDFP.OUT data
@@ -356,8 +361,12 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
                     subset_col = NUM_TIME_DECREMENTS  # Fallback; will raise if missing, surfacing the issue
                 time_out_geo_df = time_out_geo_df.dropna(subset=[subset_col])
 
-            # Select only the relevant columns for the output file
-            columns_to_select = [GRID_ID, NUM_TIME_DECREMENTS, GEOMETRY]
+            # Include a 1-based grid id field to match TIME.OUT display while retaining internal 0-based grid_id
+            if GRID_ID in time_out_geo_df.columns:
+                time_out_geo_df['flo2d_grid_id'] = time_out_geo_df[GRID_ID] + 1
+
+            # Select only the relevant user-facing columns (hide internal grid_id)
+            columns_to_select = [col for col in ['flo2d_grid_id', NUM_TIME_DECREMENTS, GEOMETRY] if col in time_out_geo_df.columns]
             time_out_geo_df = time_out_geo_df[columns_to_select]
 
             # Create a points shapefile or GeoPackage for the TIME.OUT data
@@ -470,9 +479,10 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             # Process hydrograph data with error handling
             hydrostruct_data = extract_hydrostruct_out(file_path)
             hydrograph_data = hydrostruct_data['hydrographs']
+            peaks_df = hydrostruct_data.get('peaks')
             if hydrograph_data:
                 try:
-                    hydrostruct_files = hydrostruct_spreadsheet_and_plots(file_path, hydrograph_data)
+                    hydrostruct_files = hydrostruct_spreadsheet_and_plots(file_path, hydrograph_data, peaks_df)
                     timing_logger.log(f"Hydrostruct Spreadsheet and Plots generated: {hydrostruct_files}")
                 except Exception as e:
                     logger.error(f"Failed to create hydrostruct spreadsheets and plots: {e}")

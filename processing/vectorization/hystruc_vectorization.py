@@ -43,6 +43,25 @@ def create_hystruc_shapefile(hystruc_df, model_data_df, coord_system, folder_pat
     merged_df = pd.merge(merged_df, model_data_df[[GRID_ID, 'x', 'y']], left_on=OUTFLOW_NODE, right_on=GRID_ID, how='left', suffixes=('', '_outflow'))
     merged_df.rename(columns={'x': 'outflow_x', 'y': 'outflow_y'}, inplace=True)
 
+    # Add 1-based display IDs
+    if INFLOW_NODE in merged_df.columns:
+        merged_df['inflow_flo2d_grid_id'] = merged_df[INFLOW_NODE] + 1
+    if OUTFLOW_NODE in merged_df.columns:
+        merged_df['outflow_flo2d_grid_id'] = merged_df[OUTFLOW_NODE] + 1
+
+    # Drop internal 0-based id columns to avoid clutter in user-facing output
+    cols_to_drop = []
+    if GRID_ID in merged_df.columns:
+        cols_to_drop.append(GRID_ID)
+    if f"{GRID_ID}_outflow" in merged_df.columns:
+        cols_to_drop.append(f"{GRID_ID}_outflow")
+    if INFLOW_NODE in merged_df.columns:
+        cols_to_drop.append(INFLOW_NODE)
+    if OUTFLOW_NODE in merged_df.columns:
+        cols_to_drop.append(OUTFLOW_NODE)
+    if cols_to_drop:
+        merged_df = merged_df.drop(columns=[c for c in cols_to_drop if c in merged_df.columns])
+
     # Vectorized creation of LineString geometries
     valid = ~merged_df[['inflow_x', 'inflow_y', 'outflow_x', 'outflow_y']].isna().any(axis=1)
     coords = merged_df.loc[valid, ['inflow_x', 'inflow_y', 'outflow_x', 'outflow_y']].to_numpy()
@@ -53,6 +72,12 @@ def create_hystruc_shapefile(hystruc_df, model_data_df, coord_system, folder_pat
     if gdf.empty:
         logger.warning("No Hydraulic Structures data to save. GeoDataFrame is empty.")
         return None
+
+    # Reorder columns to surface display IDs if present
+    # Surface 1-based display ids first (internal ids were dropped already)
+    display_cols = [c for c in ['inflow_flo2d_grid_id', 'outflow_flo2d_grid_id'] if c in gdf.columns]
+    other_cols = [c for c in gdf.columns if c not in display_cols + ['geometry']]
+    gdf = gdf[display_cols + other_cols + ['geometry']]
 
     if output_format == "Shapefile":
         output_file = os.path.join(output_path, 'hydraulic_structures.shp')

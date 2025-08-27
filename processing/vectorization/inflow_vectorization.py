@@ -101,6 +101,10 @@ def create_inflow_points(
         logger.warning(f"Found {invalid_coords.sum()} inflow nodes with (0, 0) coordinates: {invalid_ids}")
         summary_df = summary_df.loc[~invalid_coords]
 
+    # Add 1-based display grid id
+    if GRID_ID in summary_df.columns:
+        summary_df['flo2d_grid_id'] = summary_df[GRID_ID] + 1
+
     # Create geometry
     try:
         geometry = [Point(xy) for xy in zip(summary_df[X_COORD], summary_df[Y_COORD])]
@@ -113,6 +117,12 @@ def create_inflow_points(
     if gdf.empty:
         logger.warning("Inflow GeoDataFrame is empty. Nothing to save.")
         return None
+
+    # Reorder to surface display id
+    # Hide internal 0-based id; surface 1-based display id first
+    ordered_cols = [c for c in ['flo2d_grid_id', MAX_DISCHARGE, TIME_TO_PEAK, X_COORD, Y_COORD] if c in gdf.columns]
+    other_cols = [c for c in gdf.columns if c not in ordered_cols + [GRID_ID, 'geometry']]
+    gdf = gdf[ordered_cols + other_cols + ['geometry']]
 
     if output_format == "Shapefile":
         output_file = os.path.join(output_path, "inflow_nodes.shp")
