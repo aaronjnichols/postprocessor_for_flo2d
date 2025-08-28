@@ -129,45 +129,44 @@ def create_pdf_plots(hydrograph_data, output_pdf_path, batch_size=100):
 
     logger.info(f"PDF plot creation completed: {output_pdf_path}")
 
-def export_hydrograph_to_excel(hydrograph_data, output_excel_path, time_scale=10):
+def export_hydrograph_to_excel(hydrograph_data, output_excel_path):
     """
-    Exports hydrograph data to an Excel file with all grid IDs in a single sheet and a summary sheet.
-    Adjusts time values by the specified scaling factor.
-    
+    Export hydrograph data to Excel assuming time is already in hours.
+
     Args:
         hydrograph_data (pd.DataFrame): DataFrame with time as index and grid IDs as columns.
         output_excel_path (str): Path to save the Excel file.
-        time_scale (float): Factor to scale time values (default is 10 to correct 3.2 hrs to 32 hrs).
     """
     logger = logging.getLogger(__name__)
     logger.info(f"Starting Excel export: {output_excel_path}")
-    grid_ids = hydrograph_data.columns
+    grid_ids = list(hydrograph_data.columns)
 
-    # Adjust time by the scaling factor
-    adjusted_time = hydrograph_data.index * time_scale
+    # Time is already in hours
+    adjusted_time = hydrograph_data.index
 
     # Create a Pandas Excel writer using XlsxWriter as the engine.
     with pd.ExcelWriter(output_excel_path, engine='xlsxwriter') as writer:
-        # Consolidate all hydrographs into one sheet
-        all_data = pd.DataFrame({'Time': adjusted_time})
-        for grid_id in grid_ids:
-            all_data[f'Flow_{grid_id}'] = hydrograph_data[grid_id]
+        # Build the full table using the same index to avoid alignment issues
+        all_data = hydrograph_data.copy()
+        # Insert scaled time as the first column
+        all_data.insert(0, 'Time_hrs', adjusted_time)
+        # Rename data columns to make intent explicit in the spreadsheet
+        all_data.columns = ['Time_hrs'] + [f'Flow_{gid}' for gid in grid_ids]
 
-        # Write main data to the first sheet
+        # Write main data to the first sheet (drop the index for a clean table)
         all_data.to_excel(writer, sheet_name='Hydrographs', index=False)
 
         # Calculate max discharge and time of max discharge for each grid ID
         max_discharge = hydrograph_data.max()
-        max_time = hydrograph_data.idxmax() * time_scale  # Scale time accordingly
+        max_time = hydrograph_data.idxmax()
 
         summary_data = pd.DataFrame({
             'Grid_ID': grid_ids,
-            'Max_Discharge_cfs': max_discharge,
-            'Time_of_Max_Discharge_hrs': max_time
+            'Max_Discharge_cfs': max_discharge.values,
+            'Time_of_Max_Discharge_hrs': max_time.values
         })
 
         # Write summary data to the second sheet
         summary_data.to_excel(writer, sheet_name='Summary', index=False)
 
     logger.info(f"Excel export completed: {output_excel_path}")
-

@@ -35,7 +35,6 @@ def create_outflow_points(
     coord_system: int,
     output_path: str,
     output_format: str = "Shapefile",
-    time_scale: float = 10.0,
 ) -> str:
     """Create a vector file of outflow nodes with peak attributes and outflow codes.
 
@@ -50,8 +49,6 @@ def create_outflow_points(
         output_path (str): Directory to save the output file.
         output_format (str, optional): ``"Shapefile"`` or ``"GeoPackage"``.
             Defaults to ``"Shapefile"``.
-        time_scale (float, optional): Factor to scale the time index to hours.
-            Defaults to ``10.0``.
 
     Returns:
         str: Path to the created shapefile or geopackage, or None if creation failed.
@@ -67,8 +64,9 @@ def create_outflow_points(
         return None
 
     # Calculate peak discharge and time to peak for each outflow node
+    # Time index is already in hours; do not scale
     max_discharge = outflow_hydrograph_data.max()
-    time_to_peak = outflow_hydrograph_data.idxmax() * time_scale
+    time_to_peak = outflow_hydrograph_data.idxmax()
 
     # Create summary dataframe from hydrograph data
     summary_df = pd.DataFrame({
