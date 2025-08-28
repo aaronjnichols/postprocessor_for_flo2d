@@ -39,7 +39,6 @@ def extract_channel_data(path):
     chanmax_df = extract_chanmax_out(path)
     chan_data = extract_chan_dat(path)
     chan_df = chan_data['channels']
-    segments_df = chan_data.get('segments', pd.DataFrame())
     
     # Convert 0-based segment IDs to 1-based for display
     if 'segment_id' in chan_df.columns:
@@ -49,4 +48,10 @@ def extract_channel_data(path):
     relevant_grid_ids = set(chan_df[GRID_ID]) if not chan_df.empty else set()
     depch_df = extract_depch_out(path, relevant_grid_ids)
     veloc_df = extract_veloc_out(path, relevant_grid_ids)
-    return combine_channel_data(xsec_df, chanmax_df, chan_df, depch_df, veloc_df)
+    combined_df = combine_channel_data(xsec_df, chanmax_df, chan_df, depch_df, veloc_df)
+
+    # Convert grid IDs back to 1-based for user-facing outputs
+    if GRID_ID in combined_df.columns:
+        combined_df[GRID_ID] = combined_df[GRID_ID] + 1
+
+    return combined_df
