@@ -3,7 +3,7 @@ import logging
 from typing import Dict, List, Any, Optional
 import pandas as pd
 from core.utilities import time_function
-from core.constants import GRID_ID
+from core.constants import GRID_ID, normalize_grid_id
 from core.logger import setup_logger
 
 
@@ -192,7 +192,7 @@ def _parse_channel_element(parts: List[str], segment_id: int) -> Dict[str, Any]:
     base_data = {
         'segment_id': segment_id,
         'shape': shape,
-        GRID_ID: int(parts[1])
+        GRID_ID: normalize_grid_id(int(parts[1]))
     }
     
     if shape == 'R':  # Rectangular channel
@@ -314,8 +314,8 @@ def _parse_confluence(parts: List[str]) -> Dict[str, int]:
         Dict[str, int]: Confluence connection data.
     """
     return {
-        'tributary_grid': int(parts[1]),
-        'main_channel_grid': int(parts[2])
+        'tributary_grid': normalize_grid_id(int(parts[1])),
+        'main_channel_grid': normalize_grid_id(int(parts[2]))
     }
 
 
@@ -330,7 +330,7 @@ def _parse_no_exchange(parts: List[str]) -> int:
     Returns:
         int: Grid ID that doesn't exchange flow with floodplain.
     """
-    return int(parts[1])
+    return normalize_grid_id(int(parts[1]))
 
 
 def _parse_initial_ws(parts: List[str]) -> Dict[str, Any]:
@@ -345,6 +345,6 @@ def _parse_initial_ws(parts: List[str]) -> Dict[str, Any]:
         Dict[str, Any]: Initial water surface data.
     """
     return {
-        GRID_ID: int(parts[0]),
+        GRID_ID: normalize_grid_id(int(parts[0])),
         'initial_ws_elev': float(parts[1])
     }
