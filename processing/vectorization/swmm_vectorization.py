@@ -314,14 +314,19 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile",
     if 'junctions' in swmm_data:
         junctions_gdf = swmm_data['junctions']
         if not junctions_gdf.empty:
-            # Merge RPT summary data for junctions
-            merged_junctions = _merge_rpt_summary_data(
-                junctions_gdf, junctions_summary, NODE_ID, 'junctions'
-            )
-            # Apply short, deduplicated schema
+            # Direct normalized name-based merge to preserve canonical RPT columns
+            jdf = junctions_gdf.copy()
+            sdf = junctions_summary.copy() if junctions_summary is not None else None
+            if sdf is not None and not sdf.empty:
+                jdf['_key'] = jdf['name'].astype(str).str.strip().str.upper()
+                sdf['_key'] = sdf['name'].astype(str).str.strip().str.upper() if 'name' in sdf.columns else sdf['node_id'].astype(str).str.strip().str.upper()
+                merged_junctions = jdf.merge(sdf, on='_key', how='left')
+                merged_junctions = merged_junctions.drop(columns=['_key'])
+            else:
+                merged_junctions = jdf
             enhanced_junctions = apply_junction_schema(merged_junctions)
-            shp_path = save_geodataframe(enhanced_junctions, output_path, 'junctions',
-                                         enhanced_junctions.crs.to_epsg(), output_format, logger)
+            shp_path = save_geodataframe(enhanced_junctions, output_path, 'junctions', 
+                                       enhanced_junctions.crs.to_epsg(), output_format, logger)
             shapefile_paths.append(shp_path)
         else:
             logger.warning("No junctions data to save.")
@@ -344,13 +349,18 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile",
     if 'conduits' in swmm_data:
         conduits_gdf = swmm_data['conduits']
         if not conduits_gdf.empty:
-            # Merge RPT summary data for conduits
-            merged_conduits = _merge_rpt_summary_data(
-                conduits_gdf, links_summary, LINK_ID, 'conduits'
-            )
+            cdf = conduits_gdf.copy()
+            ldf = links_summary.copy() if links_summary is not None else None
+            if ldf is not None and not ldf.empty:
+                cdf['_key'] = cdf['name'].astype(str).str.strip().str.upper()
+                ldf['_key'] = (ldf['name'] if 'name' in ldf.columns else ldf['link_id']).astype(str).str.strip().str.upper()
+                merged_conduits = cdf.merge(ldf, on='_key', how='left')
+                merged_conduits = merged_conduits.drop(columns=['_key'])
+            else:
+                merged_conduits = cdf
             enhanced_conduits = apply_link_schema(merged_conduits)
-            shp_path = save_geodataframe(enhanced_conduits, output_path, 'conduits',
-                                         enhanced_conduits.crs.to_epsg(), output_format, logger)
+            shp_path = save_geodataframe(enhanced_conduits, output_path, 'conduits', 
+                                       enhanced_conduits.crs.to_epsg(), output_format, logger)
             shapefile_paths.append(shp_path)
         else:
             logger.warning("No conduits data to save.")
