@@ -1,7 +1,7 @@
 import os
 import logging
 import pandas as pd
-from core.constants import OUTFLOW_CODE, GRID_ID
+from core.constants import OUTFLOW_CODE, GRID_ID, normalize_grid_id
 from core.logger import setup_logger
 
 def extract_outflow_dat(folder_path):
@@ -40,12 +40,19 @@ def extract_outflow_dat(folder_path):
             return pd.DataFrame(columns=[OUTFLOW_CODE, GRID_ID])
         
         # Filter to only outflow records (lines starting with 'O')
-        outflow_df = df[df[OUTFLOW_CODE].str.startswith('O', na=False)]
+        outflow_df = df[df[OUTFLOW_CODE].str.startswith('O', na=False)].copy()
         
         if outflow_df.empty:
             logger.warning(f"No outflow records found in {file_path}")
             return pd.DataFrame(columns=[OUTFLOW_CODE, GRID_ID])
         
+        # Normalize grid ids to internal 0-based Int64
+        if not outflow_df.empty:
+            outflow_df[GRID_ID] = pd.to_numeric(outflow_df[GRID_ID], errors='coerce').astype('Int64')
+            outflow_df[GRID_ID] = outflow_df[GRID_ID].apply(
+                lambda v: normalize_grid_id(int(v)) if pd.notna(v) else v
+            )
+
         logger.info(f"Successfully extracted {len(outflow_df)} outflow records from OUTFLOW.DAT")
         return outflow_df
         

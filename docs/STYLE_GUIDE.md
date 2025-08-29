@@ -85,7 +85,10 @@ postprocessor_for_flo2d/
 - **Constants**: Use UPPERCASE with underscores (`SCREAMING_SNAKE_CASE`)
   ```python
   # ✅ Good
-  GRID_ID = 'grid_id'
+  # Internal 0-based cell identifier
+  GRID_ID = 'id'
+  # Display 1-based identifier for user-facing outputs
+  GRID_ID_DISPLAY = 'grid_id'
   MAX_DEPTH = 'max_depth'
   DEFAULT_EPSG = 4326
   
@@ -274,6 +277,7 @@ All column names, file paths, and configuration values must use constants from `
 from core.constants import GRID_ID, DEPTH_MAX, X_COORD, Y_COORD
 
 def extract_depth_data(file_path):
+    # GRID_ID is the internal 0-based id
     df = pd.read_csv(file_path, names=[GRID_ID, X_COORD, Y_COORD, DEPTH_MAX])
     return df
 
@@ -294,6 +298,9 @@ def extract_depth_data(file_path):
 from core.constants import GRID_ID, normalize_grid_id
 
 df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
+
+# For user-facing outputs, add a 1-based display column
+df['grid_id'] = df[GRID_ID] + 1
 
 # ❌ Bad
 df['grid_id'] = df['grid_id'] - 1

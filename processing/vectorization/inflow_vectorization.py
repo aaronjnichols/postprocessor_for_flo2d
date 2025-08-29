@@ -99,9 +99,9 @@ def create_inflow_points(
         logger.warning(f"Found {invalid_coords.sum()} inflow nodes with (0, 0) coordinates: {invalid_ids}")
         summary_df = summary_df.loc[~invalid_coords]
 
-    # Add 1-based display grid id
+    # Add 1-based display grid id for user-facing output
     if GRID_ID in summary_df.columns:
-        summary_df['flo2d_grid_id'] = summary_df[GRID_ID] + 1
+        summary_df['grid_id'] = summary_df[GRID_ID] + 1
 
     # Create geometry
     try:
@@ -118,7 +118,7 @@ def create_inflow_points(
 
     # Reorder to surface display id
     # Hide internal 0-based id; surface 1-based display id first
-    ordered_cols = [c for c in ['flo2d_grid_id', MAX_DISCHARGE, TIME_TO_PEAK, X_COORD, Y_COORD] if c in gdf.columns]
+    ordered_cols = [c for c in ['grid_id', MAX_DISCHARGE, TIME_TO_PEAK, X_COORD, Y_COORD] if c in gdf.columns]
     other_cols = [c for c in gdf.columns if c not in ordered_cols + [GRID_ID, 'geometry']]
     gdf = gdf[ordered_cols + other_cols + ['geometry']]
 

@@ -33,7 +33,7 @@ def create_pdf_plots(hydrograph_data, output_pdf_path):
                 
                 # Plotting
                 axs[i].plot(time, data, label='Discharge', color='blue')
-                axs[i].set_title(f'Grid ID {grid_id}')
+                axs[i].set_title(f'Grid ID {grid_id + 1}')
                 axs[i].set_xlabel('Time (hours)')
                 axs[i].set_ylabel('Flow (cfs)')
                 axs[i].grid(True)
@@ -104,7 +104,7 @@ def create_pdf_plots(hydrograph_data, output_pdf_path, batch_size=100):
 
                 # Plotting
                 axs[i].plot(time, data, label='Discharge', color='blue', linewidth=0.5)
-                axs[i].set_title(f'Grid ID {grid_id}', fontsize=8)
+                axs[i].set_title(f'Grid ID {grid_id + 1}', fontsize=8)
                 axs[i].set_xlabel('Time (hrs)', fontsize=6)
                 axs[i].set_ylabel('Flow (cfs)', fontsize=6)
                 axs[i].grid(True)
@@ -117,7 +117,7 @@ def create_pdf_plots(hydrograph_data, output_pdf_path, batch_size=100):
                     bbox=dict(facecolor='white', alpha=0.6)
                 )
 
-                logger.debug(f"Plotted Grid ID {grid_id}: Max Discharge = {max_discharge}, Time of Peak = {max_time}")
+                logger.debug(f"Plotted Grid ID {grid_id + 1}: Max Discharge = {max_discharge}, Time of Peak = {max_time}")
 
             # Remove any unused subplots
             for j in range(len(current_batch), len(axs)):
@@ -150,8 +150,8 @@ def export_hydrograph_to_excel(hydrograph_data, output_excel_path):
         all_data = hydrograph_data.copy()
         # Insert scaled time as the first column
         all_data.insert(0, 'Time_hrs', adjusted_time)
-        # Rename data columns to make intent explicit in the spreadsheet
-        all_data.columns = ['Time_hrs'] + [f'Flow_{gid}' for gid in grid_ids]
+        # Rename data columns for display using 1-based grid ids
+        all_data.columns = ['Time_hrs'] + [f'Flow_{gid + 1}' for gid in grid_ids]
 
         # Write main data to the first sheet (drop the index for a clean table)
         all_data.to_excel(writer, sheet_name='Hydrographs', index=False)
@@ -161,7 +161,7 @@ def export_hydrograph_to_excel(hydrograph_data, output_excel_path):
         max_time = hydrograph_data.idxmax()
 
         summary_data = pd.DataFrame({
-            'Grid_ID': grid_ids,
+            'Grid_ID': [gid + 1 for gid in grid_ids],
             'Max_Discharge_cfs': max_discharge.values,
             'Time_of_Max_Discharge_hrs': max_time.values
         })

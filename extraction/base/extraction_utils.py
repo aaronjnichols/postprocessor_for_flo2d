@@ -85,7 +85,7 @@ def read_file_with_line_number(file_path, column_names, skiprows=0):
         skiprows (int, optional): Number of rows to skip at the beginning. Defaults to 0.
         
     Returns:
-        pd.DataFrame: DataFrame with grid_id column added as the first column.
+        pd.DataFrame: DataFrame with internal id (0-based) column added as the first column.
         
     Raises:
         FileNotFoundError: If the specified file does not exist.
@@ -108,7 +108,7 @@ def read_file_with_line_number(file_path, column_names, skiprows=0):
     )
     df.insert(0, GRID_ID, range(len(df)))
     
-    logger.debug(f"Read {len(df)} rows with grid IDs 0-{len(df)-1}")
+    logger.debug(f"Read {len(df)} rows with IDs 0-{len(df)-1}")
     return df
 
 

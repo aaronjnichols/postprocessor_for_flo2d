@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 from core.utilities import time_function
-from core.constants import NODE, MAX_DISCHARGE, TIME_MAX_DISCHARGE, MAX_STAGE, TIME_MAX_STAGE
+from core.constants import GRID_ID, NODE, MAX_DISCHARGE, TIME_MAX_DISCHARGE, MAX_STAGE, TIME_MAX_STAGE
 
 @time_function
 def extract_chanmax_out(path):
@@ -17,7 +17,7 @@ def extract_chanmax_out(path):
                                  float(max_stage), float(time_max_stage)))
                 except ValueError:
                     continue
-    return pd.DataFrame(
+    df = pd.DataFrame(
         data,
         columns=[
             NODE,
@@ -27,3 +27,7 @@ def extract_chanmax_out(path):
             TIME_MAX_STAGE
         ]
     )
+    # Rename channel node id to GRID_ID for consistent merging semantics
+    if NODE in df.columns:
+        df = df.rename(columns={NODE: GRID_ID})
+    return df

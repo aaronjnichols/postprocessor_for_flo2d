@@ -69,7 +69,12 @@ def create_channel_excel(file_path, channel_data):
         
         # Sheet 4: Cross-Sections (for natural channels only)
         if 'station' in channel_data.columns and 'elevation' in channel_data.columns:
-            xsec_data = channel_data[['xsec_number', GRID_ID, 'station', 'elevation']].dropna()
+            # Include display grid_id (1-based) for user-facing sheet
+            temp = channel_data.copy()
+            if GRID_ID in temp.columns:
+                temp['grid_id'] = temp[GRID_ID] + 1
+            xsec_cols = ['xsec_number', 'grid_id', 'station', 'elevation'] if 'grid_id' in temp.columns else ['xsec_number', GRID_ID, 'station', 'elevation']
+            xsec_data = temp[xsec_cols].dropna()
             if not xsec_data.empty:
                 xsec_data.to_excel(writer, sheet_name='Cross-Sections', index=False)
     
@@ -170,11 +175,16 @@ def _plot_single_channel(channel_data, channel_id, ax):
     # Get channel properties from first row
     first_row = channel_rows.iloc[0]
     shape = first_row.get('shape', 'Unknown')
-    grid_id = first_row.get(GRID_ID, 'Unknown')
+    grid_id_val = first_row.get(GRID_ID, 'Unknown')
     segment_id = first_row.get('segment_id', 'Unknown')
     
     # Set title with channel info
-    title = f"Grid {grid_id} (Seg {segment_id}, {_get_shape_name(shape)})"
+    # Display 1-based grid id in plot titles when possible
+    try:
+        grid_id_disp = int(grid_id_val) + 1
+    except Exception:
+        grid_id_disp = grid_id_val
+    title = f"Grid {grid_id_disp} (Seg {segment_id}, {_get_shape_name(shape)})"
     ax.set_title(title, fontsize=10)
     
     if shape == 'N':

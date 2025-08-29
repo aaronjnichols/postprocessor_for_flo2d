@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Breaking: Rename internal 0-based identifier column from `grid_id` to `id` across the codebase. User-facing outputs now expose 1-based `grid_id` (was previously `flo2d_grid_id`).
+- Normalize remaining extractors at source (OUTNQ, OUTFLOW, RAIN, EVACUATEDFP) so they emit 0-based `id` without adapters.
+- Remove normalization/rename adapters from the orchestrator; merge directly on internal `id`.
+
 ### Fixed
-- Normalize channel grid IDs to 0-based internally and restore 1-based IDs for user outputs
+- Align OUTNQ time series column headers to 0-based `id` to prevent coordinate merge gaps.
+
+### Docs
+- Update STYLE_GUIDE to document `id` (0-based internal) vs `grid_id` (1-based display) conventions with examples.
 
 ## [1.0.0] - 2025-01-15
 

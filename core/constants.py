@@ -10,7 +10,9 @@ Shared/common columns appear first, then per-file sections (# FILENAME.EXT).
 # =============================================================================
 
 # Basic grid and spatial
-GRID_ID = 'grid_id'
+# Internal 0-based identifier used for merging/joins
+GRID_ID = 'id'
+GRID_ID_DISPLAY = 'grid_id'  # 1-based display identifier for user-facing outputs
 X_COORD = 'x'
 Y_COORD = 'y'
 GEOMETRY = 'geometry'
@@ -338,8 +340,8 @@ LEVFRAGPROB = 'levfragprob'
 # These should be gradually phased out
 LEGACY_GRID_ID_NAMES = [
     'FLO-2D Grid ID',
-    'NODE',  # Used in channel data
-    'grid_id',  # Already correct
+    'NODE',           # Used in channel data
+    'grid_id',        # Legacy internal name; now display-only
 ]
 
 # =============================================================================
@@ -364,14 +366,14 @@ def normalize_grid_id(raw_grid_id: int) -> int:
 
 def standardize_grid_id_column(df, current_name: str = None):
     """
-    Standardize grid ID column name to the standard GRID_ID constant.
+    Standardize grid ID column name to the standard internal id column (0-based).
     
     Args:
-        df (pd.DataFrame): DataFrame with grid ID column
+        df (pd.DataFrame): DataFrame with a grid identifier column
         current_name (str): Current name of the grid ID column. If None, will try to detect.
         
     Returns:
-        pd.DataFrame: DataFrame with standardized grid ID column name
+        pd.DataFrame: DataFrame with standardized internal id column name
     """
     import pandas as pd
     

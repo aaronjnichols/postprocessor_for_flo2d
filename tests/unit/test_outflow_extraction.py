@@ -23,9 +23,10 @@ class TestOutflowExtraction:
         if not result_df.empty:
             # Check that outflow codes start with 'O'
             assert all(result_df[OUTFLOW_CODE].str.startswith('O'))
-            
-            # Check that grid IDs are strings (as stored)
-            assert result_df[GRID_ID].dtype == 'object'  # pandas string type
+
+            # Check that grid IDs are nullable Int64 and 0-based
+            assert str(result_df[GRID_ID].dtype) == 'Int64'
+            assert result_df[GRID_ID].min() >= 0
             
     def test_outflow_file_not_found(self, tmp_path):
         """Test that missing outflow file raises appropriate error."""

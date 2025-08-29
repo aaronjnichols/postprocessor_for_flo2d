@@ -42,56 +42,14 @@ from extraction.out.veloc_out_extraction import extract_veloc_out
 from extraction.out.depch_out_extraction import extract_depch_out
 from extraction.out.time_out_extraction import extract_time_out
 from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_out
-from extraction.out.outnq_out_extraction import extract_outnq_out
+from extraction.out.outnq_out_extraction import extract_outnq_out, extract_outnq_summary
 from extraction.dat.outflow_dat_extraction import extract_outflow_dat
 from extraction.out.chanmax_out_extraction import extract_chanmax_out
 from extraction.out.channel_extraction import extract_channel_data
 
 
-def _adapter_evacuatedfp(path: str) -> pd.DataFrame:
-    """Adapter for EVACUATEDFP.OUT which expects a file path and needs GRID_ID normalization."""
-    try:
-        file_path = os.path.join(path, 'EVACUATEDFP.OUT')
-        df = extract_evacuatedfp_out(file_path)
-        if df is not None and not df.empty and GRID_ID in df.columns:
-            df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
-        return df
-    except Exception:
-        # Let upstream logger capture per-future exceptions
-        return pd.DataFrame()
-
-
-def _adapter_outnq_summary(path: str) -> pd.DataFrame:
-    """Adapter to return only the OUTNQ summary table, with normalized GRID_ID."""
-    try:
-        result = extract_outnq_out(path)
-        df = result.get('summary') if isinstance(result, dict) else pd.DataFrame()
-        if df is not None and not df.empty and GRID_ID in df.columns:
-            df = df.copy()
-            df[GRID_ID] = pd.to_numeric(df[GRID_ID], errors='coerce').astype('Int64')
-            df[GRID_ID] = df[GRID_ID].apply(lambda v: normalize_grid_id(int(v)) if pd.notna(v) else v)
-        return df
-    except Exception:
-        return pd.DataFrame()
-
-
-def _adapter_outflow_dat(path: str) -> pd.DataFrame:
-    """Adapter to standardize OUTFLOW.DAT types and normalize GRID_ID if numeric."""
-    df = extract_outflow_dat(path)
-    if df is not None and not df.empty and GRID_ID in df.columns:
-        # Convert to numeric when possible then normalize
-        df = df.copy()
-        df[GRID_ID] = pd.to_numeric(df[GRID_ID], errors='coerce').astype('Int64')
-        df[GRID_ID] = df[GRID_ID].apply(lambda v: normalize_grid_id(int(v)) if pd.notna(v) else v)
-    return df
-
-
-def _adapter_chanmax(path: str) -> pd.DataFrame:
-    """Adapter to rename NODE to GRID_ID so it can merge on GRID_ID."""
-    df = extract_chanmax_out(path)
-    if df is not None and not df.empty and NODE in df.columns:
-        df = df.rename(columns={NODE: GRID_ID})
-    return df
+## Removed ad-hoc normalization/rename adapters:
+## - EVACUATEDFP, OUTNQ summary, OUTFLOW, and CHANMAX extractors now normalize/shape at source.
 
 
 def _adapter_infil_primary(path: str) -> pd.DataFrame:
@@ -134,10 +92,10 @@ EXTRACTOR_REGISTRY: Dict[str, Dict[str, object]] = {
     'VELOC.OUT':        { 'func': extract_veloc_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
     'DEPCH.OUT':        { 'func': extract_depch_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
     'TIME.OUT':         { 'func': extract_time_out,         'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'EVACUATEDFP.OUT':  { 'func': _adapter_evacuatedfp,     'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'OUTNQ.OUT':        { 'func': _adapter_outnq_summary,   'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'OUTFLOW.DAT':      { 'func': _adapter_outflow_dat,     'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'CHANMAX.OUT':      { 'func': _adapter_chanmax,         'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'EVACUATEDFP.OUT':  { 'func': extract_evacuatedfp_out,  'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'OUTNQ.OUT':        { 'func': extract_outnq_summary,    'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'OUTFLOW.DAT':      { 'func': extract_outflow_dat,      'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
+    'CHANMAX.OUT':      { 'func': extract_chanmax_out,      'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
     # Virtual/optional heavy module
     'CHANNEL_COMBINED': { 'func': extract_channel_data,     'enabled': False, 'heavy': True,  'merge_key': 'GRID_ID', 'virtual': True, 'depends_on': ['CHAN.DAT'] },
 }

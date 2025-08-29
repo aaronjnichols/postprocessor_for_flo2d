@@ -20,9 +20,9 @@ def convert_gdf_to_shapefile(geo_df, output_path, coord_system):
     # Add 1-based display id and select columns
     if GRID_ID in geo_df.columns:
         geo_df = geo_df.copy()
-        geo_df['flo2d_grid_id'] = geo_df[GRID_ID] + 1
-        # Hide internal 0-based grid_id
-        geo_df = geo_df[['flo2d_grid_id', FLOW_DIRECTION, GEOMETRY]]
+        geo_df['grid_id'] = geo_df[GRID_ID] + 1
+        # Hide internal 0-based id in user-facing output
+        geo_df = geo_df[['grid_id', FLOW_DIRECTION, GEOMETRY]]
 
     # Convert to Dask GeoDataFrame for parallel processing
     cpu_count = multiprocessing.cpu_count()

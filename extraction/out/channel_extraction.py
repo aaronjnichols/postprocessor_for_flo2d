@@ -50,8 +50,8 @@ def extract_channel_data(path):
     veloc_df = extract_veloc_out(path, relevant_grid_ids)
     combined_df = combine_channel_data(xsec_df, chanmax_df, chan_df, depch_df, veloc_df)
 
-    # Convert grid IDs back to 1-based for user-facing outputs
+    # Add 1-based display grid id for user-facing outputs
     if GRID_ID in combined_df.columns:
-        combined_df[GRID_ID] = combined_df[GRID_ID] + 1
+        combined_df['grid_id'] = combined_df[GRID_ID] + 1
 
     return combined_df

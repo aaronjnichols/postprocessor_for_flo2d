@@ -3,7 +3,7 @@ import re
 import logging
 import pandas as pd
 from core.utilities import time_function
-from core.constants import GRID_ID, TIME, MAX_Q, TIME_PEAK, DISCHARGE
+from core.constants import GRID_ID, TIME, MAX_Q, TIME_PEAK, DISCHARGE, normalize_grid_id
 from core.logger import setup_logger
 
 
@@ -61,11 +61,17 @@ def _extract_outnq_summary(folder_path):
             raise ValueError(f"No valid maximum discharge data found in {file_path}")
         
         summary_df = pd.DataFrame(summary_data)
-        
+
         # Ensure proper data types
         summary_df[GRID_ID] = pd.to_numeric(summary_df[GRID_ID], errors='coerce').astype('Int64')
         summary_df[MAX_Q] = pd.to_numeric(summary_df[MAX_Q], errors='coerce')
         summary_df[TIME_PEAK] = pd.to_numeric(summary_df[TIME_PEAK], errors='coerce')
+
+        # Normalize grid ids to internal 0-based convention
+        if not summary_df.empty and GRID_ID in summary_df.columns:
+            summary_df[GRID_ID] = summary_df[GRID_ID].apply(
+                lambda v: normalize_grid_id(int(v)) if pd.notna(v) else v
+            )
         
         logger.info(f"Successfully extracted {len(summary_df)} outflow summary records from OUTNQ.OUT")
         return summary_df
@@ -171,6 +177,15 @@ def _extract_outnq_time_series(folder_path):
                 values=DISCHARGE,
                 aggfunc='first'  # In case of duplicates, take first value
             )
+
+            # Columns are the (1-based) element ids used in OUTNQ; convert to 0-based
+            # Ensure columns are numeric first
+            try:
+                time_series_df.columns = pd.to_numeric(time_series_df.columns, errors='coerce').astype('Int64')
+                time_series_df.rename(columns=lambda c: normalize_grid_id(int(c)) if pd.notna(c) else c, inplace=True)
+            except Exception:
+                # If conversion fails, leave as-is; downstream code will handle/log
+                pass
             
             # Sort by time index
             time_series_df.sort_index(inplace=True)
@@ -232,4 +247,12 @@ def extract_outnq_out(folder_path):
         'summary': summary_df,
         'time_series': time_series_df
     }
+
+
+def extract_outnq_summary(folder_path) -> pd.DataFrame:
+    """Convenience wrapper that returns only the normalized OUTNQ summary table.
+
+    This is used by the model orchestrator for grid-mergeable attributes.
+    """
+    return _extract_outnq_summary(folder_path)
  

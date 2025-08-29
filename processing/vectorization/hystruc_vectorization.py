@@ -45,9 +45,9 @@ def create_hystruc_shapefile(hystruc_df, model_data_df, coord_system, folder_pat
 
     # Add 1-based display IDs
     if INFLOW_NODE in merged_df.columns:
-        merged_df['inflow_flo2d_grid_id'] = merged_df[INFLOW_NODE] + 1
+        merged_df['inflow_grid_id'] = merged_df[INFLOW_NODE] + 1
     if OUTFLOW_NODE in merged_df.columns:
-        merged_df['outflow_flo2d_grid_id'] = merged_df[OUTFLOW_NODE] + 1
+        merged_df['outflow_grid_id'] = merged_df[OUTFLOW_NODE] + 1
 
     # Drop internal 0-based id columns to avoid clutter in user-facing output
     cols_to_drop = []
@@ -75,7 +75,7 @@ def create_hystruc_shapefile(hystruc_df, model_data_df, coord_system, folder_pat
 
     # Reorder columns to surface display IDs if present
     # Surface 1-based display ids first (internal ids were dropped already)
-    display_cols = [c for c in ['inflow_flo2d_grid_id', 'outflow_flo2d_grid_id'] if c in gdf.columns]
+    display_cols = [c for c in ['inflow_grid_id', 'outflow_grid_id'] if c in gdf.columns]
     other_cols = [c for c in gdf.columns if c not in display_cols + ['geometry']]
     gdf = gdf[display_cols + other_cols + ['geometry']]
 

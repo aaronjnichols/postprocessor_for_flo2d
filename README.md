@@ -54,6 +54,12 @@ python main.py /path/to/your/flo2d/project --epsg 2224
 
 ## 📖 Usage
 
+## ID Conventions
+
+- Internal ID (`id`): 0-based identifier used for merges, joins, and processing. In code, import `GRID_ID` from `core.constants` which resolves to `'id'`.
+- Display ID (`grid_id`): 1-based identifier included in user-facing outputs (shapefiles, geopackages, spreadsheets) to match FLO-2D numbering.
+- Extractors that read 1-based ids normalize to internal `id` immediately via `normalize_grid_id()`.
+
 ### GUI Interface
 1. **Select FLO-2D Project Folder**: Choose the directory containing your FLO-2D files
 2. **Set Coordinate System**: Enter the EPSG code for your project (e.g., 2224 for NAD83 State Plane)

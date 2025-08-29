@@ -102,10 +102,9 @@ def create_channel_xsec_shapefile(
                 
                 if not chanmax_df.empty:
                     # Try to match with left bank first, then right bank
-                    # CHANMAX nodes are integers, not strings
-                    result_row = chanmax_df[chanmax_df['node'] == left_bank]
+                    result_row = chanmax_df[chanmax_df[GRID_ID] == left_bank]
                     if result_row.empty:
-                        result_row = chanmax_df[chanmax_df['node'] == right_bank]
+                        result_row = chanmax_df[chanmax_df[GRID_ID] == right_bank]
                     
                     if not result_row.empty:
                         max_discharge = result_row.iloc[0]['max_discharge']

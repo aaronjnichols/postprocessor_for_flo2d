@@ -1,5 +1,5 @@
 import pandas as pd
-from core.constants import GRID_ID, NUM_EVACUATIONS
+from core.constants import GRID_ID, NUM_EVACUATIONS, normalize_grid_id
 
 def extract_evacuatedfp_out(file_path):
     """
@@ -11,6 +11,11 @@ def extract_evacuatedfp_out(file_path):
     Returns:
         pandas.DataFrame: DataFrame containing the extracted data.
     """
+    import os
+    # Allow caller to pass folder or full file path
+    if os.path.isdir(file_path):
+        file_path = os.path.join(file_path, 'EVACUATEDFP.OUT')
+
     grid_ids = []
     num_evacuations = []
 
@@ -33,4 +38,7 @@ def extract_evacuatedfp_out(file_path):
                     # Skip lines with non-numeric data
                     continue
 
-    return pd.DataFrame({GRID_ID: grid_ids, NUM_EVACUATIONS: num_evacuations})
+    df = pd.DataFrame({GRID_ID: grid_ids, NUM_EVACUATIONS: num_evacuations})
+    if not df.empty and GRID_ID in df.columns:
+        df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
+    return df

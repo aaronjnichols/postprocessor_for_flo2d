@@ -197,10 +197,10 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         if FLOW_DIRECTION not in geo_df.columns:
             logger.error(f"'{FLOW_DIRECTION}' column is missing in the GeoDataFrame. Output creation aborted.")
         else:
-            # Add 1-based display ID for user-facing output; hide internal grid_id
+            # Add 1-based display ID for user-facing output; hide internal id
             geo_df_subset = geo_df.copy()
-            geo_df_subset['flo2d_grid_id'] = geo_df_subset[GRID_ID] + 1
-            geo_df_subset = geo_df_subset[['flo2d_grid_id', FLOW_DIRECTION, GEOMETRY]]
+            geo_df_subset['grid_id'] = geo_df_subset[GRID_ID] + 1
+            geo_df_subset = geo_df_subset[['grid_id', FLOW_DIRECTION, GEOMETRY]]
 
             gpkg_file = os.path.join(shp_outpath, 'flow_direction.gpkg')
             try:
@@ -247,9 +247,9 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             # Filter rows to include only those with non-null values in the super_data columns
             super_geo_df = super_geo_df.dropna(subset=[MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS])
 
-            # Add 1-based display ID and select only user-facing columns (hide internal grid_id)
-            super_geo_df['flo2d_grid_id'] = super_geo_df[GRID_ID] + 1
-            columns_to_select = ['flo2d_grid_id', MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS, GEOMETRY]
+            # Add 1-based display ID and select only user-facing columns (hide internal id)
+            super_geo_df['grid_id'] = super_geo_df[GRID_ID] + 1
+            columns_to_select = ['grid_id', MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS, GEOMETRY]
             super_geo_df = super_geo_df[columns_to_select]
 
             # Create a points shapefile or GeoPackage for the SUPER.OUT data
@@ -299,9 +299,9 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
                 # Filter rows to include only those with non-null values in the evacuatedfp_data columns
                 evacuatedfp_geo_df = evacuatedfp_geo_df.dropna(subset=[NUM_EVACUATIONS])
 
-            # Add 1-based display ID and select only user-facing columns (hide internal grid_id)
-            evacuatedfp_geo_df['flo2d_grid_id'] = evacuatedfp_geo_df[GRID_ID] + 1
-            columns_to_select = ['flo2d_grid_id', NUM_EVACUATIONS, GEOMETRY]
+            # Add 1-based display ID and select only user-facing columns (hide internal id)
+            evacuatedfp_geo_df['grid_id'] = evacuatedfp_geo_df[GRID_ID] + 1
+            columns_to_select = ['grid_id', NUM_EVACUATIONS, GEOMETRY]
             evacuatedfp_geo_df = evacuatedfp_geo_df[columns_to_select]
 
             # Create a points shapefile or GeoPackage for the EVACUATEDFP.OUT data
@@ -361,12 +361,12 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
                     subset_col = NUM_TIME_DECREMENTS  # Fallback; will raise if missing, surfacing the issue
                 time_out_geo_df = time_out_geo_df.dropna(subset=[subset_col])
 
-            # Include a 1-based grid id field to match TIME.OUT display while retaining internal 0-based grid_id
+            # Include a 1-based grid id field to match TIME.OUT display while retaining internal 0-based id
             if GRID_ID in time_out_geo_df.columns:
-                time_out_geo_df['flo2d_grid_id'] = time_out_geo_df[GRID_ID] + 1
+                time_out_geo_df['grid_id'] = time_out_geo_df[GRID_ID] + 1
 
             # Select only the relevant user-facing columns (hide internal grid_id)
-            columns_to_select = [col for col in ['flo2d_grid_id', NUM_TIME_DECREMENTS, GEOMETRY] if col in time_out_geo_df.columns]
+            columns_to_select = [col for col in ['grid_id', NUM_TIME_DECREMENTS, GEOMETRY] if col in time_out_geo_df.columns]
             time_out_geo_df = time_out_geo_df[columns_to_select]
 
             # Create a points shapefile or GeoPackage for the TIME.OUT data
