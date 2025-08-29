@@ -180,7 +180,7 @@ def apply_outfall_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if tide_src:
         out_cols['tide_gate'] = df[tide_src]
 
-    # RPT loading summary
+    # RPT loading summary (Outfall Loading Summary)
     if 'Flow_Freq_Pcnt' in df.columns:
         out_cols['flwfrqpcnt'] = pd.to_numeric(df['Flow_Freq_Pcnt'], errors='coerce')
     if 'Avg_Flow_CFS' in df.columns:
@@ -190,9 +190,54 @@ def apply_outfall_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if 'Total_Volume_MG' in df.columns:
         out_cols['tot_vol_mg'] = pd.to_numeric(df['Total_Volume_MG'], errors='coerce')
 
+    # RPT node-based observed metrics (outfalls appear in node sections too)
+    # Depth summary
+    if 'Avg_Depth' in df.columns:
+        out_cols['avg_dep'] = pd.to_numeric(df['Avg_Depth'], errors='coerce')
+    dmax_obs_src = _first_present(df, ['max_depth_rpt', 'Max_Depth'])
+    if dmax_obs_src:
+        out_cols['dmax_obs'] = pd.to_numeric(df[dmax_obs_src], errors='coerce')
+    max_hgl_src = _first_present(df, ['Max_HGL', 'max_hgl'])
+    if max_hgl_src:
+        out_cols['max_hgl'] = pd.to_numeric(df[max_hgl_src], errors='coerce')
+    t_md_src = _first_present(df, ['Time_of_Max_Depth', 't_max_depth'])
+    if t_md_src:
+        out_cols['t_max_dep'] = df[t_md_src]
+
+    # Inflow summary
+    if 'Max_Lateral_Inflow' in df.columns:
+        out_cols['lat_inflw'] = pd.to_numeric(df['Max_Lateral_Inflow'], errors='coerce')
+    if 'Max_Total_Inflow' in df.columns:
+        out_cols['tot_inflw'] = pd.to_numeric(df['Max_Total_Inflow'], errors='coerce')
+    t_mi_src = _first_present(df, ['Time_of_Max_Inflow', 't_tot_inflw'])
+    if t_mi_src:
+        out_cols['t_max_inf'] = df[t_mi_src]
+    if 'Lateral_Inflow_Volume' in df.columns:
+        out_cols['latinflvol'] = pd.to_numeric(df['Lateral_Inflow_Volume'], errors='coerce')
+    if 'Total_Inflow_Volume' in df.columns:
+        out_cols['totinflvol'] = pd.to_numeric(df['Total_Inflow_Volume'], errors='coerce')
+
+    # Surcharge and flooding summaries
+    if 'Hours_Surcharged' in df.columns:
+        out_cols['hrs_surch'] = pd.to_numeric(df['Hours_Surcharged'], errors='coerce')
+    if 'Hours_Flooded' in df.columns:
+        out_cols['hr_flooded'] = pd.to_numeric(df['Hours_Flooded'], errors='coerce')
+    if 'Max_Flooding_Rate' in df.columns:
+        out_cols['flood_rate'] = pd.to_numeric(df['Max_Flooding_Rate'], errors='coerce')
+    t_flood_src = _first_present(df, ['Time_of_Max_Flooding', 't_flood'])
+    if t_flood_src:
+        out_cols['t_flood'] = df[t_flood_src]
+    if 'Total_Flood_Volume' in df.columns:
+        out_cols['flood_vol'] = pd.to_numeric(df['Total_Flood_Volume'], errors='coerce')
+    if 'Max_Ponded_Depth' in df.columns:
+        out_cols['ponded_dep'] = pd.to_numeric(df['Max_Ponded_Depth'], errors='coerce')
+
     ordered = [
         'name', 'o_type', 'z_inv', 'stage', 'tide_gate',
         'flwfrqpcnt', 'avg_flow', 'max_flow', 'tot_vol_mg',
+        'avg_dep', 'dmax_obs', 'max_hgl', 't_max_dep',
+        'lat_inflw', 'tot_inflw', 't_max_inf', 'latinflvol', 'totinflvol',
+        'hrs_surch', 'hr_flooded', 'flood_rate', 't_flood', 'flood_vol', 'ponded_dep',
     ]
     cols_present = [c for c in ordered if c in out_cols]
     out_df = gpd.GeoDataFrame({c: out_cols[c] for c in cols_present}, geometry=df.geometry, crs=df.crs)
@@ -289,4 +334,3 @@ def apply_link_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if too_long:
         logger.warning(f"SWMM link fields over {MAX_FIELD_LEN} chars: {too_long}")
     return out_df
-

@@ -545,7 +545,19 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             # Separate junctions and outfalls summary data for vectorization
             if not full_nodes_summary.empty:
                 junctions_summary = full_nodes_summary[full_nodes_summary['type'] == 'JUNCTION'].copy()
-                outfalls_summary = full_nodes_summary[full_nodes_summary['type'] == 'OUTFALL'].copy()
+                # Build unified outfall summary: node-based stats + outfall loading metrics
+                outfalls_nodes_df = full_nodes_summary[full_nodes_summary['type'] == 'OUTFALL'].copy()
+                outfall_loading = nodes_data.get('outfall_loading')
+                outfalls_summary = outfalls_nodes_df
+                try:
+                    if isinstance(outfall_loading, dict) and len(outfall_loading) > 0:
+                        outfall_load_df = pd.DataFrame.from_dict(outfall_loading, orient='index')
+                        outfall_load_df.index.name = 'node_id'
+                        outfall_load_df.reset_index(inplace=True)
+                        # Merge loading metrics into node-based outfall summary
+                        outfalls_summary = pd.merge(outfalls_nodes_df, outfall_load_df, on='node_id', how='left')
+                except Exception as e:
+                    logger.warning(f"Failed to combine outfall loading summary: {e}")
             
             timing_logger.log("Extracting SWMM Links data from RPT file")
             links_data = extract_swmmlinks_rpt(file_path)
