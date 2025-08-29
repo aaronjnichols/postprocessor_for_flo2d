@@ -612,39 +612,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
             links_data = extract_swmmlinks_rpt(file_path)
             links_summary = links_data.get('merged_results', pd.DataFrame())
             # Canonicalize links summary column names and propagate canonical ID
-            try:
-                if not links_summary.empty:
-                    l_rename = {
-                        'link_id': 'name',
-                        'type': 'type',
-                        'max_flow': 'max_flow',
-                        'day_max': 'day_max',
-                        'time_max': 'time_max',
-                        'max_vel': 'max_vel',
-                        'flow_ratio': 'flow_ratio',
-                        'depth_rat': 'depth_rat',
-                        'hrs_full': 'hrs_full',
-                        'hrs_full_u': 'hrs_full_u',
-                        'hrs_full_d': 'hrs_full_d',
-                        'hrs_above': 'hrs_above',
-                        'hrs_cap': 'hrs_cap',
-                        'adj_len': 'adj_len',
-                        'dry_up': 'dry_up',
-                        'dry_down': 'dry_down',
-                        'dry_sub': 'dry_sub',
-                        'dry_sup': 'dry_sup',
-                        'crit_up': 'crit_up',
-                        'crit_down': 'crit_down',
-                        'froude': 'froude',
-                        'flow_chg': 'flow_chg',
-                    }
-                    existing = {k: v for k, v in l_rename.items() if k in links_summary.columns}
-                    if existing:
-                        links_summary = links_summary.rename(columns=existing)
-                    if 'name' in links_summary.columns:
-                        links_summary['name'] = links_summary['name'].astype(str).str.strip()
-            except Exception:
-                pass
+            from processing.vectorization.swmm_schema import canonicalize_links_summary
+            links_summary = canonicalize_links_summary(links_summary)
             
             # Generate SWMM analysis spreadsheets and plots
             if not nodes_data.get('merged_results', pd.DataFrame()).empty:
@@ -669,40 +638,8 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
                     
                     if not junctions_only.empty:
                         # Canonicalize RPT junction columns and propagate canonical ID
-                        js = junctions_data['merged_results']
-                        j_rename = {
-                            # Node Summary
-                            'inv_elev': 'inv_elev',
-                            'max_depth': 'max_depth_cap',
-                            'pond_area': 'pond_area',
-                            'ext_inflow': 'ext_inflow',
-                            # Depth Summary
-                            'Avg_Depth': 'avg_depth',
-                            'Max_Depth': 'max_depth_obs',
-                            'Max_HGL': 'max_hgl',
-                            'Time_of_Max_Depth': 'time_max_depth',
-                            # Inflow Summary
-                            'Max_Lateral_Inflow': 'max_lat_inflow',
-                            'Max_Total_Inflow': 'max_tot_inflow',
-                            'Time_of_Max_Inflow': 'time_max_inflow',
-                            'Lateral_Inflow_Volume': 'lat_inflow_vol',
-                            'Total_Inflow_Volume': 'tot_inflow_vol',
-                            # Surcharge/Flooding
-                            'Hours_Surcharged': 'hours_surcharged',
-                            'Hours_Flooded': 'hours_flooded',
-                            'Max_Flooding_Rate': 'max_flooding_rate',
-                            'Time_of_Max_Flooding': 'time_of_max_flooding',
-                            'Total_Flood_Volume': 'total_flood_volume',
-                            'Max_Ponded_Depth': 'max_ponded_depth',
-                        }
-                        jr_existing = {k: v for k, v in j_rename.items() if k in js.columns}
-                        if jr_existing:
-                            junctions_data['merged_results'] = js.rename(columns=jr_existing)
-                        try:
-                            if 'node_id' in junctions_data['merged_results'].columns:
-                                junctions_data['merged_results']['name'] = junctions_data['merged_results']['node_id'].astype(str).str.strip()
-                        except Exception:
-                            pass
+                        from processing.vectorization.swmm_schema import canonicalize_junctions_summary
+                        junctions_data['merged_results'] = canonicalize_junctions_summary(junctions_data['merged_results'])
                         timing_logger.log("Creating SWMM Junctions analysis spreadsheet and plots")
                         junctions_files = swmm_nodes_spreadsheet_and_plots(file_path, junctions_data)
                         timing_logger.log(f"SWMM Junctions analysis files created: {junctions_files}")

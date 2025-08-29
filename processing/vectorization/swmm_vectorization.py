@@ -321,6 +321,11 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile",
                 jdf['_key'] = jdf['name'].astype(str).str.strip().str.upper()
                 sdf['_key'] = sdf['name'].astype(str).str.strip().str.upper() if 'name' in sdf.columns else sdf['node_id'].astype(str).str.strip().str.upper()
                 merged_junctions = jdf.merge(sdf, on='_key', how='left')
+                # Prefer geometry name, normalize column
+                if 'name' not in merged_junctions.columns and 'name_x' in merged_junctions.columns:
+                    merged_junctions = merged_junctions.rename(columns={'name_x': 'name'})
+                if 'name_y' in merged_junctions.columns:
+                    merged_junctions = merged_junctions.drop(columns=['name_y'])
                 merged_junctions = merged_junctions.drop(columns=['_key'])
             else:
                 merged_junctions = jdf
@@ -343,6 +348,10 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile",
                 join_col = 'name' if 'name' in sdf.columns else 'node_id'
                 sdf['_key'] = sdf[join_col].astype(str).str.strip().str.upper()
                 merged_outfalls = odf.merge(sdf, on='_key', how='left')
+                if 'name' not in merged_outfalls.columns and 'name_x' in merged_outfalls.columns:
+                    merged_outfalls = merged_outfalls.rename(columns={'name_x': 'name'})
+                if 'name_y' in merged_outfalls.columns:
+                    merged_outfalls = merged_outfalls.drop(columns=['name_y'])
                 merged_outfalls = merged_outfalls.drop(columns=['_key'])
             else:
                 merged_outfalls = odf
@@ -362,6 +371,10 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile",
                 cdf['_key'] = cdf['name'].astype(str).str.strip().str.upper()
                 ldf['_key'] = (ldf['name'] if 'name' in ldf.columns else ldf['link_id']).astype(str).str.strip().str.upper()
                 merged_conduits = cdf.merge(ldf, on='_key', how='left')
+                if 'name' not in merged_conduits.columns and 'name_x' in merged_conduits.columns:
+                    merged_conduits = merged_conduits.rename(columns={'name_x': 'name'})
+                if 'name_y' in merged_conduits.columns:
+                    merged_conduits = merged_conduits.drop(columns=['name_y'])
                 merged_conduits = merged_conduits.drop(columns=['_key'])
             else:
                 merged_conduits = cdf

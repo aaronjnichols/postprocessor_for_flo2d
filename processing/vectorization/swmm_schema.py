@@ -55,6 +55,136 @@ def _resolve_rpt(df: pd.DataFrame, base: str) -> str | None:
     return None
 
 
+# ---------------------------------------------------------------------------
+# Canonicalization helpers for RPT payloads
+# ---------------------------------------------------------------------------
+
+def canonicalize_outfall_summary(df: pd.DataFrame) -> pd.DataFrame:
+    """Rename RPT outfall summary columns to canonical names and set 'name'.
+
+    Applies to a DataFrame built from Node Summary (+ Depth/Inflow summaries)
+    left-joined with Outfall Loading Summary.
+    """
+    if df is None or df.empty:
+        return df
+    out = df.copy()
+
+    rename_map = {
+        # Node Summary
+        'inv_elev': 'inv_elev',
+        'max_depth': 'max_depth_cap',
+        'pond_area': 'pond_area',
+        'ext_inflow': 'ext_inflow',
+        # Depth Summary
+        'Avg_Depth': 'avg_depth',
+        'Max_Depth': 'max_depth_obs',
+        'Max_HGL': 'max_hgl',
+        'Time_of_Max_Depth': 'time_max_depth',
+        # Inflow Summary
+        'Max_Lateral_Inflow': 'max_lat_inflow',
+        'Max_Total_Inflow': 'max_tot_inflow',
+        'Time_of_Max_Inflow': 'time_max_inflow',
+        'Lateral_Inflow_Volume': 'lat_inflow_vol',
+        'Total_Inflow_Volume': 'tot_inflow_vol',
+        # Outfall Loading Summary
+        'Flow_Freq_Pcnt': 'flow_freq_pcnt',
+        'Avg_Flow_CFS': 'avg_flow_cfs',
+        'Max_Flow_CFS': 'max_flow_cfs',
+        'Total_Volume_MG': 'total_volume_mg',
+    }
+    existing = {k: v for k, v in rename_map.items() if k in out.columns}
+    if existing:
+        out = out.rename(columns=existing)
+
+    # Coalesce suffixed loading fields if present
+    def coalesce(df_: pd.DataFrame, outname: str, candidates: List[str]):
+        for c in candidates:
+            if c in df_.columns:
+                df_[outname] = df_[c]
+                return
+
+    coalesce(out, 'flow_freq_pcnt', ['flow_freq_pcnt','Flow_Freq_Pcnt','Flow_Freq_Pcnt_x','Flow_Freq_Pcnt_y'])
+    coalesce(out, 'avg_flow_cfs', ['avg_flow_cfs','Avg_Flow_CFS','Avg_Flow_CFS_x','Avg_Flow_CFS_y'])
+    coalesce(out, 'max_flow_cfs', ['max_flow_cfs','Max_Flow_CFS','Max_Flow_CFS_x','Max_Flow_CFS_y'])
+    coalesce(out, 'total_volume_mg', ['total_volume_mg','Total_Volume_MG','Total_Volume_MG_x','Total_Volume_MG_y'])
+
+    # Canonical ID
+    if 'node_id' in out.columns and 'name' not in out.columns:
+        out['name'] = out['node_id'].astype(str).str.strip()
+    return out
+
+
+def canonicalize_junctions_summary(df: pd.DataFrame) -> pd.DataFrame:
+    """Rename RPT junction summary columns to canonical names and set 'name'."""
+    if df is None or df.empty:
+        return df
+    out = df.copy()
+    rename_map = {
+        'inv_elev': 'inv_elev',
+        'max_depth': 'max_depth_cap',
+        'pond_area': 'pond_area',
+        'ext_inflow': 'ext_inflow',
+        'Avg_Depth': 'avg_depth',
+        'Max_Depth': 'max_depth_obs',
+        'Max_HGL': 'max_hgl',
+        'Time_of_Max_Depth': 'time_max_depth',
+        'Max_Lateral_Inflow': 'max_lat_inflow',
+        'Max_Total_Inflow': 'max_tot_inflow',
+        'Time_of_Max_Inflow': 'time_max_inflow',
+        'Lateral_Inflow_Volume': 'lat_inflow_vol',
+        'Total_Inflow_Volume': 'tot_inflow_vol',
+        'Hours_Surcharged': 'hours_surcharged',
+        'Hours_Flooded': 'hours_flooded',
+        'Max_Flooding_Rate': 'max_flooding_rate',
+        'Time_of_Max_Flooding': 'time_of_max_flooding',
+        'Total_Flood_Volume': 'total_flood_volume',
+        'Max_Ponded_Depth': 'max_ponded_depth',
+    }
+    existing = {k: v for k, v in rename_map.items() if k in out.columns}
+    if existing:
+        out = out.rename(columns=existing)
+    if 'node_id' in out.columns and 'name' not in out.columns:
+        out['name'] = out['node_id'].astype(str).str.strip()
+    return out
+
+
+def canonicalize_links_summary(df: pd.DataFrame) -> pd.DataFrame:
+    """Rename RPT links summary columns to canonical names and set 'name'."""
+    if df is None or df.empty:
+        return df
+    out = df.copy()
+    rename_map = {
+        'link_id': 'name',
+        'type': 'type',
+        'max_flow': 'max_flow',
+        'day_max': 'day_max',
+        'time_max': 'time_max',
+        'max_vel': 'max_vel',
+        'flow_ratio': 'flow_ratio',
+        'depth_rat': 'depth_rat',
+        'hrs_full': 'hrs_full',
+        'hrs_full_u': 'hrs_full_u',
+        'hrs_full_d': 'hrs_full_d',
+        'hrs_above': 'hrs_above',
+        'hrs_cap': 'hrs_cap',
+        'adj_len': 'adj_len',
+        'dry_up': 'dry_up',
+        'dry_down': 'dry_down',
+        'dry_sub': 'dry_sub',
+        'dry_sup': 'dry_sup',
+        'crit_up': 'crit_up',
+        'crit_down': 'crit_down',
+        'froude': 'froude',
+        'flow_chg': 'flow_chg',
+    }
+    existing = {k: v for k, v in rename_map.items() if k in out.columns}
+    if existing:
+        out = out.rename(columns=existing)
+    if 'name' in out.columns:
+        out['name'] = out['name'].astype(str).str.strip()
+    return out
+
+
 def apply_junction_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
     Apply short, deduplicated attribute schema to a merged SWMM junctions GeoDataFrame.
@@ -213,31 +343,31 @@ def apply_outfall_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         out_cols['tide_gate'] = df[tide_src]
 
     # RPT loading summary (Outfall Loading Summary)
-    ff_src = _resolve_rpt(df, 'Flow_Freq_Pcnt')
+    ff_src = _first_present(df, ['flow_freq_pcnt']) or _resolve_rpt(df, 'Flow_Freq_Pcnt')
     if ff_src:
         out_cols['flwfrqpcnt'] = pd.to_numeric(df[ff_src], errors='coerce')
-    af_src = _resolve_rpt(df, 'Avg_Flow_CFS')
+    af_src = _first_present(df, ['avg_flow_cfs']) or _resolve_rpt(df, 'Avg_Flow_CFS')
     if af_src:
         out_cols['avg_flow'] = pd.to_numeric(df[af_src], errors='coerce')
-    mf_src = _resolve_rpt(df, 'Max_Flow_CFS')
+    mf_src = _first_present(df, ['max_flow_cfs']) or _resolve_rpt(df, 'Max_Flow_CFS')
     if mf_src:
         out_cols['max_flow'] = pd.to_numeric(df[mf_src], errors='coerce')
-    tv_src = _resolve_rpt(df, 'Total_Volume_MG')
+    tv_src = _first_present(df, ['total_volume_mg']) or _resolve_rpt(df, 'Total_Volume_MG')
     if tv_src:
         out_cols['tot_vol_mg'] = pd.to_numeric(df[tv_src], errors='coerce')
 
     # RPT node-based observed metrics (outfalls appear in node sections too)
     # Depth summary
-    ad_src = _resolve_rpt(df, 'Avg_Depth')
+    ad_src = _first_present(df, ['avg_depth']) or _resolve_rpt(df, 'Avg_Depth')
     if ad_src:
         out_cols['avg_dep'] = pd.to_numeric(df[ad_src], errors='coerce')
-    dmax_obs_src = _resolve_rpt(df, 'Max_Depth')
+    dmax_obs_src = _first_present(df, ['max_depth_obs']) or _resolve_rpt(df, 'Max_Depth')
     if dmax_obs_src:
         out_cols['dmax_obs'] = pd.to_numeric(df[dmax_obs_src], errors='coerce')
-    max_hgl_src = _resolve_rpt(df, 'Max_HGL') or _first_present(df, ['max_hgl'])
+    max_hgl_src = _first_present(df, ['max_hgl']) or _resolve_rpt(df, 'Max_HGL')
     if max_hgl_src:
         out_cols['max_hgl'] = pd.to_numeric(df[max_hgl_src], errors='coerce')
-    t_md_src = _resolve_rpt(df, 'Time_of_Max_Depth') or _first_present(df, ['t_max_depth'])
+    t_md_src = _first_present(df, ['time_max_depth','t_max_depth']) or _resolve_rpt(df, 'Time_of_Max_Depth')
     if t_md_src:
         out_cols['t_max_dep'] = df[t_md_src]
 
