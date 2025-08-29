@@ -334,11 +334,18 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile",
     if 'outfalls' in swmm_data:
         outfalls_gdf = swmm_data['outfalls']
         if not outfalls_gdf.empty:
-            # Merge RPT summary data for outfalls (use 'name' as the ID to match geometry)
-            from core.constants import SWMM_NAME
-            merged_outfalls = _merge_rpt_summary_data(
-                outfalls_gdf, outfalls_summary, SWMM_NAME, 'outfalls'
-            )
+            # Direct normalized name-based merge to preserve canonical RPT columns
+            odf = outfalls_gdf.copy()
+            sdf = outfalls_summary.copy() if outfalls_summary is not None else None
+            if sdf is not None and not sdf.empty:
+                odf['_key'] = odf['name'].astype(str).str.strip().str.upper()
+                # If summary has canonical 'name', use it; else fall back to 'node_id'
+                join_col = 'name' if 'name' in sdf.columns else 'node_id'
+                sdf['_key'] = sdf[join_col].astype(str).str.strip().str.upper()
+                merged_outfalls = odf.merge(sdf, on='_key', how='left')
+                merged_outfalls = merged_outfalls.drop(columns=['_key'])
+            else:
+                merged_outfalls = odf
             enhanced_outfalls = apply_outfall_schema(merged_outfalls)
             shp_path = save_geodataframe(enhanced_outfalls, output_path, 'outfalls',
                                          enhanced_outfalls.crs.to_epsg(), output_format, logger)
