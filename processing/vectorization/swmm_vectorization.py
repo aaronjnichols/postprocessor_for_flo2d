@@ -10,6 +10,11 @@ import logging
 import pandas as pd
 from core.utilities import time_function
 from core.constants import NODE_ID, LINK_ID
+from processing.vectorization.swmm_schema import (
+    apply_junction_schema,
+    apply_outfall_schema,
+    apply_link_schema,
+)
 
 
 def save_geodataframe(gdf, output_path, layer_name, coord_system, output_format, logger):
@@ -298,11 +303,13 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile",
         junctions_gdf = swmm_data['junctions']
         if not junctions_gdf.empty:
             # Merge RPT summary data for junctions
-            enhanced_junctions = _merge_rpt_summary_data(
+            merged_junctions = _merge_rpt_summary_data(
                 junctions_gdf, junctions_summary, NODE_ID, 'junctions'
             )
-            shp_path = save_geodataframe(enhanced_junctions, output_path, 'junctions', 
-                                       enhanced_junctions.crs.to_epsg(), output_format, logger)
+            # Apply short, deduplicated schema
+            enhanced_junctions = apply_junction_schema(merged_junctions)
+            shp_path = save_geodataframe(enhanced_junctions, output_path, 'junctions',
+                                         enhanced_junctions.crs.to_epsg(), output_format, logger)
             shapefile_paths.append(shp_path)
         else:
             logger.warning("No junctions data to save.")
@@ -311,11 +318,12 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile",
         outfalls_gdf = swmm_data['outfalls']
         if not outfalls_gdf.empty:
             # Merge RPT summary data for outfalls
-            enhanced_outfalls = _merge_rpt_summary_data(
+            merged_outfalls = _merge_rpt_summary_data(
                 outfalls_gdf, outfalls_summary, NODE_ID, 'outfalls'
             )
-            shp_path = save_geodataframe(enhanced_outfalls, output_path, 'outfalls', 
-                                       enhanced_outfalls.crs.to_epsg(), output_format, logger)
+            enhanced_outfalls = apply_outfall_schema(merged_outfalls)
+            shp_path = save_geodataframe(enhanced_outfalls, output_path, 'outfalls',
+                                         enhanced_outfalls.crs.to_epsg(), output_format, logger)
             shapefile_paths.append(shp_path)
         else:
             logger.warning("No outfalls data to save.")
@@ -324,11 +332,12 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile",
         conduits_gdf = swmm_data['conduits']
         if not conduits_gdf.empty:
             # Merge RPT summary data for conduits
-            enhanced_conduits = _merge_rpt_summary_data(
+            merged_conduits = _merge_rpt_summary_data(
                 conduits_gdf, links_summary, LINK_ID, 'conduits'
             )
-            shp_path = save_geodataframe(enhanced_conduits, output_path, 'conduits', 
-                                       enhanced_conduits.crs.to_epsg(), output_format, logger)
+            enhanced_conduits = apply_link_schema(merged_conduits)
+            shp_path = save_geodataframe(enhanced_conduits, output_path, 'conduits',
+                                         enhanced_conduits.crs.to_epsg(), output_format, logger)
             shapefile_paths.append(shp_path)
         else:
             logger.warning("No conduits data to save.")

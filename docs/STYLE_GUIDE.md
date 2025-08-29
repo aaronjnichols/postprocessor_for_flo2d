@@ -302,6 +302,79 @@ df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
 # For user-facing outputs, add a 1-based display column
 df['grid_id'] = df[GRID_ID] + 1
 
+## SWMM Output Schema (Vector Layers)
+
+SWMM vector outputs use short, Shapefile-safe field names (≤ 10 chars) and deduplicate
+overlapping INP vs RPT data. INP “design” fields are preferred; RPT provides “observed” metrics.
+
+### Junctions (Nodes)
+- name: SWMM node name
+- j_type: node type from RPT Node Summary
+- z_inv: invert elevation (INP)
+- dmax_cap: maximum depth capacity (INP)
+- dinit: initial depth (INP)
+- dsurch: surcharge depth (INP)
+- pond_area: ponded area (INP)
+- cont_err: continuity error percent (RPT)
+- avg_dep: average depth (RPT)
+- dmax_obs: maximum observed depth (RPT)
+- max_hgl: maximum head (RPT)
+- t_max_dep: time of maximum depth (RPT)
+- lat_inflw: maximum lateral inflow (RPT)
+- tot_inflw: maximum total inflow (RPT)
+- t_max_inf: time of maximum inflow (RPT)
+- latinflvol: lateral inflow volume (RPT)
+- totinflvol: total inflow volume (RPT)
+- hrs_surch: hours surcharged (RPT)
+- h_abv_crwn: max height above crown (RPT)
+- d_blw_rim: min depth below rim (RPT)
+- hr_flooded: hours flooded (RPT)
+- flood_rate: max flooding rate (RPT)
+- t_flood: time of max flooding (RPT)
+- flood_vol: total flood volume (RPT)
+- ponded_dep: max ponded depth (RPT)
+
+### Outfalls
+- name: SWMM outfall name
+- o_type: outfall type (INP)
+- z_inv: invert elevation (INP)
+- stage: stage data (INP, if present)
+- tide_gate: tide gate setting (INP)
+- flwfrqpcnt: flow frequency percent (RPT)
+- avg_flow: average flow (RPT)
+- max_flow: maximum flow (RPT)
+- tot_vol_mg: total volume in MG (RPT)
+
+### Links (Conduits)
+- name: conduit ID
+- l_type: link type (RPT classification)
+- from: from-node name (INP)
+- to: to-node name (INP)
+- len: length (INP)
+- n: Manning’s n (INP)
+- in_off: inlet offset (INP)
+- out_off: outlet offset (INP)
+- q_init: initial flow (INP)
+- qmax_inp: max flow from INP (INP)
+- max_flow: maximum flow (RPT)
+- day_max: day of maximum flow (RPT)
+- time_max: time of maximum flow (RPT)
+- max_vel: maximum velocity (RPT)
+- flow_ratio: flow ratio (RPT)
+- depth_rat: depth ratio (RPT)
+- hrs_full, hrs_full_u, hrs_full_d: hours at full/full-upstream/downstream (RPT)
+- hrs_above: hours above full normal depth (RPT)
+- hrs_cap: hours at capacity (RPT)
+- adj_len: adjusted length (RPT)
+- dry_up, dry_down, dry_sub, dry_sup: dryness indicators (RPT)
+- crit_up, crit_down: critical flow flags (RPT)
+- froude: Froude number (RPT)
+- flow_chg: flow change indicator (RPT)
+
+Notes:
+- Names are always ≤ 10 characters to remain Shapefile-safe.
+- INP design fields win when semantics overlap; RPT observed fields are kept under different names.
+
 # ❌ Bad
 df['grid_id'] = df['grid_id'] - 1
 ```

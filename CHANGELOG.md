@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Breaking: Rename internal 0-based identifier column from `grid_id` to `id` across the codebase. User-facing outputs now expose 1-based `grid_id` (was previously `flo2d_grid_id`).
 - Normalize remaining extractors at source (OUTNQ, OUTFLOW, RAIN, EVACUATEDFP) so they emit 0-based `id` without adapters.
 - Remove normalization/rename adapters from the orchestrator; merge directly on internal `id`.
+- SWMM vector outputs (junctions, outfalls, links) now use consistent, Shapefile-safe (≤10 chars) attribute schemas with deduplicated INP vs RPT fields. INP design values are preferred; RPT observed metrics are included under distinct short names.
 
 ### Fixed
 - Align OUTNQ time series column headers to 0-based `id` to prevent coordinate merge gaps.
