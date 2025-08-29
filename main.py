@@ -548,6 +548,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
                 # Build unified outfall summary: node-based stats + outfall loading metrics
                 outfalls_nodes_df = full_nodes_summary[full_nodes_summary['type'] == 'OUTFALL'].copy()
                 outfall_loading = nodes_data.get('outfall_loading')
+                # Start with node-based data
                 outfalls_summary = outfalls_nodes_df
                 try:
                     if isinstance(outfall_loading, dict) and len(outfall_loading) > 0:
@@ -558,6 +559,35 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
                         outfalls_summary = pd.merge(outfalls_nodes_df, outfall_load_df, on='node_id', how='left')
                 except Exception as e:
                     logger.warning(f"Failed to combine outfall loading summary: {e}")
+
+                # Canonicalize RPT column names for outfalls to stabilize downstream mapping
+                # Node Summary (design for outfalls)
+                rename_map = {
+                    'inv_elev': 'inv_elev',
+                    'max_depth': 'max_depth_cap',
+                    'pond_area': 'pond_area',
+                    'ext_inflow': 'ext_inflow',
+                    # Depth Summary (observed)
+                    'Avg_Depth': 'avg_depth',
+                    'Max_Depth': 'max_depth_obs',
+                    'Max_HGL': 'max_hgl',
+                    'Time_of_Max_Depth': 'time_max_depth',
+                    # Inflow Summary
+                    'Max_Lateral_Inflow': 'max_lat_inflow',
+                    'Max_Total_Inflow': 'max_tot_inflow',
+                    'Time_of_Max_Inflow': 'time_max_inflow',
+                    'Lateral_Inflow_Volume': 'lat_inflow_vol',
+                    'Total_Inflow_Volume': 'tot_inflow_vol',
+                    # Outfall Loading Summary
+                    'Flow_Freq_Pcnt': 'flow_freq_pcnt',
+                    'Avg_Flow_CFS': 'avg_flow_cfs',
+                    'Max_Flow_CFS': 'max_flow_cfs',
+                    'Total_Volume_MG': 'total_volume_mg',
+                }
+                # Apply only if columns exist to avoid KeyErrors
+                existing = {k: v for k, v in rename_map.items() if k in outfalls_summary.columns}
+                if existing:
+                    outfalls_summary = outfalls_summary.rename(columns=existing)
             
             timing_logger.log("Extracting SWMM Links data from RPT file")
             links_data = extract_swmmlinks_rpt(file_path)
