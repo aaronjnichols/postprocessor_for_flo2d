@@ -589,6 +589,18 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
                 if existing:
                     outfalls_summary = outfalls_summary.rename(columns=existing)
 
+                # Coalesce Outfall Loading columns if suffixes exist from prior merges
+                def coalesce(df, outname, candidates):
+                    for c in candidates:
+                        if c in df.columns:
+                            df[outname] = df[c]
+                            return
+
+                coalesce(outfalls_summary, 'flow_freq_pcnt', ['flow_freq_pcnt','Flow_Freq_Pcnt','Flow_Freq_Pcnt_x','Flow_Freq_Pcnt_y'])
+                coalesce(outfalls_summary, 'avg_flow_cfs', ['avg_flow_cfs','Avg_Flow_CFS','Avg_Flow_CFS_x','Avg_Flow_CFS_y'])
+                coalesce(outfalls_summary, 'max_flow_cfs', ['max_flow_cfs','Max_Flow_CFS','Max_Flow_CFS_x','Max_Flow_CFS_y'])
+                coalesce(outfalls_summary, 'total_volume_mg', ['total_volume_mg','Total_Volume_MG','Total_Volume_MG_x','Total_Volume_MG_y'])
+
                 # Provide a canonical ID column matching geometry for robust merge
                 try:
                     if 'node_id' in outfalls_summary.columns:
