@@ -200,16 +200,21 @@ def _extract_node_summary(content):
         parts = line.split()
         if len(parts) >= 5:
             try:
-                data.append(
-                    {
-                        "node_id": parts[0],
-                        "type": parts[1],
-                        "inv_elev": float(parts[2]),
-                        "max_depth": float(parts[3]),
-                        "pond_area": float(parts[4]),
-                        "ext_flow": None,
-                    }
-                )
+                row = {
+                    "node_id": parts[0],
+                    "type": parts[1],
+                    "inv_elev": float(parts[2]),
+                    "max_depth": float(parts[3]),
+                    "pond_area": float(parts[4]),
+                }
+                # External Inflow may be present as an additional numeric column
+                if len(parts) >= 6:
+                    try:
+                        row["ext_inflow"] = float(parts[5])
+                    except ValueError:
+                        # Keep it absent if not numeric
+                        pass
+                data.append(row)
             except ValueError:
                 continue
     return pd.DataFrame(data)

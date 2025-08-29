@@ -164,9 +164,10 @@ def apply_outfall_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if 'name' in df.columns:
         out_cols['name'] = df['name']
 
-    # INP design
-    if 'invert_elevation' in df.columns:
-        out_cols['z_inv'] = pd.to_numeric(df['invert_elevation'], errors='coerce')
+    # Invert elevation: prefer RPT Node Summary (inv_elev), fallback to INP
+    inv_src = _first_present(df, ['inv_elev', 'invert_elevation', 'Invert_Elevation'])
+    if inv_src:
+        out_cols['z_inv'] = pd.to_numeric(df[inv_src], errors='coerce')
     # Outfall type
     otype_src = _first_present(df, ['outfall_type', 'Outfall_Type'])
     if otype_src:
@@ -204,6 +205,16 @@ def apply_outfall_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if t_md_src:
         out_cols['t_max_dep'] = df[t_md_src]
 
+    # Node Summary design capacity/ponding for outfalls
+    if 'max_depth' in df.columns:
+        out_cols['dmax_cap'] = pd.to_numeric(df['max_depth'], errors='coerce')
+    if 'pond_area' in df.columns:
+        out_cols['pond_area'] = pd.to_numeric(df['pond_area'], errors='coerce')
+    # External inflow from Node Summary
+    ext_src = _first_present(df, ['ext_inflow', 'External_Inflow'])
+    if ext_src:
+        out_cols['ext_in'] = pd.to_numeric(df[ext_src], errors='coerce')
+
     # Inflow summary
     if 'Max_Lateral_Inflow' in df.columns:
         out_cols['lat_inflw'] = pd.to_numeric(df['Max_Lateral_Inflow'], errors='coerce')
@@ -233,7 +244,7 @@ def apply_outfall_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         out_cols['ponded_dep'] = pd.to_numeric(df['Max_Ponded_Depth'], errors='coerce')
 
     ordered = [
-        'name', 'o_type', 'z_inv', 'stage', 'tide_gate',
+        'name', 'o_type', 'z_inv', 'dmax_cap', 'pond_area', 'ext_in', 'stage', 'tide_gate',
         'flwfrqpcnt', 'avg_flow', 'max_flow', 'tot_vol_mg',
         'avg_dep', 'dmax_obs', 'max_hgl', 't_max_dep',
         'lat_inflw', 'tot_inflw', 't_max_inf', 'latinflvol', 'totinflvol',

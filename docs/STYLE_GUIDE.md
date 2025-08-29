@@ -337,7 +337,10 @@ overlapping INP vs RPT data. INP “design” fields are preferred; RPT provides
 ### Outfalls
 - name: SWMM outfall name
 - o_type: outfall type (INP)
-- z_inv: invert elevation (INP)
+- z_inv: invert elevation (RPT Node Summary preferred; fallback to INP)
+- dmax_cap: maximum depth capacity (RPT Node Summary)
+- pond_area: ponded area (RPT Node Summary)
+- ext_in: external inflow (RPT Node Summary)
 - stage: stage data (INP, if present)
 - tide_gate: tide gate setting (INP)
 - flwfrqpcnt: flow frequency percent (RPT)
