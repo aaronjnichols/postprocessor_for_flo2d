@@ -28,6 +28,33 @@ def _first_present(df: pd.DataFrame, candidates: List[str]) -> str | None:
     return None
 
 
+def _resolve_rpt(df: pd.DataFrame, base: str) -> str | None:
+    """Resolve a column from RPT-derived data with common variants.
+
+    Tries these in order for the given base name:
+    - exact, with '_rpt' suffix
+    - lowercase, lowercase + '_rpt'
+    - spaces replaced with underscores (both cases)
+    - common merge suffixes ('_x', '_y') for each variant
+    Returns the first matching column name or None.
+    """
+    variants: List[str] = []
+    bases = [base, base.lower(), base.replace(' ', '_'), base.lower().replace(' ', '_')]
+    for b in bases:
+        variants.extend([b, f"{b}_rpt", f"{b}_x", f"{b}_y"]) 
+    # Deduplicate preserving order
+    seen = set()
+    ordered = []
+    for v in variants:
+        if v and v not in seen:
+            seen.add(v)
+            ordered.append(v)
+    for v in ordered:
+        if v in df.columns:
+            return v
+    return None
+
+
 def apply_junction_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
     Apply short, deduplicated attribute schema to a merged SWMM junctions GeoDataFrame.
@@ -93,17 +120,21 @@ def apply_junction_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         out_cols['t_max_dep'] = df[t_md_src]
 
     # Inflow summary
-    if 'Max_Lateral_Inflow' in df.columns:
-        out_cols['lat_inflw'] = pd.to_numeric(df['Max_Lateral_Inflow'], errors='coerce')
-    if 'Max_Total_Inflow' in df.columns:
-        out_cols['tot_inflw'] = pd.to_numeric(df['Max_Total_Inflow'], errors='coerce')
-    t_mi_src = _first_present(df, ['Time_of_Max_Inflow', 't_tot_inflw'])
+    mli_src = _resolve_rpt(df, 'Max_Lateral_Inflow')
+    if mli_src:
+        out_cols['latinflw'] = pd.to_numeric(df[mli_src], errors='coerce')
+    mti_src = _resolve_rpt(df, 'Max_Total_Inflow')
+    if mti_src:
+        out_cols['tot_inflw'] = pd.to_numeric(df[mti_src], errors='coerce')
+    t_mi_src = _resolve_rpt(df, 'Time_of_Max_Inflow') or _first_present(df, ['t_tot_inflw'])
     if t_mi_src:
         out_cols['t_max_inf'] = df[t_mi_src]
-    if 'Lateral_Inflow_Volume' in df.columns:
-        out_cols['latinflvol'] = pd.to_numeric(df['Lateral_Inflow_Volume'], errors='coerce')
-    if 'Total_Inflow_Volume' in df.columns:
-        out_cols['totinflvol'] = pd.to_numeric(df['Total_Inflow_Volume'], errors='coerce')
+    liv_src = _resolve_rpt(df, 'Lateral_Inflow_Volume')
+    if liv_src:
+        out_cols['latinflvol'] = pd.to_numeric(df[liv_src], errors='coerce')
+    tiv_src = _resolve_rpt(df, 'Total_Inflow_Volume')
+    if tiv_src:
+        out_cols['totinflvol'] = pd.to_numeric(df[tiv_src], errors='coerce')
 
     # Surcharge summary
     if 'Hours_Surcharged' in df.columns:
@@ -182,36 +213,43 @@ def apply_outfall_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         out_cols['tide_gate'] = df[tide_src]
 
     # RPT loading summary (Outfall Loading Summary)
-    if 'Flow_Freq_Pcnt' in df.columns:
-        out_cols['flwfrqpcnt'] = pd.to_numeric(df['Flow_Freq_Pcnt'], errors='coerce')
-    if 'Avg_Flow_CFS' in df.columns:
-        out_cols['avg_flow'] = pd.to_numeric(df['Avg_Flow_CFS'], errors='coerce')
-    if 'Max_Flow_CFS' in df.columns:
-        out_cols['max_flow'] = pd.to_numeric(df['Max_Flow_CFS'], errors='coerce')
-    if 'Total_Volume_MG' in df.columns:
-        out_cols['tot_vol_mg'] = pd.to_numeric(df['Total_Volume_MG'], errors='coerce')
+    ff_src = _resolve_rpt(df, 'Flow_Freq_Pcnt')
+    if ff_src:
+        out_cols['flwfrqpcnt'] = pd.to_numeric(df[ff_src], errors='coerce')
+    af_src = _resolve_rpt(df, 'Avg_Flow_CFS')
+    if af_src:
+        out_cols['avg_flow'] = pd.to_numeric(df[af_src], errors='coerce')
+    mf_src = _resolve_rpt(df, 'Max_Flow_CFS')
+    if mf_src:
+        out_cols['max_flow'] = pd.to_numeric(df[mf_src], errors='coerce')
+    tv_src = _resolve_rpt(df, 'Total_Volume_MG')
+    if tv_src:
+        out_cols['tot_vol_mg'] = pd.to_numeric(df[tv_src], errors='coerce')
 
     # RPT node-based observed metrics (outfalls appear in node sections too)
     # Depth summary
-    if 'Avg_Depth' in df.columns:
-        out_cols['avg_dep'] = pd.to_numeric(df['Avg_Depth'], errors='coerce')
-    dmax_obs_src = _first_present(df, ['max_depth_rpt', 'Max_Depth'])
+    ad_src = _resolve_rpt(df, 'Avg_Depth')
+    if ad_src:
+        out_cols['avg_dep'] = pd.to_numeric(df[ad_src], errors='coerce')
+    dmax_obs_src = _resolve_rpt(df, 'Max_Depth')
     if dmax_obs_src:
         out_cols['dmax_obs'] = pd.to_numeric(df[dmax_obs_src], errors='coerce')
-    max_hgl_src = _first_present(df, ['Max_HGL', 'max_hgl'])
+    max_hgl_src = _resolve_rpt(df, 'Max_HGL') or _first_present(df, ['max_hgl'])
     if max_hgl_src:
         out_cols['max_hgl'] = pd.to_numeric(df[max_hgl_src], errors='coerce')
-    t_md_src = _first_present(df, ['Time_of_Max_Depth', 't_max_depth'])
+    t_md_src = _resolve_rpt(df, 'Time_of_Max_Depth') or _first_present(df, ['t_max_depth'])
     if t_md_src:
         out_cols['t_max_dep'] = df[t_md_src]
 
     # Node Summary design capacity/ponding for outfalls
-    if 'max_depth' in df.columns:
-        out_cols['dmax_cap'] = pd.to_numeric(df['max_depth'], errors='coerce')
-    if 'pond_area' in df.columns:
-        out_cols['pond_area'] = pd.to_numeric(df['pond_area'], errors='coerce')
+    mdn_src = _resolve_rpt(df, 'max_depth')
+    if mdn_src:
+        out_cols['dmax_cap'] = pd.to_numeric(df[mdn_src], errors='coerce')
+    pan_src = _resolve_rpt(df, 'pond_area')
+    if pan_src:
+        out_cols['pond_area'] = pd.to_numeric(df[pan_src], errors='coerce')
     # External inflow from Node Summary
-    ext_src = _first_present(df, ['ext_inflow', 'External_Inflow'])
+    ext_src = _resolve_rpt(df, 'ext_inflow') or _resolve_rpt(df, 'External_Inflow')
     if ext_src:
         out_cols['ext_in'] = pd.to_numeric(df[ext_src], errors='coerce')
 
@@ -229,13 +267,15 @@ def apply_outfall_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         out_cols['totinflvol'] = pd.to_numeric(df['Total_Inflow_Volume'], errors='coerce')
 
     # Surcharge and flooding summaries
-    if 'Hours_Surcharged' in df.columns:
-        out_cols['hrs_surch'] = pd.to_numeric(df['Hours_Surcharged'], errors='coerce')
+    hs_src = _resolve_rpt(df, 'Hours_Surcharged')
+    if hs_src:
+        out_cols['hrs_surch'] = pd.to_numeric(df[hs_src], errors='coerce')
     if 'Hours_Flooded' in df.columns:
         out_cols['hr_flooded'] = pd.to_numeric(df['Hours_Flooded'], errors='coerce')
-    if 'Max_Flooding_Rate' in df.columns:
-        out_cols['flood_rate'] = pd.to_numeric(df['Max_Flooding_Rate'], errors='coerce')
-    t_flood_src = _first_present(df, ['Time_of_Max_Flooding', 't_flood'])
+    mfr_src = _resolve_rpt(df, 'Max_Flooding_Rate')
+    if mfr_src:
+        out_cols['flood_rate'] = pd.to_numeric(df[mfr_src], errors='coerce')
+    t_flood_src = _resolve_rpt(df, 'Time_of_Max_Flooding') or _first_present(df, ['t_flood'])
     if t_flood_src:
         out_cols['t_flood'] = df[t_flood_src]
     if 'Total_Flood_Volume' in df.columns:

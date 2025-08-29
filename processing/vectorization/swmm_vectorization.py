@@ -202,17 +202,20 @@ def _merge_rpt_summary_data(gdf, summary_df, rpt_id_column, feature_type):
     
     # Merge the dataframes
     try:
-        # Check for ID matches before merging (different column names)
-        gdf_ids = set(gdf[geometry_id_column].astype(str))
-        summary_ids = set(summary_df[rpt_id_column].astype(str))
-        common_ids = gdf_ids.intersection(summary_ids)
+        # Normalize IDs (strip/casefold) for robust matching across sources
+        def _norm(s):
+            return s.astype(str).str.strip().str.upper()
+
+        gdf_ids_norm = set(_norm(gdf[geometry_id_column]))
+        summary_ids_norm = set(_norm(summary_df[rpt_id_column]))
+        common_ids = gdf_ids_norm.intersection(summary_ids_norm)
         logger.info(f"Common IDs between geometry and summary: {len(common_ids)} out of {len(gdf_ids)} geometry IDs")
         if len(common_ids) > 0:
             logger.info(f"Sample common IDs: {list(common_ids)[:5]}")
         else:
             logger.warning(f"No matching IDs found!")
-            logger.warning(f"GDF IDs sample: {list(gdf_ids)[:5]}")
-            logger.warning(f"Summary IDs sample: {list(summary_ids)[:5]}")
+            logger.warning(f"GDF IDs sample: {list(gdf_ids_norm)[:5]}")
+            logger.warning(f"Summary IDs sample: {list(summary_ids_norm)[:5]}")
         
         # Clean up the summary DataFrame column names first to avoid internal conflicts
         original_rpt_id_column = rpt_id_column
@@ -241,19 +244,28 @@ def _merge_rpt_summary_data(gdf, summary_df, rpt_id_column, feature_type):
         else:
             suffixes = ('', '_rpt')
         
-        # Merge using different column names
+        # Prepare normalized join keys on both sides
+        gdf['_norm_id'] = _norm(gdf[geometry_id_column])
+        summary_df_cleaned['_norm_id'] = _norm(summary_df_cleaned[rpt_id_column_cleaned])
+
+        # Merge using normalized join keys
         merged_gdf = gdf.merge(
-            summary_df_cleaned, 
-            left_on=geometry_id_column, 
-            right_on=rpt_id_column_cleaned, 
-            how='left', 
-            suffixes=suffixes
+            summary_df_cleaned,
+            left_on='_norm_id',
+            right_on='_norm_id',
+            how='left',
+            suffixes=suffixes,
         )
         logger.info(f"Successfully merged RPT summary data for {len(merged_gdf)} {feature_type}")
         
-        # Remove the duplicate ID column from RPT data (it's now redundant)
+        # Remove helper/join columns
+        drop_cols = []
         if rpt_id_column_cleaned in merged_gdf.columns:
-            merged_gdf = merged_gdf.drop(columns=[rpt_id_column_cleaned])
+            drop_cols.append(rpt_id_column_cleaned)
+        if '_norm_id' in merged_gdf.columns:
+            drop_cols.append('_norm_id')
+        if drop_cols:
+            merged_gdf = merged_gdf.drop(columns=drop_cols)
             logger.info(f"Removed duplicate ID column '{rpt_id_column_cleaned}' from merged data")
         
         # Log which features got RPT data
