@@ -329,9 +329,10 @@ def create_swmm_shapefiles(swmm_data, output_path, output_format="Shapefile",
     if 'outfalls' in swmm_data:
         outfalls_gdf = swmm_data['outfalls']
         if not outfalls_gdf.empty:
-            # Merge RPT summary data for outfalls
+            # Merge RPT summary data for outfalls (use 'name' as the ID to match geometry)
+            from core.constants import SWMM_NAME
             merged_outfalls = _merge_rpt_summary_data(
-                outfalls_gdf, outfalls_summary, NODE_ID, 'outfalls'
+                outfalls_gdf, outfalls_summary, SWMM_NAME, 'outfalls'
             )
             enhanced_outfalls = apply_outfall_schema(merged_outfalls)
             shp_path = save_geodataframe(enhanced_outfalls, output_path, 'outfalls',

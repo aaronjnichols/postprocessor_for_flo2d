@@ -588,6 +588,13 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
                 existing = {k: v for k, v in rename_map.items() if k in outfalls_summary.columns}
                 if existing:
                     outfalls_summary = outfalls_summary.rename(columns=existing)
+
+                # Provide a canonical ID column matching geometry for robust merge
+                try:
+                    if 'node_id' in outfalls_summary.columns:
+                        outfalls_summary['name'] = outfalls_summary['node_id'].astype(str).str.strip()
+                except Exception:
+                    pass
             
             timing_logger.log("Extracting SWMM Links data from RPT file")
             links_data = extract_swmmlinks_rpt(file_path)
