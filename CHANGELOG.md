@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Normalize remaining extractors at source (OUTNQ, OUTFLOW, RAIN, EVACUATEDFP) so they emit 0-based `id` without adapters.
 - Remove normalization/rename adapters from the orchestrator; merge directly on internal `id`.
 - SWMM vector outputs (junctions, outfalls, links) now use consistent, Shapefile-safe (≤10 chars) attribute schemas with deduplicated INP vs RPT fields. INP design values are preferred; RPT observed metrics are included under distinct short names.
+- Split SWMM nodes RPT extraction into dedicated junction and outfall modules.
+- Share SWMM RPT file-reading helpers via a common base module for nodes and links.
 
 ### Fixed
 - Align OUTNQ time series column headers to 0-based `id` to prevent coordinate merge gaps.

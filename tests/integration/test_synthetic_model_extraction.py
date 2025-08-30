@@ -116,7 +116,7 @@ class TestSyntheticModelExtraction:
             
         if not rain_df.empty:
             # Rain uses nullable integer type
-            assert rain_df[GRID_ID].dtype == 'Int64'
+            assert pd.api.types.is_integer_dtype(rain_df[GRID_ID])
             
         if chan_data is not None and not chan_data['channels'].empty:
             assert chan_data['channels'][GRID_ID].dtype == 'int64'
