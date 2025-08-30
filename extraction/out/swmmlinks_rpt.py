@@ -7,13 +7,13 @@ FLO-2D postprocessor codebase.
 """
 
 import logging
-import os
 import re
 from collections import defaultdict
 
 import pandas as pd
 
 from core.utilities import time_function
+from .swmm_rpt_base import _find_rpt_file, _read_file_content
 
 
 logger = logging.getLogger(__name__)
@@ -33,31 +33,6 @@ LINK_HEADER_PATTERN = re.compile(r"<<< Link (.*?) >>>")
 LINK_DATA_PATTERN = re.compile(
     r"(\w{3}-\d{2}-\d{4})\s+(\d{2}:\d{2}:\d{2})\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)"
 )
-
-
-# ---------------------------------------------------------------------------
-# File reading and basic parsing helpers
-# ---------------------------------------------------------------------------
-
-def _find_rpt_file(directory):
-    """Return the first file ending with .rpt in *directory*."""
-
-    for filename in os.listdir(directory):
-        if filename.lower().endswith(".rpt"):
-            return os.path.join(directory, filename)
-    raise FileNotFoundError(f"No .rpt file found in {directory}")
-
-
-def _read_file_content(file_path):
-    """Read file content handling basic encoding issues."""
-
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            return f.readlines()
-    except UnicodeDecodeError:
-        logger.warning("UTF-8 decoding failed, trying latin-1.")
-        with open(file_path, "r", encoding="latin-1") as f:
-            return f.readlines()
 
 
 def _parse_sections(raw_lines):

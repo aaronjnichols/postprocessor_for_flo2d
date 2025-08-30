@@ -40,7 +40,8 @@ from extraction.out.hydrostruct_out_extraction import extract_hydrostruct_out
 from extraction.out.hycross_out_extraction import extract_hycross_out
 from extraction.out.super_out_extraction import extract_super_out
 from extraction.out.outnq_out_extraction import extract_outnq_out
-from extraction.out.swmmnodes_rpt import extract_swmmnodes_rpt
+from extraction.out.swmm_junctions_rpt import extract_swmm_junctions_rpt
+from extraction.out.swmm_outfalls_rpt import extract_swmm_outfalls_rpt
 from extraction.out.swmmlinks_rpt import extract_swmmlinks_rpt
 from extraction.out.time_out_extraction import extract_time_out
 from processing.spatial.geospatial import calculate_cell_size, convert_to_geo_dataframe
@@ -538,141 +539,40 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         links_summary = None
         
         try:
-            timing_logger.log("Extracting SWMM Nodes data from RPT file")
-            nodes_data = extract_swmmnodes_rpt(file_path)
-            full_nodes_summary = nodes_data.get('merged_results', pd.DataFrame())
-            
-            # Separate junctions and outfalls summary data for vectorization
-            if not full_nodes_summary.empty:
-                junctions_summary = full_nodes_summary[full_nodes_summary['type'] == 'JUNCTION'].copy()
-                # Build unified outfall summary: node-based stats + outfall loading metrics
-                outfalls_nodes_df = full_nodes_summary[full_nodes_summary['type'] == 'OUTFALL'].copy()
-                outfall_loading = nodes_data.get('outfall_loading')
-                # Start with node-based data
-                outfalls_summary = outfalls_nodes_df
-                try:
-                    if isinstance(outfall_loading, dict) and len(outfall_loading) > 0:
-                        outfall_load_df = pd.DataFrame.from_dict(outfall_loading, orient='index')
-                        outfall_load_df.index.name = 'node_id'
-                        outfall_load_df.reset_index(inplace=True)
-                        # Merge loading metrics into node-based outfall summary
-                        outfalls_summary = pd.merge(outfalls_nodes_df, outfall_load_df, on='node_id', how='left')
-                except Exception as e:
-                    logger.warning(f"Failed to combine outfall loading summary: {e}")
+            timing_logger.log("Extracting SWMM junction data from RPT file")
+            junctions_data = extract_swmm_junctions_rpt(file_path)
+            from processing.vectorization.swmm_schema import canonicalize_junctions_summary, canonicalize_outfall_summary, canonicalize_links_summary
+            junctions_summary = canonicalize_junctions_summary(
+                junctions_data.get('merged_results', pd.DataFrame())
+            )
 
-                # Canonicalize RPT column names for outfalls to stabilize downstream mapping
-                # Node Summary (design for outfalls)
-                rename_map = {
-                    'inv_elev': 'inv_elev',
-                    'max_depth': 'max_depth_cap',
-                    'pond_area': 'pond_area',
-                    'ext_inflow': 'ext_inflow',
-                    # Depth Summary (observed)
-                    'Avg_Depth': 'avg_depth',
-                    'Max_Depth': 'max_depth_obs',
-                    'Max_HGL': 'max_hgl',
-                    'Time_of_Max_Depth': 'time_max_depth',
-                    # Inflow Summary
-                    'Max_Lateral_Inflow': 'max_lat_inflow',
-                    'Max_Total_Inflow': 'max_tot_inflow',
-                    'Time_of_Max_Inflow': 'time_max_inflow',
-                    'Lateral_Inflow_Volume': 'lat_inflow_vol',
-                    'Total_Inflow_Volume': 'tot_inflow_vol',
-                    # Outfall Loading Summary
-                    'Flow_Freq_Pcnt': 'flow_freq_pcnt',
-                    'Avg_Flow_CFS': 'avg_flow_cfs',
-                    'Max_Flow_CFS': 'max_flow_cfs',
-                    'Total_Volume_MG': 'total_volume_mg',
-                }
-                # Apply only if columns exist to avoid KeyErrors
-                existing = {k: v for k, v in rename_map.items() if k in outfalls_summary.columns}
-                if existing:
-                    outfalls_summary = outfalls_summary.rename(columns=existing)
+            timing_logger.log("Extracting SWMM outfall data from RPT file")
+            outfalls_data = extract_swmm_outfalls_rpt(file_path)
+            outfalls_summary = canonicalize_outfall_summary(
+                outfalls_data.get('merged_results', pd.DataFrame())
+            )
 
-                # Coalesce Outfall Loading columns if suffixes exist from prior merges
-                def coalesce(df, outname, candidates):
-                    for c in candidates:
-                        if c in df.columns:
-                            df[outname] = df[c]
-                            return
-
-                coalesce(outfalls_summary, 'flow_freq_pcnt', ['flow_freq_pcnt','Flow_Freq_Pcnt','Flow_Freq_Pcnt_x','Flow_Freq_Pcnt_y'])
-                coalesce(outfalls_summary, 'avg_flow_cfs', ['avg_flow_cfs','Avg_Flow_CFS','Avg_Flow_CFS_x','Avg_Flow_CFS_y'])
-                coalesce(outfalls_summary, 'max_flow_cfs', ['max_flow_cfs','Max_Flow_CFS','Max_Flow_CFS_x','Max_Flow_CFS_y'])
-                coalesce(outfalls_summary, 'total_volume_mg', ['total_volume_mg','Total_Volume_MG','Total_Volume_MG_x','Total_Volume_MG_y'])
-
-                # Provide a canonical ID column matching geometry for robust merge
-                try:
-                    if 'node_id' in outfalls_summary.columns:
-                        outfalls_summary['name'] = outfalls_summary['node_id'].astype(str).str.strip()
-                except Exception:
-                    pass
-            
             timing_logger.log("Extracting SWMM Links data from RPT file")
             links_data = extract_swmmlinks_rpt(file_path)
-            links_summary = links_data.get('merged_results', pd.DataFrame())
-            # Canonicalize links summary column names and propagate canonical ID
-            from processing.vectorization.swmm_schema import canonicalize_links_summary
-            links_summary = canonicalize_links_summary(links_summary)
-            
-            # Generate SWMM analysis spreadsheets and plots
-            if not nodes_data.get('merged_results', pd.DataFrame()).empty:
-                # Separate junctions and outfalls data
-                junctions_data = {
-                    'merged_results': nodes_data.get('merged_results', pd.DataFrame()),
-                    'node_time_series': nodes_data.get('node_time_series', pd.DataFrame())
-                }
-                
-                # Filter for junctions only (exclude outfalls)
-                if not junctions_data['merged_results'].empty:
-                    junctions_only = junctions_data['merged_results'][junctions_data['merged_results']['type'] == 'JUNCTION'].copy()
-                    junctions_data['merged_results'] = junctions_only
-                    
-                    # Filter time series data to include only junction node IDs
-                    if not junctions_only.empty and not junctions_data['node_time_series'].empty:
-                        junction_ids = junctions_only['node_id'].tolist()
-                        # Keep time column and only junction columns
-                        time_series_cols = ['time'] if 'time' in junctions_data['node_time_series'].columns else []
-                        junction_cols = [col for col in junctions_data['node_time_series'].columns if col in junction_ids]
-                        junctions_data['node_time_series'] = junctions_data['node_time_series'][time_series_cols + junction_cols]
-                    
-                    if not junctions_only.empty:
-                        # Canonicalize RPT junction columns and propagate canonical ID
-                        from processing.vectorization.swmm_schema import canonicalize_junctions_summary
-                        junctions_data['merged_results'] = canonicalize_junctions_summary(junctions_data['merged_results'])
-                        timing_logger.log("Creating SWMM Junctions analysis spreadsheet and plots")
-                        junctions_files = swmm_nodes_spreadsheet_and_plots(file_path, junctions_data)
-                        timing_logger.log(f"SWMM Junctions analysis files created: {junctions_files}")
-                
-                # Process outfalls separately
-                outfalls_data = {
-                    'merged_results': nodes_data.get('merged_results', pd.DataFrame()),
-                    'outfall_time_series': nodes_data.get('node_time_series', pd.DataFrame())
-                }
-                
-                # Filter for outfalls only
-                if not outfalls_data['merged_results'].empty:
-                    outfalls_only = outfalls_data['merged_results'][outfalls_data['merged_results']['type'] == 'OUTFALL'].copy()
-                    outfalls_data['merged_results'] = outfalls_only
-                    
-                    # Filter time series data to include only outfall node IDs
-                    if not outfalls_only.empty and not outfalls_data['outfall_time_series'].empty:
-                        outfall_ids = outfalls_only['node_id'].tolist()
-                        # Keep time column and only outfall columns
-                        time_series_cols = ['time'] if 'time' in outfalls_data['outfall_time_series'].columns else []
-                        outfall_cols = [col for col in outfalls_data['outfall_time_series'].columns if col in outfall_ids]
-                        outfalls_data['outfall_time_series'] = outfalls_data['outfall_time_series'][time_series_cols + outfall_cols]
-                    
-                    if not outfalls_only.empty:
-                        timing_logger.log("Creating SWMM Outfalls analysis spreadsheet and plots")
-                        outfalls_files = swmm_outfalls_spreadsheet_and_plots(file_path, outfalls_data)
-                        timing_logger.log(f"SWMM Outfalls analysis files created: {outfalls_files}")
-            
+            links_summary = canonicalize_links_summary(
+                links_data.get('merged_results', pd.DataFrame())
+            )
+
+            if not junctions_data.get('merged_results', pd.DataFrame()).empty:
+                timing_logger.log("Creating SWMM Junctions analysis spreadsheet and plots")
+                junctions_files = swmm_nodes_spreadsheet_and_plots(file_path, junctions_data)
+                timing_logger.log(f"SWMM Junctions analysis files created: {junctions_files}")
+
+            if not outfalls_data.get('merged_results', pd.DataFrame()).empty:
+                timing_logger.log("Creating SWMM Outfalls analysis spreadsheet and plots")
+                outfalls_files = swmm_outfalls_spreadsheet_and_plots(file_path, outfalls_data)
+                timing_logger.log(f"SWMM Outfalls analysis files created: {outfalls_files}")
+
             if not links_data.get('merged_results', pd.DataFrame()).empty:
                 timing_logger.log("Creating SWMM Conduits analysis spreadsheet and plots")
                 links_files = swmm_links_spreadsheet_and_plots(file_path, links_data)
                 timing_logger.log(f"SWMM Conduits analysis files created: {links_files}")
-                
+
         except FileNotFoundError:
             logger.info("SWMM RPT file not found. Proceeding with geometry-only SWMM processing.")
         except Exception as e:

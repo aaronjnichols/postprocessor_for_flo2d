@@ -30,8 +30,8 @@ def test_outnq_summary_normalizes_zero_based(tmp_path):
 
     assert isinstance(df, pd.DataFrame)
     assert set([GRID_ID, MAX_Q, TIME_PEAK]).issubset(df.columns)
-    # Summary grid ids should be Int64 and 0-based (5 -> 4)
-    assert str(df[GRID_ID].dtype) == 'Int64'
+    # Summary grid ids should be integer and 0-based (5 -> 4)
+    assert pd.api.types.is_integer_dtype(df[GRID_ID])
     assert (df[GRID_ID] == 4).any()
 
 

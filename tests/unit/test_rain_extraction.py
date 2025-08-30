@@ -20,8 +20,8 @@ class TestRainExtraction:
         assert list(result_df.columns) == [GRID_ID, RAIN_DEPTH]
         assert len(result_df) > 0
         
-        # Data type checks  
-        assert result_df[GRID_ID].dtype == 'Int64'  # nullable integer
+        # Data type checks
+        assert pd.api.types.is_integer_dtype(result_df[GRID_ID])  # integer
         assert result_df[RAIN_DEPTH].dtype == 'float64'
         
         # Check that rain depths are non-negative

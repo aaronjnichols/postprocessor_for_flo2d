@@ -1,9 +1,10 @@
-"""Extract node information from SWMM *.rpt files.
+"""Common helpers for parsing SWMM ``*.rpt`` files and extracting node data.
 
-This module provides a function based extraction interface for SWMM
-node report files. It converts the class based implementation from
-the original project into a functional style consistent with the
-FLO-2D postprocessor codebase.
+The routines here provide a function-based interface for working with
+SWMM report files, converting the original class-based implementation into
+the functional style used throughout the FLO-2D postprocessor codebase.
+Generic utilities such as file discovery and encoding-tolerant reading are
+shared by the junction, outfall, and link extractors.
 """
 
 import logging
@@ -12,8 +13,6 @@ import re
 from collections import defaultdict
 
 import pandas as pd
-
-from core.utilities import time_function
 
 
 logger = logging.getLogger(__name__)
@@ -382,8 +381,7 @@ def _create_merged_summary_results(
 # Public extraction function
 # ---------------------------------------------------------------------------
 
-@time_function
-def extract_swmmnodes_rpt(folder_path):
+def _extract_nodes_rpt(folder_path):
     """Extract node related data from a SWMM *.rpt file.
 
     Args:

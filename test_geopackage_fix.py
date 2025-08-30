@@ -6,17 +6,22 @@ Test script to specifically test the GeoPackage field error fix
 import os
 import sys
 import logging
+import pytest
+import pandas as pd
 
 # Add the project directory to the path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from extraction.dat.swmm_inp_extraction import extract_swmm_inp
-from extraction.out.swmmnodes_rpt import extract_swmmnodes_rpt
+from extraction.out.swmm_junctions_rpt import extract_swmm_junctions_rpt
+from extraction.out.swmm_outfalls_rpt import extract_swmm_outfalls_rpt
 from processing.vectorization.swmm_vectorization import create_swmm_shapefiles
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 
+
+@pytest.mark.skip(reason="requires model folder fixture")
 def test_geopackage_fix(model_folder):
     """Test if the GeoPackage field error is fixed"""
     
@@ -27,15 +32,10 @@ def test_geopackage_fix(model_folder):
     swmm_data = extract_swmm_inp(swmm_inp_file, 2898)
     
     # Extract RPT data
-    nodes_data = extract_swmmnodes_rpt(model_folder)
-    full_nodes_summary = nodes_data.get('merged_results', pd.DataFrame())
-    
-    # Separate junctions and outfalls
-    junctions_summary = None
-    outfalls_summary = None
-    if not full_nodes_summary.empty:
-        junctions_summary = full_nodes_summary[full_nodes_summary['type'] == 'JUNCTION'].copy()
-        outfalls_summary = full_nodes_summary[full_nodes_summary['type'] == 'OUTFALL'].copy()
+    junctions_data = extract_swmm_junctions_rpt(model_folder)
+    junctions_summary = junctions_data.get('merged_results', pd.DataFrame())
+    outfalls_data = extract_swmm_outfalls_rpt(model_folder)
+    outfalls_summary = outfalls_data.get('merged_results', pd.DataFrame())
     
     # Extract links data
     from extraction.out.swmmlinks_rpt import extract_swmmlinks_rpt
