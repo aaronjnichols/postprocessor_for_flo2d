@@ -12,8 +12,14 @@ import logging
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from extraction.dat.swmm_inp_extraction import extract_swmm_inp
-from extraction.out.swmmnodes_rpt import extract_swmmnodes_rpt
+from extraction.out.swmm_junctions_rpt import extract_swmm_junctions_rpt
+from extraction.out.swmm_outfalls_rpt import extract_swmm_outfalls_rpt
 from extraction.out.swmmlinks_rpt import extract_swmmlinks_rpt
+from processing.vectorization.swmm_schema import (
+    canonicalize_junctions_summary,
+    canonicalize_links_summary,
+    canonicalize_outfall_summary,
+)
 from processing.vectorization.swmm_vectorization import create_swmm_shapefiles
 
 # Set up logging
@@ -58,29 +64,33 @@ def debug_rpt_merge(model_folder):
     
     print(f"Found RPT file: {rpt_file}")
     
-    # Extract nodes data
-    nodes_data = extract_swmmnodes_rpt(model_folder)
-    full_nodes_summary = nodes_data.get('merged_results', pd.DataFrame())
-    
-    print(f"\nNodes RPT Data:")
-    print(f"  Shape: {full_nodes_summary.shape}")
-    print(f"  Columns: {list(full_nodes_summary.columns)}")
-    if not full_nodes_summary.empty:
-        print(f"  Node types: {full_nodes_summary['type'].unique()}")
-        print(f"  Sample node_ids: {full_nodes_summary['node_id'].head(3).tolist()}")
-    
-    # Separate junctions and outfalls
-    junctions_summary = None
-    outfalls_summary = None
-    if not full_nodes_summary.empty:
-        junctions_summary = full_nodes_summary[full_nodes_summary['type'] == 'JUNCTION'].copy()
-        outfalls_summary = full_nodes_summary[full_nodes_summary['type'] == 'OUTFALL'].copy()
-        print(f"  Junctions: {len(junctions_summary)}")
-        print(f"  Outfalls: {len(outfalls_summary)}")
+    # Extract junction and outfall data
+    junctions_data = extract_swmm_junctions_rpt(model_folder)
+    junctions_summary = canonicalize_junctions_summary(
+        junctions_data.get('merged_results', pd.DataFrame())
+    )
+    outfalls_data = extract_swmm_outfalls_rpt(model_folder)
+    outfalls_summary = canonicalize_outfall_summary(
+        outfalls_data.get('merged_results', pd.DataFrame())
+    )
+
+    print(f"\nJunctions RPT Data:")
+    print(f"  Shape: {junctions_summary.shape}")
+    print(f"  Columns: {list(junctions_summary.columns)}")
+    if not junctions_summary.empty:
+        print(f"  Sample node_ids: {junctions_summary['node_id'].head(3).tolist()}")
+
+    print(f"\nOutfalls RPT Data:")
+    print(f"  Shape: {outfalls_summary.shape}")
+    print(f"  Columns: {list(outfalls_summary.columns)}")
+    if not outfalls_summary.empty:
+        print(f"  Sample node_ids: {outfalls_summary['node_id'].head(3).tolist()}")
     
     # Extract links data
     links_data = extract_swmmlinks_rpt(model_folder)
-    links_summary = links_data.get('merged_results', pd.DataFrame())
+    links_summary = canonicalize_links_summary(
+        links_data.get('merged_results', pd.DataFrame())
+    )
     
     print(f"\nLinks RPT Data:")
     print(f"  Shape: {links_summary.shape}")
@@ -101,7 +111,7 @@ def debug_rpt_merge(model_folder):
             output_format="Shapefile",
             junctions_summary=junctions_summary,
             outfalls_summary=outfalls_summary,
-            links_summary=links_summary
+            links_summary=links_summary,
         )
         
         print(f"\nCreated files: {created_files}")

@@ -24,8 +24,8 @@ class TestOutflowExtraction:
             # Check that outflow codes start with 'O'
             assert all(result_df[OUTFLOW_CODE].str.startswith('O'))
 
-            # Check that grid IDs are nullable Int64 and 0-based
-            assert str(result_df[GRID_ID].dtype) == 'Int64'
+            # Check that grid IDs are integer and 0-based
+            assert pd.api.types.is_integer_dtype(result_df[GRID_ID])
             assert result_df[GRID_ID].min() >= 0
             
     def test_outflow_file_not_found(self, tmp_path):

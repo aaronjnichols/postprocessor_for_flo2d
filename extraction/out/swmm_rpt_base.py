@@ -1,19 +1,19 @@
-"""Extract node information from SWMM *.rpt files.
+"""Common helpers for parsing SWMM ``*.rpt`` files and extracting node data.
 
-This module provides a function based extraction interface for SWMM
-node report files. It converts the class based implementation from
-the original project into a functional style consistent with the
-FLO-2D postprocessor codebase.
+The routines here provide a function-based interface for working with
+SWMM report files, converting the original class-based implementation into
+the functional style used throughout the FLO-2D postprocessor codebase.
+Generic utilities such as file discovery and encoding-tolerant reading are
+shared by the junction, outfall, and link extractors.
 """
 
 import logging
 import os
 import re
 from collections import defaultdict
+from typing import Sequence
 
 import pandas as pd
-
-from core.utilities import time_function
 
 
 logger = logging.getLogger(__name__)
@@ -136,6 +136,38 @@ def _parse_end_numeric(parts, num_expected):
         except ValueError:
             return [None] * num_expected
     return [None] * num_expected
+
+
+def _filter_time_series(df: pd.DataFrame, node_ids: Sequence[str]) -> pd.DataFrame:
+    """Return columns for *node_ids* from a node time series ``DataFrame``."""
+
+    if df.empty or not node_ids:
+        return pd.DataFrame()
+    time_cols = ["time"] if "time" in df.columns else []
+    node_cols = [c for c in df.columns if c in node_ids]
+    return df[time_cols + node_cols]
+
+
+def _dict_to_filtered_df(data_dict: dict, node_ids: Sequence[str]) -> pd.DataFrame:
+    """Convert a mapping keyed by node_id into a filtered ``DataFrame``."""
+
+    if not data_dict:
+        return pd.DataFrame()
+    df = pd.DataFrame.from_dict(data_dict, orient="index")
+    df.index.name = "node_id"
+    df.reset_index(inplace=True)
+    if node_ids:
+        df = df[df["node_id"].isin(node_ids)]
+    return df
+
+
+def _filter_dict(data_dict: dict, node_ids: Sequence[str]) -> dict:
+    """Return a dict containing only entries for *node_ids*."""
+
+    if not data_dict or not node_ids:
+        return {}
+    node_set = set(node_ids)
+    return {k: v for k, v in data_dict.items() if k in node_set}
 
 
 # ---------------------------------------------------------------------------
@@ -382,8 +414,7 @@ def _create_merged_summary_results(
 # Public extraction function
 # ---------------------------------------------------------------------------
 
-@time_function
-def extract_swmmnodes_rpt(folder_path):
+def _extract_nodes_rpt(folder_path):
     """Extract node related data from a SWMM *.rpt file.
 
     Args:
