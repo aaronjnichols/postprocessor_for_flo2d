@@ -16,8 +16,12 @@ def extract_swmm_junctions_rpt(folder_path: str) -> dict:
     node_time_series = data.get("node_time_series", pd.DataFrame())
 
     if not merged_results.empty:
-        merged_results = merged_results[merged_results["type"] == "JUNCTION"].copy()
-        junction_ids = merged_results["node_id"].tolist()
+        # Be robust to casing differences (e.g., 'Junction', 'JUNCTION')
+        type_col = "type"
+        if type_col in merged_results.columns:
+            mask = merged_results[type_col].astype(str).str.strip().str.upper() == "JUNCTION"
+            merged_results = merged_results[mask].copy()
+        junction_ids = merged_results["node_id"].tolist() if "node_id" in merged_results.columns else []
     else:
         junction_ids = []
 

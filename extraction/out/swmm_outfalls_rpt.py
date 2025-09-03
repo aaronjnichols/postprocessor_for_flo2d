@@ -16,8 +16,13 @@ def extract_swmm_outfalls_rpt(folder_path: str) -> dict:
     outfall_time_series = data.get("node_time_series", pd.DataFrame())
 
     if not merged_results.empty:
-        merged_results = merged_results[merged_results["type"] == "OUTFALL"].copy()
-        outfall_ids = merged_results["node_id"].tolist()
+        # Be robust to casing differences (e.g., 'Outfall', 'OUTFALL')
+        type_col = "type"
+        if type_col in merged_results.columns:
+            mask = merged_results[type_col].astype(str).str.strip().str.upper() == "OUTFALL"
+            merged_results = merged_results[mask].copy()
+        # Collect IDs after filtering (or empty if none matched)
+        outfall_ids = merged_results["node_id"].tolist() if "node_id" in merged_results.columns else []
     else:
         outfall_ids = []
 

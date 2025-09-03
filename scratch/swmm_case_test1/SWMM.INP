@@ -1,0 +1,24 @@
+﻿[TITLE]
+; minimal test
+
+[OPTIONS]
+FLOW_UNITS           CFS
+
+[JUNCTIONS]
+;Name     InvertElev  MaxDepth  InitDepth  SurchargeDepth  PondedArea
+J1        12.0        6.0       0          0               0
+
+[OUTFALLS]
+;Name     InvertElev  OutfallType  StageData  TideGate
+O1        10.0        FREE         0          NO
+O2        9.5         FREE         0          NO
+
+[CONDUITS]
+;Name FromNode ToNode  Length  Manning_N  InletOffset  OutletOffset  InitFlow  MaxFlow
+C1    J1       O1      100     0.013      0            0             0         0
+
+[COORDINATES]
+;Node   X        Y
+J1      1000.0   1000.0
+O1      1010.0   1005.0
+O2      990.0    995.0
