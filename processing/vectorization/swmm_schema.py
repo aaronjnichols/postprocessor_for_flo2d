@@ -372,7 +372,8 @@ def apply_outfall_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         out_cols['t_max_dep'] = df[t_md_src]
 
     # Node Summary design capacity/ponding for outfalls
-    mdn_src = _resolve_rpt(df, 'max_depth')
+    # Max depth capacity may be present as canonical 'max_depth_cap' or original 'max_depth'
+    mdn_src = _first_present(df, ['max_depth_cap']) or _resolve_rpt(df, 'max_depth')
     if mdn_src:
         out_cols['dmax_cap'] = pd.to_numeric(df[mdn_src], errors='coerce')
     pan_src = _resolve_rpt(df, 'pond_area')
@@ -383,42 +384,47 @@ def apply_outfall_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if ext_src:
         out_cols['ext_in'] = pd.to_numeric(df[ext_src], errors='coerce')
 
-    # Inflow summary
-    if 'Max_Lateral_Inflow' in df.columns:
-        out_cols['lat_inflw'] = pd.to_numeric(df['Max_Lateral_Inflow'], errors='coerce')
-    if 'Max_Total_Inflow' in df.columns:
-        out_cols['tot_inflw'] = pd.to_numeric(df['Max_Total_Inflow'], errors='coerce')
-    t_mi_src = _first_present(df, ['Time_of_Max_Inflow', 't_tot_inflw'])
+    # Inflow summary (handle canonicalized and original names)
+    mli_src = _resolve_rpt(df, 'Max_Lateral_Inflow') or _first_present(df, ['max_lat_inflow'])
+    if mli_src:
+        out_cols['lat_inflw'] = pd.to_numeric(df[mli_src], errors='coerce')
+    mti_src = _resolve_rpt(df, 'Max_Total_Inflow') or _first_present(df, ['max_tot_inflow'])
+    if mti_src:
+        out_cols['tot_inflw'] = pd.to_numeric(df[mti_src], errors='coerce')
+    t_mi_src = _resolve_rpt(df, 'Time_of_Max_Inflow') or _first_present(df, ['time_max_inflow', 't_tot_inflw'])
     if t_mi_src:
         out_cols['t_max_inf'] = df[t_mi_src]
-    if 'Lateral_Inflow_Volume' in df.columns:
-        out_cols['latinflvol'] = pd.to_numeric(df['Lateral_Inflow_Volume'], errors='coerce')
-    if 'Total_Inflow_Volume' in df.columns:
-        out_cols['totinflvol'] = pd.to_numeric(df['Total_Inflow_Volume'], errors='coerce')
+    liv_src = _resolve_rpt(df, 'Lateral_Inflow_Volume') or _first_present(df, ['lat_inflow_vol'])
+    if liv_src:
+        out_cols['latinflvol'] = pd.to_numeric(df[liv_src], errors='coerce')
+    tiv_src = _resolve_rpt(df, 'Total_Inflow_Volume') or _first_present(df, ['tot_inflow_vol'])
+    if tiv_src:
+        out_cols['totinflvol'] = pd.to_numeric(df[tiv_src], errors='coerce')
 
-    # Surcharge and flooding summaries
-    hs_src = _resolve_rpt(df, 'Hours_Surcharged')
-    if hs_src:
-        out_cols['hrs_surch'] = pd.to_numeric(df[hs_src], errors='coerce')
-    if 'Hours_Flooded' in df.columns:
-        out_cols['hr_flooded'] = pd.to_numeric(df['Hours_Flooded'], errors='coerce')
-    mfr_src = _resolve_rpt(df, 'Max_Flooding_Rate')
-    if mfr_src:
-        out_cols['flood_rate'] = pd.to_numeric(df[mfr_src], errors='coerce')
-    t_flood_src = _resolve_rpt(df, 'Time_of_Max_Flooding') or _first_present(df, ['t_flood'])
-    if t_flood_src:
-        out_cols['t_flood'] = df[t_flood_src]
-    if 'Total_Flood_Volume' in df.columns:
-        out_cols['flood_vol'] = pd.to_numeric(df['Total_Flood_Volume'], errors='coerce')
-    if 'Max_Ponded_Depth' in df.columns:
-        out_cols['ponded_dep'] = pd.to_numeric(df['Max_Ponded_Depth'], errors='coerce')
+    # Note: Outfalls do not appear in Surcharge/Flooding summaries; omit those fields entirely
 
+    # Column ordering: INP Outfalls (as in SWMM.inp) first, then RPT sections
+    # in the order they appear in typical SWMM reports used by our extractor
+    # (Node Summary -> Depth -> Inflow -> Surcharge -> Flooding -> Outfall Loading).
+    # This preserves user-expected field ordering in attribute tables.
+    #
+    # INP [OUTFALLS]: Name, Invert_Elevation, Outfall_Type, Stage_Data, Tide_Gate
+    # RPT Node Summary: inv_elev, max_depth, pond_area, ext_inflow
+    # RPT Node Depth Summary: Avg_Depth, Max_Depth, Max_HGL, Time_of_Max_Depth
+    # RPT Node Inflow Summary: Max_Lateral_Inflow, Max_Total_Inflow, Time_of_Max_Inflow, Lateral_Inflow_Volume, Total_Inflow_Volume
+    # RPT Surcharge/Flooding Summaries
+    # RPT Outfall Loading Summary: Flow_Freq_Pcnt, Avg_Flow_CFS, Max_Flow_CFS, Total_Volume_MG
     ordered = [
-        'name', 'o_type', 'z_inv', 'dmax_cap', 'pond_area', 'ext_in', 'stage', 'tide_gate',
-        'flwfrqpcnt', 'avg_flow', 'max_flow', 'tot_vol_mg',
+        # INP Outfalls (section order)
+        'name', 'z_inv', 'o_type', 'stage', 'tide_gate',
+        # RPT Node Summary
+        'dmax_cap', 'pond_area', 'ext_in',
+        # RPT Node Depth Summary
         'avg_dep', 'dmax_obs', 'max_hgl', 't_max_dep',
+        # RPT Node Inflow Summary
         'lat_inflw', 'tot_inflw', 't_max_inf', 'latinflvol', 'totinflvol',
-        'hrs_surch', 'hr_flooded', 'flood_rate', 't_flood', 'flood_vol', 'ponded_dep',
+        # RPT Outfall Loading Summary (placed after other node-based summaries)
+        'flwfrqpcnt', 'avg_flow', 'max_flow', 'tot_vol_mg',
     ]
     cols_present = [c for c in ordered if c in out_cols]
     out_df = gpd.GeoDataFrame({c: out_cols[c] for c in cols_present}, geometry=df.geometry, crs=df.crs)

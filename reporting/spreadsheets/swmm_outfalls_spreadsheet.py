@@ -82,11 +82,11 @@ def create_readme_sheet(workbook, formats, num_outfalls, folder_path):
         ["Type", "Outfall type (FREE, NORMAL, FIXED, etc.)"],
         ["Inv Elev (ft)", "Invert elevation of the outfall"],
         ["Max HGL (ft)", "Maximum hydraulic grade line elevation"],
-        ["Max Lateral Inflow (cfs)", "Maximum lateral inflow to the outfall"],
-        ["Max Total Inflow (cfs)", "Maximum total inflow to the outfall"],
-        ["Hours Flooded", "Total hours the outfall experienced flooding"],
-        ["Max Flooding Rate (cfs)", "Maximum flooding rate at the outfall"],
-        ["Total Flood Volume (MG)", "Total flood volume discharged (million gallons)"],
+        ["Max Lateral Inflow (cfs)", "Maximum lateral inflow to the outfall (Node Inflow Summary)"],
+        ["Max Total Inflow (cfs)", "Maximum total inflow to the outfall (Node Inflow Summary)"],
+        ["Avg Flow (cfs)", "Average outfall flow (Outfall Loading Summary)"],
+        ["Max Flow (cfs)", "Maximum outfall flow (Outfall Loading Summary)"],
+        ["Total Volume (MG)", "Total outfall discharge volume (million gallons; Outfall Loading Summary)"],
         ["Time", "Time (hr relative to start)"],
         ["Inflow (cfs)", "Inflow discharge to outfall"],
     ]
@@ -99,20 +99,66 @@ def create_readme_sheet(workbook, formats, num_outfalls, folder_path):
 def create_dashboard_sheet(workbook, formats, merged_results, outfall_time_series, outfall_sheet_names):
     """Create dashboard sheet with overview of all outfalls."""
     worksheet = workbook.get_worksheet_by_name("Dashboard")
-    worksheet.set_column("A:A", 15)
-    worksheet.set_column("B:E", 18)
-    worksheet.merge_range("A1:E1", "SWMM Outfalls Dashboard", formats["title"])
+    worksheet.set_column("A:A", 18)
+    worksheet.set_column("B:F", 18)
+    worksheet.merge_range("A1:F1", "SWMM Outfalls Dashboard", formats["title"])
     worksheet.write("A3", "Generated:", formats["subheader"])
     worksheet.write("B3", pd.Timestamp.now(), formats["timestamp"])
 
     # Dashboard headers
-    dashboard_headers = ["Outfall ID", "Max HGL (ft)", "Peak Discharge (cfs)", "Time to Peak (hr)", "Total Flood Volume (MG)"]
+    dashboard_headers = ["Outfall ID", "Max HGL (ft)", "Peak Discharge (cfs)", "Time to Peak (hr)", "Max Flow (cfs)", "Total Volume (MG)"]
     for col, header in enumerate(dashboard_headers):
         worksheet.write(4, col, header, formats["header"])
 
     if merged_results.empty:
         worksheet.write(5, 0, "No outfall summary data available", formats["border"])
         return
+
+    def _time_str_to_hours(s: str):
+        """Convert 'D HH:MM' or 'HH:MM' string to hours (float)."""
+        if not isinstance(s, str) or not s:
+            return ""
+        s = s.strip()
+        try:
+            if ' ' in s:
+                days_part, clock = s.split(' ', 1)
+                days = float(days_part)
+            else:
+                days, clock = 0.0, s
+            if ':' in clock:
+                hh, mm = clock.split(':', 1)
+                return days * 24.0 + float(hh) + float(mm) / 60.0
+        except Exception:
+            return ""
+        return ""
+
+    def _time_display_str(s: str):
+        """Convert 'D HH:MM' or 'HH:MM' to 'HH:MM' display string."""
+        if not isinstance(s, str) or not s:
+            return ""
+        s = s.strip()
+        if ' ' in s:
+            parts = s.split(' ', 1)
+            s = parts[1]
+        # Basic validate
+        if ':' in s:
+            hh, mm = s.split(':', 1)
+            try:
+                return f"{int(hh)}:{int(mm):02d}"
+            except Exception:
+                return s
+        return s
+
+    def _hours_to_hhmm(hours):
+        try:
+            h = int(hours)
+            m = int(round((hours - h) * 60))
+            if m == 60:
+                h += 1
+                m = 0
+            return f"{h}:{m:02d}"
+        except Exception:
+            return ""
 
     for row, (_, outfall_row) in enumerate(merged_results.iterrows(), start=5):
         outfall_id = outfall_row.get(NODE_ID, "")
@@ -124,30 +170,32 @@ def create_dashboard_sheet(workbook, formats, merged_results, outfall_time_serie
         else:
             worksheet.write(row, 0, str(outfall_id), formats["border"])
 
-        # Extract summary statistics
+        # Extract summary statistics (prefer summary sections over time series)
         max_hgl = outfall_row.get("Max_HGL", "")
-        max_total_inflow = outfall_row.get("Max_Total_Inflow", "")
-        total_flood_volume = outfall_row.get("Total_Flood_Volume", "")
+        peak_discharge = outfall_row.get("Max_Total_Inflow", "")  # Node Inflow Summary
+        max_flow_cfs = outfall_row.get("Max_Flow_CFS", "")        # Outfall Loading Summary
+        total_volume_mg = outfall_row.get("Total_Volume_MG", "")
+        t_peak_raw = outfall_row.get("Time_of_Max_Inflow", "")
+        t_peak_hr = _time_str_to_hours(t_peak_raw)
+        t_peak_str = _time_display_str(t_peak_raw)
 
-        # Calculate time to peak from time series if available
-        time_to_peak = ""
-        if not outfall_time_series.empty and outfall_id in outfall_time_series.columns:
+        # Fallback to time series only if summary timing is unavailable
+        time_to_peak_str = t_peak_str
+        if time_to_peak_str == "" and not outfall_time_series.empty and outfall_id in outfall_time_series.columns:
             outfall_data = outfall_time_series[outfall_id].dropna()
-            if len(outfall_data) > 0:
+            if len(outfall_data) > 0 and TIME in outfall_time_series.columns:
                 peak_idx = outfall_data.idxmax()
-                if TIME in outfall_time_series.columns:
-                    time_to_peak = outfall_time_series.loc[peak_idx, TIME]
-                else:
-                    time_to_peak = peak_idx
+                time_to_peak_str = _hours_to_hhmm(outfall_time_series.loc[peak_idx, TIME])
 
         # Write data
         data_values = [
             (max_hgl, "number"),
-            (max_total_inflow, "flow"),
-            (time_to_peak, "time_hr"),
-            (total_flood_volume, "volume"),
+            (peak_discharge, "flow"),
+            (time_to_peak_str, "border"),
+            (max_flow_cfs, "flow"),
+            (total_volume_mg, "volume"),
         ]
-        
+
         for col, (value, format_name) in enumerate(data_values, start=1):
             if pd.notna(value) and value != "":
                 worksheet.write(row, col, value, formats[format_name])
@@ -245,24 +293,67 @@ def create_outfall_sheet(workbook, formats, outfall_id, merged_results, outfall_
         "Summary Statistics", formats["subheader"]
     )
 
-    # Extract summary data from merged results
+    # Extract summary data from merged results (prefer summary sections)
     inv_elev = outfall_summary.get("inv_elev", "N/A")
     max_hgl = outfall_summary.get("Max_HGL", "N/A") 
     max_lateral_inflow = outfall_summary.get("Max_Lateral_Inflow", "N/A")
     max_total_inflow = outfall_summary.get("Max_Total_Inflow", "N/A")
-    hours_flooded = outfall_summary.get("Hours_Flooded", "N/A")
-    max_flooding_rate = outfall_summary.get("Max_Flooding_Rate", "N/A")
-    total_flood_volume = outfall_summary.get("Total_Flood_Volume", "N/A")
+    avg_flow_cfs = outfall_summary.get("Avg_Flow_CFS", "N/A")
+    max_flow_cfs = outfall_summary.get("Max_Flow_CFS", "N/A")
+    total_volume_mg = outfall_summary.get("Total_Volume_MG", "N/A")
+
+    # Time to peak (hours) from Node Inflow Summary if available
+    def _time_str_to_hours(s: str):
+        if not isinstance(s, str) or not s:
+            return 0
+        s = s.strip()
+        try:
+            if ' ' in s:
+                days_part, clock = s.split(' ', 1)
+                days = float(days_part)
+            else:
+                days, clock = 0.0, s
+            if ':' in clock:
+                hh, mm = clock.split(':', 1)
+                return days * 24.0 + float(hh) + float(mm) / 60.0
+        except Exception:
+            return 0
+        return 0
+    def _time_display_str(s: str):
+        if not isinstance(s, str) or not s:
+            return ""
+        s = s.strip()
+        if ' ' in s:
+            s = s.split(' ', 1)[1]
+        if ':' in s:
+            hh, mm = s.split(':', 1)
+            try:
+                return f"{int(hh)}:{int(mm):02d}"
+            except Exception:
+                return s
+        return s
+    def _hours_to_hhmm(hours):
+        try:
+            h = int(hours)
+            m = int(round((hours - h) * 60))
+            if m == 60:
+                h += 1
+                m = 0
+            return f"{h}:{m:02d}"
+        except Exception:
+            return ""
+    peak_time_hr = _time_str_to_hours(outfall_summary.get("Time_of_Max_Inflow", ""))
+    peak_time_str = _time_display_str(outfall_summary.get("Time_of_Max_Inflow", ""))
 
     stats_data = [
         ["Invert Elevation (ft)", inv_elev, formats["number_right"]],
         ["Max HGL (ft)", max_hgl, formats["number_right"]],
-        ["Peak Inflow (cfs)", max(peak_inflow, max_total_inflow if pd.notna(max_total_inflow) and max_total_inflow != "N/A" else 0), formats["flow"]],
-        ["Time to Peak (hr)", peak_time, formats["time_hr_right"]],
+        ["Peak Inflow (cfs)", max_total_inflow if pd.notna(max_total_inflow) and max_total_inflow != "N/A" else peak_inflow, formats["flow"]],
+        ["Time to Peak (hr)", peak_time_str if peak_time_str else _hours_to_hhmm(peak_time), formats["border_right"]],
         ["Max Lateral Inflow (cfs)", max_lateral_inflow, formats["flow"]],
-        ["Hours Flooded", hours_flooded, formats["hours"]],
-        ["Max Flooding Rate (cfs)", max_flooding_rate, formats["flow"]],
-        ["Total Flood Volume (MG)", total_flood_volume, formats["volume"]],
+        ["Avg Flow (cfs)", avg_flow_cfs, formats["flow"]],
+        ["Max Flow (cfs)", max_flow_cfs, formats["flow"]],
+        ["Total Volume (MG)", total_volume_mg, formats["volume"]],
     ]
 
     for i, (stat, value, value_format) in enumerate(stats_data):
@@ -289,10 +380,23 @@ def create_outfall_sheet(workbook, formats, outfall_id, merged_results, outfall_
             'line': {'color': 'blue', 'width': 2},
         })
 
-        # Chart formatting
-        peak_str = f"{peak_inflow:.2f}"
-        time_str = f"{peak_time:.2f}"
-        chart_title = f"Hydrograph for Outfall {outfall_id}\nPeak Discharge: {peak_str} cfs | Time to Peak: {time_str} hr"
+        # Chart formatting: use summary-based peak and timing when available
+        def _num(v, default=0.0):
+            try:
+                if v is None or v == "" or (isinstance(v, str) and v.upper() == "N/A"):
+                    return default
+                return float(v)
+            except Exception:
+                return default
+
+        q_disp = _num(max_total_inflow, None)
+        if q_disp is None:
+            q_disp = _num(peak_inflow, 0.0)
+        # Prefer summary time string; fallback to time-series hours -> HH:MM
+        t_disp_str = peak_time_str if peak_time_str else _hours_to_hhmm(peak_time)
+
+        peak_str = f"{q_disp:.2f}"
+        chart_title = f"Hydrograph for Outfall {outfall_id}\nPeak Discharge: {peak_str} cfs | Time to Peak: {t_disp_str}"
 
         line_chart.set_title({'name': chart_title})
         line_chart.set_x_axis({
@@ -342,6 +446,29 @@ def plot_outfall_hydrographs_to_pdf(outfall_time_series, merged_results, pdf_fil
         # Prepare time data
         time_data = outfall_time_series[TIME] if TIME in outfall_time_series.columns else outfall_time_series.index
         
+        def _time_str_to_hours(s: str):
+            if not isinstance(s, str) or not s:
+                return None
+            s = s.strip()
+            try:
+                if ' ' in s:
+                    days_part, clock = s.split(' ', 1)
+                    days = float(days_part)
+                else:
+                    days, clock = 0.0, s
+                if ':' in clock:
+                    hh, mm = clock.split(':', 1)
+                    return days * 24.0 + float(hh) + float(mm) / 60.0
+            except Exception:
+                return None
+            return None
+
+        # Build quick lookup for summary rows by outfall id
+        summary_by_id = {}
+        if not merged_results.empty:
+            for _, r in merged_results.iterrows():
+                summary_by_id[r.get(NODE_ID)] = r
+
         for outfall_id in outfall_columns:
             ax = axes[plot_count // 2, plot_count % 2]
             
@@ -360,26 +487,52 @@ def plot_outfall_hydrographs_to_pdf(outfall_time_series, merged_results, pdf_fil
                 ax.grid(True, alpha=0.3)
                 ax.tick_params(axis='both', which='major', labelsize=7)
                 
-                # Add summary statistics
-                peak_inflow = outfall_data.max()
-                peak_time = plot_time[outfall_data.idxmax()]
-                
-                # Get additional stats from merged_results if available
-                if not merged_results.empty:
-                    outfall_summary = merged_results[merged_results[NODE_ID] == outfall_id]
-                    if not outfall_summary.empty:
-                        max_hgl = outfall_summary.iloc[0].get("Max_HGL", "N/A")
-                        total_flood_volume = outfall_summary.iloc[0].get("Total_Flood_Volume", "N/A")
-                        
-                        if pd.notna(max_hgl) and max_hgl != "N/A":
-                            label = f'Peak Discharge: {peak_inflow:.2f} cfs\nMax HGL: {max_hgl:.2f} ft\nTime of Peak: {peak_time:.2f} hrs'
-                        else:
-                            label = f'Peak Discharge: {peak_inflow:.2f} cfs\nTime of Peak: {peak_time:.2f} hrs'
+                # Peak and timing from summary if available; fallback to time series
+                peak_inflow_ts = outfall_data.max() if len(outfall_data) > 0 else None
+                peak_time_ts = plot_time[outfall_data.idxmax()] if len(outfall_data) > 0 else None
+
+                sr = summary_by_id.get(outfall_id)
+                peak_discharge = None
+                t_peak_hr = None
+                max_hgl = None
+                if sr is not None:
+                    peak_discharge = sr.get("Max_Total_Inflow", None)
+                    t_peak_hr = _time_str_to_hours(sr.get("Time_of_Max_Inflow", ""))
+                    max_hgl = sr.get("Max_HGL", None)
+
+                q = peak_discharge if peak_discharge is not None and pd.notna(peak_discharge) else peak_inflow_ts
+                t = t_peak_hr if t_peak_hr is not None else peak_time_ts
+
+        # Build label
+                # Prefer Node Inflow time string converted to HH:MM
+                t_str = None
+                if sr is not None:
+                    t_str = sr.get("Time_of_Max_Inflow", "")
+                    # Convert 'D HH:MM' to 'HH:MM'
+                    if isinstance(t_str, str) and ' ' in t_str:
+                        t_str = t_str.split(' ', 1)[1]
+                if not t_str and t is not None:
+                    # Fallback to time-series numeric hours -> HH:MM
+                    try:
+                        hh = int(t)
+                        mm = int(round((t - hh) * 60))
+                        if mm == 60:
+                            hh += 1
+                            mm = 0
+                        t_str = f"{hh}:{mm:02d}"
+                    except Exception:
+                        t_str = None
+
+                if q is not None and pd.notna(q):
+                    if max_hgl is not None and pd.notna(max_hgl) and t_str:
+                        label = f'Peak Discharge: {float(q):.2f} cfs\nMax HGL: {float(max_hgl):.2f} ft\nTime of Peak: {t_str}'
+                    elif t_str:
+                        label = f'Peak Discharge: {float(q):.2f} cfs\nTime of Peak: {t_str}'
                     else:
-                        label = f'Peak Discharge: {peak_inflow:.2f} cfs\nTime of Peak: {peak_time:.2f} hrs'
+                        label = f'Peak Discharge: {float(q):.2f} cfs'
                 else:
-                    label = f'Peak Discharge: {peak_inflow:.2f} cfs\nTime of Peak: {peak_time:.2f} hrs'
-                
+                    label = 'Peak stats unavailable'
+
                 ax.text(0.05, 0.95, label, ha='left', va='top', transform=ax.transAxes, fontsize=8,
                        bbox=dict(facecolor='white', alpha=0.6))
                 

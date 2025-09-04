@@ -42,7 +42,7 @@ from extraction.out.super_out_extraction import extract_super_out
 from extraction.out.outnq_out_extraction import extract_outnq_out
 from extraction.out.swmm_junctions_rpt import extract_swmm_junctions_rpt
 from extraction.out.swmm_outfalls_rpt import extract_swmm_outfalls_rpt
-from extraction.out.swmmlinks_rpt import extract_swmmlinks_rpt
+from extraction.out.swmm_links_rpt import extract_swmmlinks_rpt
 from extraction.out.time_out_extraction import extract_time_out
 from processing.spatial.geospatial import calculate_cell_size, convert_to_geo_dataframe
 from processing.spatial.rasterization import create_raster_from_gdf
