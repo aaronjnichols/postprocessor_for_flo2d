@@ -234,10 +234,11 @@ def apply_junction_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         out_cols['cont_err'] = pd.to_numeric(df[cont_err_col], errors='coerce')
 
     # Depth summary
-    if 'Avg_Depth' in df.columns:
-        out_cols['avg_dep'] = pd.to_numeric(df['Avg_Depth'], errors='coerce')
+    avgd_src = _first_present(df, ['Avg_Depth', 'avg_depth'])
+    if avgd_src:
+        out_cols['avg_dep'] = pd.to_numeric(df[avgd_src], errors='coerce')
     # Max depth observed: prefer explicit RPT suffix then summary max depth
-    dmax_obs_src = _first_present(df, ['max_depth_rpt', 'Max_Depth'])
+    dmax_obs_src = _first_present(df, ['max_depth_rpt', 'Max_Depth', 'max_depth_obs'])
     if dmax_obs_src:
         out_cols['dmax_obs'] = pd.to_numeric(df[dmax_obs_src], errors='coerce')
     # Max HGL
@@ -245,56 +246,69 @@ def apply_junction_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if max_hgl_src:
         out_cols['max_hgl'] = pd.to_numeric(df[max_hgl_src], errors='coerce')
     # Time of max depth
-    t_md_src = _first_present(df, ['Time_of_Max_Depth', 't_max_depth'])
+    t_md_src = _first_present(df, ['Time_of_Max_Depth', 'time_max_depth', 't_max_depth'])
     if t_md_src:
         out_cols['t_max_dep'] = df[t_md_src]
 
     # Inflow summary
-    mli_src = _resolve_rpt(df, 'Max_Lateral_Inflow')
+    mli_src = _resolve_rpt(df, 'Max_Lateral_Inflow') or _first_present(df, ['max_lat_inflow'])
     if mli_src:
-        out_cols['latinflw'] = pd.to_numeric(df[mli_src], errors='coerce')
-    mti_src = _resolve_rpt(df, 'Max_Total_Inflow')
+        out_cols['lat_inflw'] = pd.to_numeric(df[mli_src], errors='coerce')
+    mti_src = _resolve_rpt(df, 'Max_Total_Inflow') or _first_present(df, ['max_tot_inflow'])
     if mti_src:
         out_cols['tot_inflw'] = pd.to_numeric(df[mti_src], errors='coerce')
-    t_mi_src = _resolve_rpt(df, 'Time_of_Max_Inflow') or _first_present(df, ['t_tot_inflw'])
+    t_mi_src = _resolve_rpt(df, 'Time_of_Max_Inflow') or _first_present(df, ['time_max_inflow', 't_tot_inflw'])
     if t_mi_src:
         out_cols['t_max_inf'] = df[t_mi_src]
-    liv_src = _resolve_rpt(df, 'Lateral_Inflow_Volume')
+    liv_src = _resolve_rpt(df, 'Lateral_Inflow_Volume') or _first_present(df, ['lat_inflow_vol'])
     if liv_src:
         out_cols['latinflvol'] = pd.to_numeric(df[liv_src], errors='coerce')
-    tiv_src = _resolve_rpt(df, 'Total_Inflow_Volume')
+    tiv_src = _resolve_rpt(df, 'Total_Inflow_Volume') or _first_present(df, ['tot_inflow_vol'])
     if tiv_src:
         out_cols['totinflvol'] = pd.to_numeric(df[tiv_src], errors='coerce')
 
     # Surcharge summary
-    if 'Hours_Surcharged' in df.columns:
-        out_cols['hrs_surch'] = pd.to_numeric(df['Hours_Surcharged'], errors='coerce')
+    hs_src = _first_present(df, ['Hours_Surcharged', 'hours_surcharged'])
+    if hs_src:
+        out_cols['hrs_surch'] = pd.to_numeric(df[hs_src], errors='coerce')
     if 'Max_Height_Above_Crown' in df.columns:
         out_cols['h_abv_crwn'] = pd.to_numeric(df['Max_Height_Above_Crown'], errors='coerce')
     if 'Min_Depth_Below_Rim' in df.columns:
         out_cols['d_blw_rim'] = pd.to_numeric(df['Min_Depth_Below_Rim'], errors='coerce')
 
     # Flooding summary
-    if 'Hours_Flooded' in df.columns:
-        out_cols['hr_flooded'] = pd.to_numeric(df['Hours_Flooded'], errors='coerce')
-    if 'Max_Flooding_Rate' in df.columns:
-        out_cols['flood_rate'] = pd.to_numeric(df['Max_Flooding_Rate'], errors='coerce')
-    t_flood_src = _first_present(df, ['Time_of_Max_Flooding', 't_flood'])
+    if 'Hours_Flooded' in df.columns or 'hours_flooded' in df.columns:
+        hf_src = _first_present(df, ['Hours_Flooded', 'hours_flooded'])
+        out_cols['hr_flooded'] = pd.to_numeric(df[hf_src], errors='coerce')
+    mfr_src = _first_present(df, ['Max_Flooding_Rate', 'max_flooding_rate'])
+    if mfr_src:
+        out_cols['flood_rate'] = pd.to_numeric(df[mfr_src], errors='coerce')
+    t_flood_src = _first_present(df, ['Time_of_Max_Flooding', 'time_of_max_flooding', 't_flood'])
     if t_flood_src:
         out_cols['t_flood'] = df[t_flood_src]
-    if 'Total_Flood_Volume' in df.columns:
-        out_cols['flood_vol'] = pd.to_numeric(df['Total_Flood_Volume'], errors='coerce')
-    if 'Max_Ponded_Depth' in df.columns:
-        out_cols['ponded_dep'] = pd.to_numeric(df['Max_Ponded_Depth'], errors='coerce')
+    tfv_src = _first_present(df, ['Total_Flood_Volume', 'total_flood_volume'])
+    if tfv_src:
+        out_cols['flood_vol'] = pd.to_numeric(df[tfv_src], errors='coerce')
+    mpd_src = _first_present(df, ['Max_Ponded_Depth', 'max_ponded_depth'])
+    if mpd_src:
+        out_cols['ponded_dep'] = pd.to_numeric(df[mpd_src], errors='coerce')
 
     # Build the output GeoDataFrame with selected columns (preserve geometry)
+    # Column ordering: INP [JUNCTIONS] first, then RPT sections in report order
     ordered = [
-        'name', 'j_type',
-        'z_inv', 'dmax_cap', 'dinit', 'dsurch', 'pond_area',
+        # INP [JUNCTIONS]
+        'name', 'z_inv', 'dmax_cap', 'dinit', 'dsurch', 'pond_area',
+        # RPT Node Summary
+        'j_type',
+        # Highest Continuity Errors
         'cont_err',
+        # Depth Summary
         'avg_dep', 'dmax_obs', 'max_hgl', 't_max_dep',
+        # Inflow Summary
         'lat_inflw', 'tot_inflw', 't_max_inf', 'latinflvol', 'totinflvol',
+        # Surcharge Summary
         'hrs_surch', 'h_abv_crwn', 'd_blw_rim',
+        # Flooding Summary
         'hr_flooded', 'flood_rate', 't_flood', 'flood_vol', 'ponded_dep',
     ]
 
