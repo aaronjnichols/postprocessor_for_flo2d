@@ -118,6 +118,48 @@ def create_dashboard_sheet(workbook, formats, merged_results, node_time_series, 
         worksheet.write(5, 0, "No junction summary data available", formats["border"])
         return
 
+    def _time_str_to_hours(s: str):
+        if not isinstance(s, str) or not s:
+            return ""
+        s = s.strip()
+        try:
+            if ' ' in s:
+                days_part, clock = s.split(' ', 1)
+                days = float(days_part)
+            else:
+                days, clock = 0.0, s
+            if ':' in clock:
+                hh, mm = clock.split(':', 1)
+                return days * 24.0 + float(hh) + float(mm) / 60.0
+        except Exception:
+            return ""
+        return ""
+
+    def _time_display_str(s: str):
+        if not isinstance(s, str) or not s:
+            return ""
+        s = s.strip()
+        if ' ' in s:
+            s = s.split(' ', 1)[1]
+        if ':' in s:
+            hh, mm = s.split(':', 1)
+            try:
+                return f"{int(hh)}:{int(mm):02d}"
+            except Exception:
+                return s
+        return s
+
+    def _hours_to_hhmm(hours):
+        try:
+            h = int(hours)
+            m = int(round((hours - h) * 60))
+            if m == 60:
+                h += 1
+                m = 0
+            return f"{h}:{m:02d}"
+        except Exception:
+            return ""
+
     for row, (_, node_row) in enumerate(merged_results.iterrows(), start=5):
         node_id = node_row.get(NODE_ID, "")
         
@@ -133,22 +175,20 @@ def create_dashboard_sheet(workbook, formats, merged_results, node_time_series, 
         max_total_inflow = node_row.get("Max_Total_Inflow", "")
         total_flood_volume = node_row.get("Total_Flood_Volume", "")
 
-        # Calculate time to peak from time series if available
-        time_to_peak = ""
-        if not node_time_series.empty and node_id in node_time_series.columns:
+        # Time to peak from Node Inflow Summary; fallback to time-series
+        t_peak_raw = node_row.get("Time_of_Max_Inflow", "")
+        time_to_peak_str = _time_display_str(t_peak_raw)
+        if time_to_peak_str == "" and not node_time_series.empty and node_id in node_time_series.columns:
             node_data = node_time_series[node_id].dropna()
-            if len(node_data) > 0:
+            if len(node_data) > 0 and TIME in node_time_series.columns:
                 peak_idx = node_data.idxmax()
-                if TIME in node_time_series.columns:
-                    time_to_peak = node_time_series.loc[peak_idx, TIME]
-                else:
-                    time_to_peak = peak_idx
+                time_to_peak_str = _hours_to_hhmm(node_time_series.loc[peak_idx, TIME])
 
         # Write data
         data_values = [
             (max_hgl, "number"),
             (max_total_inflow, "flow"),
-            (time_to_peak, "time_hr"),
+            (time_to_peak_str, "border"),
             (total_flood_volume, "volume"),
         ]
         
@@ -331,14 +371,29 @@ def create_junction_sheet(workbook, formats, node_id, merged_results, node_time_
     max_flooding_rate = node_summary.get("Max_Flooding_Rate", "N/A")
     total_flood_volume = node_summary.get("Total_Flood_Volume", "N/A")
 
+    # Time of peak inflow string from summary ("D HH:MM" or "HH:MM"); fallback to time-series hours
+    peak_time_str = node_summary.get("Time_of_Max_Inflow", "")
+    if isinstance(peak_time_str, str) and ' ' in peak_time_str:
+        peak_time_str = peak_time_str.split(' ', 1)[1]
+    if not isinstance(peak_time_str, str) or peak_time_str == "":
+        try:
+            h = int(peak_time)
+            m = int(round((peak_time - h) * 60))
+            if m == 60:
+                h += 1
+                m = 0
+            peak_time_str = f"{h}:{m:02d}"
+        except Exception:
+            peak_time_str = ""
+
     stats_data = [
         ["Invert Elevation (ft)", inv_elev, formats["number_right"]],
         ["Max Depth (ft)", max_depth, formats["number_right"]],
         ["Pond Area (sqft)", pond_area, formats["number_right"]],
         ["Average Depth (ft)", avg_depth, formats["number_right"]],
         ["Max HGL (ft)", max_hgl, formats["number_right"]],
-        ["Peak Inflow (cfs)", max(peak_inflow, max_total_inflow if pd.notna(max_total_inflow) and max_total_inflow != "N/A" else 0), formats["flow"]],
-        ["Time to Peak (hr)", peak_time, formats["time_hr_right"]],
+        ["Peak Inflow (cfs)", max_total_inflow if pd.notna(max_total_inflow) and max_total_inflow != "N/A" else peak_inflow, formats["flow"]],
+        ["Time to Peak (hr)", peak_time_str, formats["border_right"]],
         ["Max Lateral Inflow (cfs)", max_lateral_inflow, formats["flow"]],
         ["Hours Surcharged", hours_surcharged, formats["hours"]],
         ["Hours Flooded", hours_flooded, formats["hours"]],
@@ -370,10 +425,23 @@ def create_junction_sheet(workbook, formats, node_id, merged_results, node_time_
             'line': {'color': 'blue', 'width': 2},
         })
 
-        # Chart formatting
-        peak_str = f"{peak_inflow:.2f}"
-        time_str = f"{peak_time:.2f}"
-        chart_title = f"Hydrograph for Junction {node_id}\nPeak Discharge: {peak_str} cfs | Time to Peak: {time_str} hr"
+        # Chart formatting (summary-based peak/time if available)
+        q_disp = max_total_inflow if pd.notna(max_total_inflow) and max_total_inflow != "N/A" else peak_inflow
+        peak_time_str = node_summary.get("Time_of_Max_Inflow", "")
+        if isinstance(peak_time_str, str) and ' ' in peak_time_str:
+            peak_time_str = peak_time_str.split(' ', 1)[1]
+        if not isinstance(peak_time_str, str) or peak_time_str == "":
+            try:
+                hh = int(peak_time)
+                mm = int(round((peak_time - hh) * 60))
+                if mm == 60:
+                    hh += 1
+                    mm = 0
+                peak_time_str = f"{hh}:{mm:02d}"
+            except Exception:
+                peak_time_str = ""
+        peak_str = f"{float(q_disp):.2f}" if isinstance(q_disp, (int, float)) else str(q_disp)
+        chart_title = f"Hydrograph for Junction {node_id}\nPeak Discharge: {peak_str} cfs | Time to Peak: {peak_time_str}"
 
         line_chart.set_title({'name': chart_title})
         line_chart.set_x_axis({
@@ -456,6 +524,26 @@ def plot_node_hydrographs_to_pdf(node_time_series, merged_results, pdf_filename)
         # Prepare time data
         time_data = node_time_series[TIME] if TIME in node_time_series.columns else node_time_series.index
         
+        # Prepare summary lookup
+        summary_by_id = {}
+        if not merged_results.empty:
+            for _, r in merged_results.iterrows():
+                summary_by_id[r.get(NODE_ID)] = r
+        
+        def _time_display_str(s: str):
+            if not isinstance(s, str) or not s:
+                return None
+            s = s.strip()
+            if ' ' in s:
+                s = s.split(' ', 1)[1]
+            if ':' in s:
+                hh, mm = s.split(':', 1)
+                try:
+                    return f"{int(hh)}:{int(mm):02d}"
+                except Exception:
+                    return s
+            return s
+        
         for node_id in node_columns:
             ax = axes[plot_count // 2, plot_count % 2]
             
@@ -474,25 +562,37 @@ def plot_node_hydrographs_to_pdf(node_time_series, merged_results, pdf_filename)
                 ax.grid(True, alpha=0.3)
                 ax.tick_params(axis='both', which='major', labelsize=7)
                 
-                # Add summary statistics
-                peak_inflow = node_data.max()
-                peak_time = plot_time[node_data.idxmax()]
+                # Peak and timing from summary if available; fallback to time series
+                peak_inflow_ts = node_data.max() if len(node_data) > 0 else None
+                peak_time_ts = plot_time[node_data.idxmax()] if len(node_data) > 0 else None
+
+                sr = summary_by_id.get(node_id)
+                q = sr.get("Max_Total_Inflow") if sr is not None else None
+                t_str = _time_display_str(sr.get("Time_of_Max_Inflow", "")) if sr is not None else None
+                max_hgl = sr.get("Max_HGL") if sr is not None else None
                 
-                # Get additional stats from merged_results if available
-                if not merged_results.empty:
-                    node_summary = merged_results[merged_results[NODE_ID] == node_id]
-                    if not node_summary.empty:
-                        max_hgl = node_summary.iloc[0].get("Max_HGL", "N/A")
-                        total_flood_volume = node_summary.iloc[0].get("Total_Flood_Volume", "N/A")
-                        
-                        if pd.notna(max_hgl) and max_hgl != "N/A":
-                            label = f'Peak Discharge: {peak_inflow:.2f} cfs\nMax HGL: {max_hgl:.2f} ft\nTime of Peak: {peak_time:.2f} hrs'
-                        else:
-                            label = f'Peak Discharge: {peak_inflow:.2f} cfs\nTime of Peak: {peak_time:.2f} hrs'
+                if q is None or pd.isna(q):
+                    q = peak_inflow_ts
+                if not t_str and peak_time_ts is not None:
+                    try:
+                        hh = int(peak_time_ts)
+                        mm = int(round((peak_time_ts - hh) * 60))
+                        if mm == 60:
+                            hh += 1
+                            mm = 0
+                        t_str = f"{hh}:{mm:02d}"
+                    except Exception:
+                        t_str = None
+
+                if q is not None and pd.notna(q) and t_str:
+                    if max_hgl is not None and pd.notna(max_hgl):
+                        label = f'Peak Discharge: {float(q):.2f} cfs\nMax HGL: {float(max_hgl):.2f} ft\nTime of Peak: {t_str}'
                     else:
-                        label = f'Peak Discharge: {peak_inflow:.2f} cfs\nTime of Peak: {peak_time:.2f} hrs'
+                        label = f'Peak Discharge: {float(q):.2f} cfs\nTime of Peak: {t_str}'
+                elif q is not None and pd.notna(q):
+                    label = f'Peak Discharge: {float(q):.2f} cfs'
                 else:
-                    label = f'Peak Discharge: {peak_inflow:.2f} cfs\nTime of Peak: {peak_time:.2f} hrs'
+                    label = 'Peak stats unavailable'
                 
                 ax.text(0.05, 0.95, label, ha='left', va='top', transform=ax.transAxes, fontsize=8,
                        bbox=dict(facecolor='white', alpha=0.6))
