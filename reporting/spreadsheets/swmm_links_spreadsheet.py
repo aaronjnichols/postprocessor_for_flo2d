@@ -120,6 +120,18 @@ def create_dashboard_sheet(workbook, formats, merged_results, link_time_series, 
         worksheet.write(5, 0, "No conduit summary data available", formats["border"])
         return
 
+    def _time_display(day, tstr):
+        try:
+            d = int(day) if pd.notna(day) and day != "" else 0
+        except Exception:
+            d = 0
+        # Normalize time string
+        if isinstance(tstr, str) and tstr:
+            tm = tstr.strip()
+        else:
+            tm = ""
+        return f"{d} {tm}" if d and tm else (tm or "")
+
     for row, (_, link_row) in enumerate(merged_results.iterrows(), start=5):
         link_id = link_row.get(LINK_ID, "")
         
@@ -135,22 +147,29 @@ def create_dashboard_sheet(workbook, formats, merged_results, link_time_series, 
         max_vel = link_row.get("max_vel", "")
         flow_ratio = link_row.get("flow_ratio", "")
 
-        # Calculate time to peak from time series if available
-        time_to_peak = ""
-        if not link_time_series.empty and link_id in link_time_series.columns:
+        # Time to peak from Link Flow Summary (day_max + time_max); fallback to time series
+        time_to_peak_str = _time_display(link_row.get("day_max", ""), link_row.get("time_max", ""))
+        if time_to_peak_str == "" and not link_time_series.empty and link_id in link_time_series.columns:
             link_data = link_time_series[link_id].dropna()
-            if len(link_data) > 0:
+            if len(link_data) > 0 and TIME in link_time_series.columns:
                 peak_idx = link_data.idxmax()
-                if TIME in link_time_series.columns:
-                    time_to_peak = link_time_series.loc[peak_idx, TIME]
-                else:
-                    time_to_peak = peak_idx
+                # Convert hours float to HH:MM
+                try:
+                    hrs = link_time_series.loc[peak_idx, TIME]
+                    h = int(hrs)
+                    m = int(round((hrs - h) * 60))
+                    if m == 60:
+                        h += 1
+                        m = 0
+                    time_to_peak_str = f"{h}:{m:02d}"
+                except Exception:
+                    time_to_peak_str = ""
 
         # Write data
         data_values = [
             (max_flow, "flow"),
             (max_vel, "velocity"),
-            (time_to_peak, "time_hr"),
+            (time_to_peak_str, "border"),
             (flow_ratio, "ratio"),
         ]
         
@@ -403,11 +422,21 @@ def create_conduit_sheet(workbook, formats, link_id, merged_results, link_time_s
     hrs_above = link_summary.get("hrs_above", "N/A")
     hrs_cap = link_summary.get("hrs_cap", "N/A")
 
+    # Build display time from summary day/time
+    def _time_display(day, tstr):
+        try:
+            d = int(day) if pd.notna(day) and day != "" else 0
+        except Exception:
+            d = 0
+        tm = tstr.strip() if isinstance(tstr, str) else ""
+        return f"{d} {tm}" if d and tm else (tm or "")
+    time_to_peak_str = _time_display(day_max, time_max)
+
     stats_data = [
-        ["Max Flow (cfs)", max(peak_flow, max_flow if pd.notna(max_flow) and max_flow != "N/A" else 0), formats["flow"]],
+        ["Max Flow (cfs)", max_flow if pd.notna(max_flow) and max_flow != "N/A" else peak_flow, formats["flow"]],
         ["Day of Max Flow", day_max, formats["border_right"]],
         ["Time of Max Flow", time_max, formats["border_right"]],
-        ["Time to Peak (hr)", peak_time, formats["time_hr_right"]],
+        ["Time to Peak", time_to_peak_str if time_to_peak_str else (f"{int(peak_time)}:{int(round((peak_time-int(peak_time))*60)):02d}" if isinstance(peak_time, (int,float)) else ""), formats["border_right"]],
         ["Max Velocity (fps)", max_vel, formats["velocity"]],
         ["Flow Ratio", flow_ratio, formats["ratio"]],
         ["Depth Ratio", depth_rat, formats["ratio"]],
@@ -440,10 +469,11 @@ def create_conduit_sheet(workbook, formats, link_id, merged_results, link_time_s
             'line': {'color': 'blue', 'width': 2},
         })
 
-        # Chart formatting
-        peak_str = f"{peak_flow:.2f}"
-        time_str = f"{peak_time:.2f}"
-        chart_title = f"Flow Time Series for Conduit {link_id}\nPeak Flow: {peak_str} cfs | Time to Peak: {time_str} hr"
+        # Chart formatting (summary-based peak/time if available)
+        q_disp = max_flow if pd.notna(max_flow) and max_flow != "N/A" else peak_flow
+        t_disp = time_to_peak_str if time_to_peak_str else (f"{int(peak_time)}:{int(round((peak_time-int(peak_time))*60)):02d}" if isinstance(peak_time, (int,float)) else "")
+        peak_str = f"{float(q_disp):.2f}" if isinstance(q_disp, (int, float)) else str(q_disp)
+        chart_title = f"Flow Time Series for Conduit {link_id}\nPeak Flow: {peak_str} cfs | Time to Peak: {t_disp}"
 
         line_chart.set_title({'name': chart_title})
         line_chart.set_x_axis({
@@ -526,6 +556,20 @@ def plot_link_flows_to_pdf(link_time_series, merged_results, pdf_filename):
         # Prepare time data
         time_data = link_time_series[TIME] if TIME in link_time_series.columns else link_time_series.index
         
+        # Build summary lookup for quick access
+        summary_by_id = {}
+        if not merged_results.empty:
+            for _, r in merged_results.iterrows():
+                summary_by_id[r.get(LINK_ID)] = r
+
+        def _time_display(day, tstr):
+            try:
+                d = int(day) if pd.notna(day) and day != "" else 0
+            except Exception:
+                d = 0
+            tm = tstr.strip() if isinstance(tstr, str) else ""
+            return f"{d} {tm}" if d and tm else (tm or "")
+
         for link_id in link_columns:
             ax = axes[plot_count // 2, plot_count % 2]
             
@@ -544,25 +588,37 @@ def plot_link_flows_to_pdf(link_time_series, merged_results, pdf_filename):
                 ax.grid(True, alpha=0.3)
                 ax.tick_params(axis='both', which='major', labelsize=7)
                 
-                # Add summary statistics
-                peak_flow = link_data.max()
-                peak_time = plot_time[link_data.idxmax()]
+                # Summary-based peak/time; fallback to time series
+                peak_flow_ts = link_data.max() if len(link_data) > 0 else None
+                sr = summary_by_id.get(link_id)
+                q = sr.get("max_flow") if sr is not None else None
+                t_str = _time_display(sr.get("day_max", ""), sr.get("time_max", "")) if sr is not None else None
+                max_vel = sr.get("max_vel") if sr is not None else None
                 
-                # Get additional stats from merged_results if available
-                if not merged_results.empty:
-                    link_summary = merged_results[merged_results[LINK_ID] == link_id]
-                    if not link_summary.empty:
-                        max_vel = link_summary.iloc[0].get("max_vel", "N/A")
-                        flow_ratio = link_summary.iloc[0].get("flow_ratio", "N/A")
-                        
-                        if pd.notna(max_vel) and max_vel != "N/A":
-                            label = f'Peak Flow: {peak_flow:.2f} cfs\nMax Velocity: {max_vel:.1f} fps\nTime of Peak: {peak_time:.2f} hrs'
-                        else:
-                            label = f'Peak Flow: {peak_flow:.2f} cfs\nTime of Peak: {peak_time:.2f} hrs'
+                if q is None or pd.isna(q):
+                    q = peak_flow_ts
+                if not t_str:
+                    # derive HH:MM from time-series hours if available
+                    try:
+                        pt = plot_time[link_data.idxmax()]
+                        hh = int(pt)
+                        mm = int(round((pt - hh) * 60))
+                        if mm == 60:
+                            hh += 1
+                            mm = 0
+                        t_str = f"{hh}:{mm:02d}"
+                    except Exception:
+                        t_str = None
+
+                if q is not None and pd.notna(q) and t_str:
+                    if max_vel is not None and pd.notna(max_vel):
+                        label = f'Peak Flow: {float(q):.2f} cfs\nMax Velocity: {float(max_vel):.1f} fps\nTime of Peak: {t_str}'
                     else:
-                        label = f'Peak Flow: {peak_flow:.2f} cfs\nTime of Peak: {peak_time:.2f} hrs'
+                        label = f'Peak Flow: {float(q):.2f} cfs\nTime of Peak: {t_str}'
+                elif q is not None and pd.notna(q):
+                    label = f'Peak Flow: {float(q):.2f} cfs'
                 else:
-                    label = f'Peak Flow: {peak_flow:.2f} cfs\nTime of Peak: {peak_time:.2f} hrs'
+                    label = 'Peak stats unavailable'
                 
                 ax.text(0.05, 0.95, label, ha='left', va='top', transform=ax.transAxes, fontsize=8,
                        bbox=dict(facecolor='white', alpha=0.6))
