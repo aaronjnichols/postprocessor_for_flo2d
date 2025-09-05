@@ -522,11 +522,20 @@ def apply_link_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         if s is not None:
             out_cols[col_out] = pd.to_numeric(s, errors='coerce') if col_out not in ('time_max',) else s
 
+    # Column ordering: INP [CONDUITS] first, then RPT sections in report order
+    # INP [CONDUITS]: name, from, to, length, Manning_N, inlet_offset, outlet_offset, init_flow, max_flow (inp)
+    # RPT Link Flow Summary: type, max_flow, day_max, time_max, max_vel, flow_ratio, depth_rat
+    # RPT Conduit Surcharge Summary: hrs_full, hrs_full_u, hrs_full_d, hrs_above, hrs_cap
+    # RPT Flow Classification Summary: adj_len, dry_up, dry_down, dry_sub, dry_sup, crit_up, crit_down, froude, flow_chg
     ordered = [
-        'name', 'l_type', 'from', 'to', 'len', 'n', 'in_off', 'out_off', 'q_init', 'qmax_inp',
-        'max_flow', 'day_max', 'time_max', 'max_vel', 'flow_ratio', 'depth_rat', 'hrs_full',
-        'hrs_full_u', 'hrs_full_d', 'hrs_above', 'hrs_cap', 'adj_len', 'dry_up', 'dry_down',
-        'dry_sub', 'dry_sup', 'crit_up', 'crit_down', 'froude', 'flow_chg',
+        # INP conduits
+        'name', 'from', 'to', 'len', 'n', 'in_off', 'out_off', 'q_init', 'qmax_inp',
+        # RPT Link Flow Summary
+        'l_type', 'max_flow', 'day_max', 'time_max', 'max_vel', 'flow_ratio', 'depth_rat',
+        # RPT Conduit Surcharge Summary
+        'hrs_full', 'hrs_full_u', 'hrs_full_d', 'hrs_above', 'hrs_cap',
+        # RPT Flow Classification Summary
+        'adj_len', 'dry_up', 'dry_down', 'dry_sub', 'dry_sup', 'crit_up', 'crit_down', 'froude', 'flow_chg',
     ]
     cols_present = [c for c in ordered if c in out_cols]
     out_df = gpd.GeoDataFrame({c: out_cols[c] for c in cols_present}, geometry=df.geometry, crs=df.crs)
