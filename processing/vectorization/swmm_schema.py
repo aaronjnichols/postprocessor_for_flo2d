@@ -483,8 +483,14 @@ def apply_link_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if 'init_flow' in df.columns:
         out_cols['q_init'] = pd.to_numeric(df['init_flow'], errors='coerce')
     # Distinguish INP max flow vs RPT max flow
-    if 'max_flow' in df.columns:
-        out_cols['qmax_inp'] = pd.to_numeric(df['max_flow'], errors='coerce')
+    # Try common INP casings first (avoid colliding with RPT 'max_flow')
+    q_inp_src = _first_present(df, ['Max_Flow', 'MAX_FLOW', 'max_flow_inp'])
+    if q_inp_src:
+        out_cols['qmax_inp'] = pd.to_numeric(df[q_inp_src], errors='coerce')
+
+    # Ensure qmax_inp exists even if INP column missing (fill 0)
+    if 'qmax_inp' not in out_cols:
+        out_cols['qmax_inp'] = pd.Series([0] * len(df))
 
     # INP cross-section fields (from [XSECTIONS])
     shp_src = _first_present(df, ['shape', 'Shape'])
@@ -513,12 +519,17 @@ def apply_link_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     # RPT link summary metrics (already short by design in extraction constants)
     # Try to pick RPT versions (suffix _rpt) when overlaps occurred during merge
     def pick(col: str) -> pd.Series | None:
-        c = _first_present(df, [f"{col}_rpt", col])
+        # Prefer explicitly suffixed RPT, then pandas merge _y (RPT), then _x (geom), then bare
+        c = _first_present(df, [f"{col}_rpt", f"{col}_y", f"{col}_x", col])
         return df[c] if c and c in df.columns else None
 
     # Link type
     if 'type' in df.columns:
         out_cols['l_type'] = df['type']
+    # Ensure max_flow is captured explicitly
+    mf_src = _first_present(df, ['max_flow_rpt', 'max_flow_y', 'max_flow_x', 'max_flow'])
+    if mf_src:
+        out_cols['max_flow'] = pd.to_numeric(df[mf_src], errors='coerce')
     # Flow/velocity and timing
     for col_in, col_out in [
         ('max_flow', 'max_flow'),
