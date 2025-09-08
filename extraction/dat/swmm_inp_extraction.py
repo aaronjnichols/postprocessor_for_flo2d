@@ -51,7 +51,9 @@ def extract_swmm_inp(file_path, epsg):
     if sections['OUTFALLS']:
         results['outfalls'] = _process_outfalls(sections['OUTFALLS'], sections['COORDINATES'], epsg)
     if sections['CONDUITS']:
-        results['conduits'] = _process_conduits(sections['CONDUITS'], sections['XSECTIONS'], sections['COORDINATES'], epsg)
+        results['conduits'] = _process_conduits(
+            sections['CONDUITS'], sections['XSECTIONS'], sections.get('LOSSES', []), sections['COORDINATES'], epsg
+        )
 
     return results
 
@@ -139,7 +141,7 @@ def _process_outfalls(outfalls_data, coordinates_data, coord_system):
 
     return gdf
 
-def _process_conduits(conduits_data, xsections_data, coordinates_data, coord_system):
+def _process_conduits(conduits_data, xsections_data, losses_data, coordinates_data, coord_system):
     """
     Processes the conduits data into a GeoDataFrame using the coordinates from the COORDINATES section.
 
@@ -215,6 +217,55 @@ def _process_conduits(conduits_data, xsections_data, coordinates_data, coord_sys
     if duplicate_cols:
         # Remove duplicate columns by index
         df_merged_to = df_merged_to.iloc[:, [i for i in range(len(columns_to_check)) if i not in duplicate_cols]]
+
+    # Parse XSECTIONS section and merge attributes
+    xs_records = []
+    for line in xsections_data or []:
+        parts = re.split(r'\s+', line.strip())
+        if len(parts) >= 7:
+            rec = {
+                SWMM_NAME: parts[0],
+                'shape': parts[1],
+                'geom1': parts[2] if len(parts) > 2 else None,
+                'geom2': parts[3] if len(parts) > 3 else None,
+                'geom3': parts[4] if len(parts) > 4 else None,
+                'geom4': parts[5] if len(parts) > 5 else None,
+                'barrels': parts[6] if len(parts) > 6 else None,
+                'culvert': parts[7] if len(parts) > 7 else None,
+            }
+            xs_records.append(rec)
+    if xs_records:
+        df_xs = pd.DataFrame(xs_records)
+        # Coerce numerics where applicable
+        for c in ['geom1', 'geom2', 'geom3', 'geom4']:
+            if c in df_xs.columns:
+                df_xs[c] = pd.to_numeric(df_xs[c], errors='coerce')
+        if 'barrels' in df_xs.columns:
+            df_xs['barrels'] = pd.to_numeric(df_xs['barrels'], errors='coerce')
+        df_merged_to = pd.merge(df_merged_to, df_xs, on=SWMM_NAME, how='left')
+
+    # Parse LOSSES section and merge attributes
+    losses_records = []
+    for line in losses_data or []:
+        parts = re.split(r'\s+', line.strip())
+        if len(parts) >= 6:
+            # LOSSES: link Inlet Outlet Average FlapGate Seepage
+            rec = {
+                SWMM_NAME: parts[0],
+                'loss_inlet': parts[1],
+                'loss_outlet': parts[2],
+                'loss_avg': parts[3],
+                'flap_gate': parts[4],
+                'seepage': parts[5],
+            }
+            losses_records.append(rec)
+    if losses_records:
+        df_losses = pd.DataFrame(losses_records)
+        # Coerce numeric loss coefficients where possible
+        for c in ['loss_inlet', 'loss_outlet', 'loss_avg', 'seepage']:
+            if c in df_losses.columns:
+                df_losses[c] = pd.to_numeric(df_losses[c], errors='ignore')
+        df_merged_to = pd.merge(df_merged_to, df_losses, on=SWMM_NAME, how='left')
 
     # Create LineString geometries for the conduits
     from_x_col = f"{X_COORD}_from"  # x_from

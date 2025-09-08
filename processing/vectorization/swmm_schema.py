@@ -486,6 +486,30 @@ def apply_link_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if 'max_flow' in df.columns:
         out_cols['qmax_inp'] = pd.to_numeric(df['max_flow'], errors='coerce')
 
+    # INP cross-section fields (from [XSECTIONS])
+    shp_src = _first_present(df, ['shape', 'Shape'])
+    if shp_src:
+        out_cols['xs_shape'] = df[shp_src].astype(str)
+    for g_in, g_out in [('geom1', 'xs_g1'), ('geom2', 'xs_g2'), ('geom3', 'xs_g3'), ('geom4', 'xs_g4')]:
+        if g_in in df.columns:
+            out_cols[g_out] = pd.to_numeric(df[g_in], errors='coerce')
+    if 'barrels' in df.columns:
+        out_cols['xs_barrel'] = pd.to_numeric(df['barrels'], errors='coerce')
+    if 'culvert' in df.columns:
+        out_cols['xs_culvert'] = df['culvert']
+
+    # INP losses fields (from [LOSSES])
+    if 'loss_inlet' in df.columns:
+        out_cols['loss_in'] = pd.to_numeric(df['loss_inlet'], errors='coerce')
+    if 'loss_outlet' in df.columns:
+        out_cols['loss_out'] = pd.to_numeric(df['loss_outlet'], errors='coerce')
+    if 'loss_avg' in df.columns:
+        out_cols['loss_avg'] = pd.to_numeric(df['loss_avg'], errors='coerce')
+    if 'flap_gate' in df.columns:
+        out_cols['flap_gate'] = df['flap_gate']
+    if 'seepage' in df.columns:
+        out_cols['seepage'] = pd.to_numeric(df['seepage'], errors='coerce')
+
     # RPT link summary metrics (already short by design in extraction constants)
     # Try to pick RPT versions (suffix _rpt) when overlaps occurred during merge
     def pick(col: str) -> pd.Series | None:
@@ -522,14 +546,20 @@ def apply_link_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         if s is not None:
             out_cols[col_out] = pd.to_numeric(s, errors='coerce') if col_out not in ('time_max',) else s
 
-    # Column ordering: INP [CONDUITS] first, then RPT sections in report order
+    # Column ordering: INP [CONDUITS] then INP [XSECTIONS] and [LOSSES], then RPT sections in report order
     # INP [CONDUITS]: name, from, to, length, Manning_N, inlet_offset, outlet_offset, init_flow, max_flow (inp)
+    # INP [XSECTIONS]: shape, geom1..geom4, barrels, culvert
+    # INP [LOSSES]: inlet, outlet, average, flap_gate, seepage
     # RPT Link Flow Summary: type, max_flow, day_max, time_max, max_vel, flow_ratio, depth_rat
     # RPT Conduit Surcharge Summary: hrs_full, hrs_full_u, hrs_full_d, hrs_above, hrs_cap
     # RPT Flow Classification Summary: adj_len, dry_up, dry_down, dry_sub, dry_sup, crit_up, crit_down, froude, flow_chg
     ordered = [
         # INP conduits
         'name', 'from', 'to', 'len', 'n', 'in_off', 'out_off', 'q_init', 'qmax_inp',
+        # INP XSECTIONS
+        'xs_shape', 'xs_g1', 'xs_g2', 'xs_g3', 'xs_g4', 'xs_barrel', 'xs_culvert',
+        # INP LOSSES
+        'loss_in', 'loss_out', 'loss_avg', 'flap_gate', 'seepage',
         # RPT Link Flow Summary
         'l_type', 'max_flow', 'day_max', 'time_max', 'max_vel', 'flow_ratio', 'depth_rat',
         # RPT Conduit Surcharge Summary
