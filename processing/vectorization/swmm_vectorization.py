@@ -209,7 +209,7 @@ def _merge_rpt_summary_data(gdf, summary_df, rpt_id_column, feature_type):
         gdf_ids_norm = set(_norm(gdf[geometry_id_column]))
         summary_ids_norm = set(_norm(summary_df[rpt_id_column]))
         common_ids = gdf_ids_norm.intersection(summary_ids_norm)
-        logger.info(f"Common IDs between geometry and summary: {len(common_ids)} out of {len(gdf_ids)} geometry IDs")
+        logger.info(f"Common IDs between geometry and summary: {len(common_ids)} out of {len(gdf_ids_norm)} geometry IDs")
         if len(common_ids) > 0:
             logger.info(f"Sample common IDs: {list(common_ids)[:5]}")
         else:
