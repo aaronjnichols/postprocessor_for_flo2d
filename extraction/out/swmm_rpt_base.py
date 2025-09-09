@@ -1,18 +1,20 @@
-"""Common helpers for parsing SWMM ``*.rpt`` files and extracting node data.
+"""Common helpers for parsing SWMM ``*.rpt`` files.
 
-The routines here provide a function-based interface for working with
-SWMM report files, converting the original class-based implementation into
-the functional style used throughout the FLO-2D postprocessor codebase.
-Generic utilities such as file discovery and encoding-tolerant reading are
-shared by the junction, outfall, and link extractors.
+Provides function-based helpers for extracting node and link summaries and
+time-series from SWMM report files. Shared by the junction, outfall, and
+link extractors to keep behavior consistent and implementation concise.
 """
+
+from __future__ import annotations
 
 import logging
 import os
 import re
 from collections import defaultdict
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
+from core.constants import EXT_FLOW
 
 
 logger = logging.getLogger(__name__)
@@ -32,13 +34,7 @@ SECTION_MARKERS = {
     "outfall_loading": "Outfall Loading Summary",
 }
 
-EXTRACTION_MAP = {
-    "depth_summary": ("_extract_node_depth_summary", "depth_summary"),
-    "inflow_summary": ("_extract_node_inflow_summary", "inflow_summary"),
-    "surcharge_summary": ("_extract_node_surcharge_summary", "surcharge_summary"),
-    "flooding_summary": ("_extract_node_flooding_summary", "flooding_summary"),
-    "outfall_loading": ("_extract_outfall_loading_summary", "outfall_loading"),
-}
+EXTRACTION_MAP = None  # Will be defined after extractor functions are declared
 
 NODE_HEADER_PATTERN = re.compile(r"<<< Node (.*?) >>>")
 NODE_DATA_PATTERN = re.compile(
@@ -65,17 +61,17 @@ LINK_DATA_PATTERN = re.compile(
 )
 
 # ---------------------------------------------------------------------------
-# File reading and basic parsing helpers
+# File reading and generic parsing helpers
 # ---------------------------------------------------------------------------
 
-def _find_rpt_file(directory):
-    """Return the first file ending with .rpt in *directory*.
+def _find_rpt_file(directory: str) -> str:
+    """Return the first file ending with ``.rpt`` in ``directory``.
 
     Args:
-        directory (str): Path to the model directory.
+        directory: Path to the model directory.
 
     Returns:
-        str: Path to the report file.
+        Path to the report file.
 
     Raises:
         FileNotFoundError: If no report file is found.
@@ -87,8 +83,11 @@ def _find_rpt_file(directory):
     raise FileNotFoundError(f"No .rpt file found in {directory}")
 
 
-def _read_file_content(file_path):
-    """Read file content handling basic encoding issues."""
+def _read_file_content(file_path: str) -> List[str]:
+    """Read file content handling basic encoding issues.
+
+    Tries UTF-8 first, falls back to latin-1.
+    """
 
     try:
         with open(file_path, "r", encoding="utf-8") as f:
@@ -99,23 +98,30 @@ def _read_file_content(file_path):
             return f.readlines()
 
 
-def _parse_sections(raw_lines):
-    """Parse known summary sections from *raw_lines*.
+def _parse_sections_generic(
+    raw_lines: Iterable[str], markers: Dict[str, str], header_skip: int = 2
+) -> Dict[str, List[str]]:
+    """Parse summary sections from ``raw_lines`` using provided markers.
+
+    Args:
+        raw_lines: Iterable of report file lines.
+        markers: Mapping of section key -> header text to match.
+        header_skip: Number of lines to skip after a section header.
 
     Returns:
-        dict: Mapping of section keys to lists of relevant lines.
+        Dict mapping section keys to their content lines.
     """
 
-    sections = {key: [] for key in SECTION_MARKERS}
-    current_key = None
+    sections: Dict[str, List[str]] = {key: [] for key in markers}
+    current_key: Optional[str] = None
     skip_lines = 0
     for line in raw_lines:
         stripped = line.strip()
         marker_found = False
-        for key, marker in SECTION_MARKERS.items():
+        for key, marker in markers.items():
             if stripped.lstrip("* ").startswith(marker):
                 current_key = key
-                skip_lines = 2
+                skip_lines = header_skip
                 marker_found = True
                 break
         if marker_found:
@@ -131,20 +137,23 @@ def _parse_sections(raw_lines):
     return sections
 
 
+def _parse_sections(raw_lines: Iterable[str]) -> Dict[str, List[str]]:
+    """Parse known node summary sections from ``raw_lines``."""
+    return _parse_sections_generic(raw_lines, SECTION_MARKERS, header_skip=2)
+
+
 # ---------------------------------------------------------------------------
 # Generic helpers used by extraction routines
 # ---------------------------------------------------------------------------
 
-def _parse_time_parts(parts, start_index):
+def _parse_time_parts(parts: List[str], start_index: int) -> str:
     """Parse a SWMM summary time field, preserving days when present.
 
-    Looks for the first token containing a ':' (e.g., '14:02') at or after
-    start_index. If the immediately preceding token is an integer, it is
-    treated as 'days' and included, yielding strings like '0 14:02'.
-    Otherwise returns the clock token alone.
+    Looks for the first token containing a ``:`` (for example, ``14:02``)
+    at or after ``start_index``. If the immediately preceding token is an
+    integer, treat it as ``days`` and include it (e.g., ``0 14:02``).
     """
-    # Find the index of the first token that looks like a clock (contains ':')
-    idx_time = None
+    idx_time: Optional[int] = None
     for i in range(start_index, len(parts)):
         if ":" in parts[i]:
             idx_time = i
@@ -152,7 +161,6 @@ def _parse_time_parts(parts, start_index):
     if idx_time is None:
         return ""
     time_token = parts[idx_time]
-    # Check for a days token immediately before the time token
     if idx_time - 1 >= start_index:
         days_token = parts[idx_time - 1]
         if days_token.isdigit():
@@ -160,7 +168,12 @@ def _parse_time_parts(parts, start_index):
     return time_token
 
 
-def _parse_end_numeric(parts, num_expected):
+def _parse_end_numeric(parts: List[str], num_expected: int) -> List[Optional[float]]:
+    """Parse the last ``num_expected`` numeric tokens from ``parts``.
+
+    Returns a list of floats or ``None`` when parsing fails or values are
+    missing.
+    """
     numeric_parts = [p for p in parts if re.match(r"^-?\d+(\.\d+)?(E[+-]\d+)?$", p)]
     if len(numeric_parts) >= num_expected:
         try:
@@ -170,64 +183,82 @@ def _parse_end_numeric(parts, num_expected):
     return [None] * num_expected
 
 
+def _index_to_hours_since_start(df: pd.DataFrame, time_col_name: str = "Time") -> pd.DataFrame:
+    """Convert datetime index to hours since first timestamp and expose as column.
+
+    - Attempts to parse the existing index as ``%b-%d-%Y %H:%M:%S``.
+    - Drops rows where all columns are NaN after parsing.
+    - Resets index to a column named ``time``.
+    """
+    if df.empty:
+        return df
+    try:
+        df.index = pd.to_datetime(df.index, format="%b-%d-%Y %H:%M:%S", errors="coerce")
+        df.dropna(axis=0, how="all", inplace=True)
+    except Exception:  # pragma: no cover - fallback if parsing fails
+        pass
+    df.index.name = time_col_name
+    df.reset_index(inplace=True)
+    if time_col_name in df.columns:
+        start_time = df[time_col_name].min()
+        try:
+            df[time_col_name] = (df[time_col_name] - start_time).dt.total_seconds() / 3600.0
+        except Exception:
+            # If datetime arithmetic fails, leave the column as-is
+            pass
+        df.rename(columns={time_col_name: "time"}, inplace=True)
+    return df
+
+
+def _extract_entity_time_series(
+    raw_lines: Iterable[str], header_pattern: re.Pattern, data_pattern: re.Pattern, value_group_index: int
+) -> pd.DataFrame:
+    """Generic time-series extractor for entities (nodes/links).
+
+    Builds a wide DataFrame with a numeric ``time`` column (hours since start)
+    and one column per entity id.
+    """
+    data: Dict[str, Dict[str, float]] = defaultdict(dict)
+    current_entity: Optional[str] = None
+
+    for line in raw_lines:
+        head_match = header_pattern.search(line)
+        if head_match:
+            current_entity = head_match.group(1).strip()
+            continue
+        if current_entity:
+            data_match = data_pattern.search(line)
+            if data_match:
+                date, time_str, *groups = data_match.groups()
+                datetime_str = f"{date} {time_str}"
+                try:
+                    value = float(groups[value_group_index - 3])
+                    data[current_entity][datetime_str] = value
+                except (ValueError, IndexError):
+                    continue
+            elif not line.strip() or line.strip().startswith("<<<"):
+                current_entity = None
+
+    if not data:
+        return pd.DataFrame()
+
+    df = pd.DataFrame.from_dict(data, orient="columns")
+    return _index_to_hours_since_start(df)
+
+
 # ---------------------------------------------------------------------------
 # Extraction functions for specific sections
 # ---------------------------------------------------------------------------
 
 def _extract_node_time_series(raw_lines):
     """Extract inflow time series data for all nodes."""
-
-    node_data = defaultdict(dict)
-    current_node = None
-
-    for line in raw_lines:
-        node_match = NODE_HEADER_PATTERN.search(line)
-        if node_match:
-            current_node = node_match.group(1).strip()
-            continue
-
-        if current_node:
-            data_match = NODE_DATA_PATTERN.search(line)
-            if data_match:
-                date, time, inflow_str, _, _, _ = data_match.groups()
-                datetime_str = f"{date} {time}"
-                try:
-                    inflow = float(inflow_str)
-                    node_data[current_node][datetime_str] = inflow
-                except ValueError:
-                    continue
-            elif not line.strip() or line.strip().startswith("<<<"):
-                current_node = None
-
-    if not node_data:
-        return pd.DataFrame()
-
-    df_timeseries = pd.DataFrame.from_dict(node_data, orient="columns")
-
-    try:
-        df_timeseries.index = pd.to_datetime(
-            df_timeseries.index, format="%b-%d-%Y %H:%M:%S", errors="coerce"
-        )
-        df_timeseries.dropna(axis=0, how="all", inplace=True)
-    except Exception:  # pragma: no cover - fallback if parsing fails
-        pass
-
-    df_timeseries.index.name = "Time"
-    df_timeseries.reset_index(inplace=True)
-    
-    # Convert Time to hours since start for plotting
-    if not df_timeseries.empty and "Time" in df_timeseries.columns:
-        start_time = df_timeseries["Time"].min()
-        df_timeseries["Time"] = (df_timeseries["Time"] - start_time).dt.total_seconds() / 3600.0
-        
-    # Rename Time column to match constant
-    if "Time" in df_timeseries.columns:
-        df_timeseries.rename(columns={"Time": "time"}, inplace=True)
-    return df_timeseries
+    return _extract_entity_time_series(
+        raw_lines, NODE_HEADER_PATTERN, NODE_DATA_PATTERN, value_group_index=3
+    )
 
 
-def _extract_node_summary(content):
-    data = []
+def _extract_node_summary(content: Iterable[str]) -> pd.DataFrame:
+    data: List[dict] = []
     for line in content:
         parts = line.split()
         if len(parts) >= 5:
@@ -239,10 +270,10 @@ def _extract_node_summary(content):
                     "max_depth": float(parts[3]),
                     "pond_area": float(parts[4]),
                 }
-                # External Inflow may be present as an additional numeric column
+                # External inflow may be present as an additional numeric column
                 if len(parts) >= 6:
                     try:
-                        row["ext_inflow"] = float(parts[5])
+                        row[EXT_FLOW] = float(parts[5])
                     except ValueError:
                         # Keep it absent if not numeric
                         pass
@@ -252,8 +283,8 @@ def _extract_node_summary(content):
     return pd.DataFrame(data)
 
 
-def _extract_highest_continuity_error(raw_lines):
-    errors = {}
+def _extract_highest_continuity_error(raw_lines: Iterable[str]) -> Dict[str, float]:
+    errors: Dict[str, float] = {}
     for line in raw_lines:
         if line.strip().startswith("Node"):
             match = NODE_CONT_ERROR_PATTERN.search(line.strip())
@@ -265,8 +296,8 @@ def _extract_highest_continuity_error(raw_lines):
     return errors
 
 
-def _extract_node_depth_summary(content):
-    data = {}
+def _extract_node_depth_summary(content: Iterable[str]) -> Dict[str, dict]:
+    data: Dict[str, dict] = {}
     for line in content:
         parts = line.split()
         if len(parts) >= 6:
@@ -283,8 +314,8 @@ def _extract_node_depth_summary(content):
     return data
 
 
-def _extract_node_inflow_summary(content):
-    data = {}
+def _extract_node_inflow_summary(content: Iterable[str]) -> Dict[str, dict]:
+    data: Dict[str, dict] = {}
     for line in content:
         parts = line.split()
         if len(parts) >= 8:
@@ -303,8 +334,8 @@ def _extract_node_inflow_summary(content):
     return data
 
 
-def _extract_node_surcharge_summary(content):
-    data = {}
+def _extract_node_surcharge_summary(content: Iterable[str]) -> Dict[str, dict]:
+    data: Dict[str, dict] = {}
     for line in content:
         parts = line.split()
         if len(parts) >= 5:
@@ -319,8 +350,8 @@ def _extract_node_surcharge_summary(content):
     return data
 
 
-def _extract_node_flooding_summary(content):
-    data = {}
+def _extract_node_flooding_summary(content: Iterable[str]) -> Dict[str, dict]:
+    data: Dict[str, dict] = {}
     for line in content:
         parts = line.split()
         if len(parts) >= 6:
@@ -339,8 +370,8 @@ def _extract_node_flooding_summary(content):
     return data
 
 
-def _extract_outfall_loading_summary(content):
-    data = {}
+def _extract_outfall_loading_summary(content: Iterable[str]) -> Dict[str, dict]:
+    data: Dict[str, dict] = {}
     for line in content:
         parts = line.split()
         if len(parts) == 5:
@@ -356,6 +387,20 @@ def _extract_outfall_loading_summary(content):
     return data
 
 
+# ---------------------------------------------------------------------------
+# Extraction registry (nodes): map section keys to extractor callables
+# ---------------------------------------------------------------------------
+
+# key in parsed sections -> (extractor function, results dict key)
+EXTRACTION_MAP: Dict[str, Tuple[Callable[[Iterable[str]], dict], str]] = {
+    "depth_summary": (_extract_node_depth_summary, "depth_summary"),
+    "inflow_summary": (_extract_node_inflow_summary, "inflow_summary"),
+    "surcharge_summary": (_extract_node_surcharge_summary, "surcharge_summary"),
+    "flooding_summary": (_extract_node_flooding_summary, "flooding_summary"),
+    "outfall_loading": (_extract_outfall_loading_summary, "outfall_loading"),
+}
+
+
 def _create_merged_summary_results(
     node_summary,
     continuity_errors,
@@ -369,16 +414,15 @@ def _create_merged_summary_results(
 
     base_df = node_summary
     if base_df.empty:
-        all_nodes = set()
-        for d in [
+        dicts = [
             depth_summary,
             inflow_summary,
             surcharge_summary,
             flooding_summary,
             continuity_errors,
             outfall_loading,
-        ]:
-            all_nodes.update(d.keys())
+        ]
+        all_nodes = {k for d in dicts for k in d.keys()}
         if all_nodes:
             base_df = pd.DataFrame(list(all_nodes), columns=["node_id"])
         else:
@@ -414,7 +458,7 @@ def _create_merged_summary_results(
 # Public extraction function
 # ---------------------------------------------------------------------------
 
-def _extract_nodes_rpt(folder_path):
+def _extract_nodes_rpt(folder_path: str) -> dict:
     """Extract node related data from a SWMM *.rpt file.
 
     Args:
@@ -444,17 +488,17 @@ def _extract_nodes_rpt(folder_path):
 
     node_summary_df = _extract_node_summary(sections.get("node_summary", []))
     continuity_errors = _extract_highest_continuity_error(raw_content)
-    depth_summary = _extract_node_depth_summary(sections.get("depth_summary", []))
-    inflow_summary = _extract_node_inflow_summary(sections.get("inflow_summary", []))
-    surcharge_summary = _extract_node_surcharge_summary(
-        sections.get("surcharge_summary", [])
-    )
-    flooding_summary = _extract_node_flooding_summary(
-        sections.get("flooding_summary", [])
-    )
-    outfall_loading = _extract_outfall_loading_summary(
-        sections.get("outfall_loading", [])
-    )
+
+    # Orchestrate section extraction via registry to avoid duplication
+    extracted: Dict[str, dict] = {}
+    for section_key, (extractor_fn, result_key) in EXTRACTION_MAP.items():
+        extracted[result_key] = extractor_fn(sections.get(section_key, []))
+
+    depth_summary = extracted.get("depth_summary", {})
+    inflow_summary = extracted.get("inflow_summary", {})
+    surcharge_summary = extracted.get("surcharge_summary", {})
+    flooding_summary = extracted.get("flooding_summary", {})
+    outfall_loading = extracted.get("outfall_loading", {})
 
     merged_results = _create_merged_summary_results(
         node_summary_df,
@@ -483,95 +527,19 @@ def _extract_nodes_rpt(folder_path):
 # Link extraction helpers and public function
 # ---------------------------------------------------------------------------
 
-def _parse_link_sections(raw_lines):
-    """Parse known link summary sections from *raw_lines*.
-
-    Returns:
-        dict: Mapping of section keys to lists of relevant lines.
-    """
-
-    sections = {key: [] for key in LINK_SECTION_MARKERS}
-    current_key = None
-    skip_lines = 0
-    for line in raw_lines:
-        stripped = line.strip()
-        marker_found = False
-        for key, marker in LINK_SECTION_MARKERS.items():
-            if stripped.lstrip("* ").startswith(marker):
-                current_key = key
-                skip_lines = 2
-                marker_found = True
-                break
-        if marker_found:
-            continue
-        if skip_lines > 0:
-            skip_lines -= 1
-            continue
-        if current_key and not stripped:
-            current_key = None
-            continue
-        if current_key and not stripped.startswith(("---", "***")):
-            sections[current_key].append(stripped)
-    return sections
+def _parse_link_sections(raw_lines: Iterable[str]) -> Dict[str, List[str]]:
+    """Parse known link summary sections from ``raw_lines``."""
+    return _parse_sections_generic(raw_lines, LINK_SECTION_MARKERS, header_skip=2)
 
 
-def _extract_link_time_series(raw_lines):
-    """Extract flow time series data for all links.
-
-    Returns a DataFrame with a numeric 'time' column (hours since start) and
-    one column per link id.
-    """
-
-    link_data = defaultdict(dict)
-    current_link = None
-
-    for line in raw_lines:
-        link_match = LINK_HEADER_PATTERN.search(line)
-        if link_match:
-            current_link = link_match.group(1).strip()
-            continue
-
-        if current_link:
-            data_match = LINK_DATA_PATTERN.search(line)
-            if data_match:
-                date, time, flow_str, _, _, _ = data_match.groups()
-                datetime_str = f"{date} {time}"
-                try:
-                    flow = float(flow_str)
-                    link_data[current_link][datetime_str] = flow
-                except ValueError:
-                    continue
-            elif not line.strip() or line.strip().startswith("<<<"):
-                current_link = None
-
-    if not link_data:
-        return pd.DataFrame()
-
-    df_timeseries = pd.DataFrame.from_dict(link_data, orient="columns")
-
-    try:
-        df_timeseries.index = pd.to_datetime(
-            df_timeseries.index, format="%b-%d-%Y %H:%M:%S", errors="coerce"
-        )
-        df_timeseries.dropna(axis=0, how="all", inplace=True)
-    except Exception:  # pragma: no cover - fallback if parsing fails
-        pass
-
-    df_timeseries.index.name = "Time"
-    df_timeseries.reset_index(inplace=True)
-
-    # Convert Time to hours since start for plotting
-    if not df_timeseries.empty and "Time" in df_timeseries.columns:
-        start_time = df_timeseries["Time"].min()
-        df_timeseries["Time"] = (df_timeseries["Time"] - start_time).dt.total_seconds() / 3600.0
-
-    # Rename Time column to match constant
-    if "Time" in df_timeseries.columns:
-        df_timeseries.rename(columns={"Time": "time"}, inplace=True)
-    return df_timeseries
+def _extract_link_time_series(raw_lines: Iterable[str]) -> pd.DataFrame:
+    """Extract flow time series data for all links."""
+    return _extract_entity_time_series(
+        raw_lines, LINK_HEADER_PATTERN, LINK_DATA_PATTERN, value_group_index=3
+    )
 
 
-def _extract_link_flow_summary(content):
+def _extract_link_flow_summary(content: Iterable[str]) -> pd.DataFrame:
     link_flow_data = []
     # Allow censored velocities with leading '>' or '<' in the velocity column (group 6)
     pattern = re.compile(
@@ -609,7 +577,7 @@ def _extract_link_flow_summary(content):
     return pd.DataFrame(link_flow_data)
 
 
-def _extract_conduit_surcharge_summary(content):
+def _extract_conduit_surcharge_summary(content: Iterable[str]) -> pd.DataFrame:
     conduit_surcharge_data = []
     pattern = re.compile(
         r"^\s*(\S+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)"
@@ -633,7 +601,7 @@ def _extract_conduit_surcharge_summary(content):
     return pd.DataFrame(conduit_surcharge_data)
 
 
-def _extract_flow_classification_summary(content):
+def _extract_flow_classification_summary(content: Iterable[str]) -> pd.DataFrame:
     flow_classification_data = []
     pattern = re.compile(
         r"^\s*(\S+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)"
@@ -661,7 +629,11 @@ def _extract_flow_classification_summary(content):
     return pd.DataFrame(flow_classification_data)
 
 
-def _create_links_merged_summary_results(link_flow_df, conduit_surcharge_df, flow_classification_df):
+def _create_links_merged_summary_results(
+    link_flow_df: pd.DataFrame,
+    conduit_surcharge_df: pd.DataFrame,
+    flow_classification_df: pd.DataFrame,
+) -> pd.DataFrame:
     """Merge individual link summary DataFrames into a single DataFrame."""
 
     dfs = []
@@ -688,7 +660,7 @@ def _create_links_merged_summary_results(link_flow_df, conduit_surcharge_df, flo
     return merged
 
 
-def _extract_links_rpt(folder_path):
+def _extract_links_rpt(folder_path: str) -> dict:
     """Extract link related data from a SWMM ``*.rpt`` file.
 
     Returns a dict containing:
