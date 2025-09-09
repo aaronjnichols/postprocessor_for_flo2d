@@ -74,7 +74,7 @@ def canonicalize_outfall_summary(df: pd.DataFrame) -> pd.DataFrame:
         'inv_elev': 'inv_elev',
         'max_depth': 'max_depth_cap',
         'pond_area': 'pond_area',
-        'ext_inflow': 'ext_inflow',
+        'ext_flow': 'ext_flow',
         # Depth Summary
         'Avg_Depth': 'avg_depth',
         'Max_Depth': 'max_depth_obs',
@@ -123,7 +123,7 @@ def canonicalize_junctions_summary(df: pd.DataFrame) -> pd.DataFrame:
         'inv_elev': 'inv_elev',
         'max_depth': 'max_depth_cap',
         'pond_area': 'pond_area',
-        'ext_inflow': 'ext_inflow',
+        'ext_flow': 'ext_flow',
         'Avg_Depth': 'avg_depth',
         'Max_Depth': 'max_depth_obs',
         'Max_HGL': 'max_hgl',
@@ -227,7 +227,14 @@ def apply_junction_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if 'ponded_area' in df.columns:
         out_cols['pond_area'] = pd.to_numeric(df['ponded_area'], errors='coerce')
 
-    # RPT (observed) — prefer these only where there is no INP equivalent or where semantics differ
+    # RPT (observed) – prefer these only where there is no INP equivalent or where semantics differ
+    # External inflow (Node Summary): ensure presence; default to 0 if absent
+    ext_src = _resolve_rpt(df, 'ext_flow')
+    if ext_src:
+        out_cols['ext_in'] = pd.to_numeric(df[ext_src], errors='coerce')
+    else:
+        out_cols['ext_in'] = pd.Series([0] * len(df))
+
     # Continuity error
     cont_err_col = _first_present(df, ['Continuity_Error_Pcnt', 'continuity_error_pcnt'])
     if cont_err_col:
@@ -299,7 +306,7 @@ def apply_junction_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         # INP [JUNCTIONS]
         'name', 'z_inv', 'dmax_cap', 'dinit', 'dsurch', 'pond_area',
         # RPT Node Summary
-        'j_type',
+        'j_type', 'ext_in',
         # Highest Continuity Errors
         'cont_err',
         # Depth Summary
@@ -393,10 +400,13 @@ def apply_outfall_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     pan_src = _resolve_rpt(df, 'pond_area')
     if pan_src:
         out_cols['pond_area'] = pd.to_numeric(df[pan_src], errors='coerce')
-    # External inflow from Node Summary
-    ext_src = _resolve_rpt(df, 'ext_inflow') or _resolve_rpt(df, 'External_Inflow')
+    # External inflow from Node Summary (ensure field exists; default 0s if missing)
+    ext_src = _resolve_rpt(df, 'ext_flow')
     if ext_src:
         out_cols['ext_in'] = pd.to_numeric(df[ext_src], errors='coerce')
+    else:
+        # Create zero-valued column when absent to keep attribute table consistent
+        out_cols['ext_in'] = pd.Series([0] * len(df))
 
     # Inflow summary (handle canonicalized and original names)
     mli_src = _resolve_rpt(df, 'Max_Lateral_Inflow') or _first_present(df, ['max_lat_inflow'])
@@ -423,7 +433,7 @@ def apply_outfall_schema(merged_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     # This preserves user-expected field ordering in attribute tables.
     #
     # INP [OUTFALLS]: Name, Invert_Elevation, Outfall_Type, Stage_Data, Tide_Gate
-    # RPT Node Summary: inv_elev, max_depth, pond_area, ext_inflow
+    # RPT Node Summary: inv_elev, max_depth, pond_area, ext_flow
     # RPT Node Depth Summary: Avg_Depth, Max_Depth, Max_HGL, Time_of_Max_Depth
     # RPT Node Inflow Summary: Max_Lateral_Inflow, Max_Total_Inflow, Time_of_Max_Inflow, Lateral_Inflow_Volume, Total_Inflow_Volume
     # RPT Surcharge/Flooding Summaries
