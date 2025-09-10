@@ -131,3 +131,7 @@ version_info.txt
 
 # Local AI/tool settings
 .claude/
+
+# Local scratch scripts (do not commit)
+_tmp_*.py
+tmp_run*.py
