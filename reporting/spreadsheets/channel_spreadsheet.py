@@ -17,6 +17,7 @@ import numpy as np
 # Local application imports
 from core.utilities import time_function
 from core.constants import GRID_ID, STATION, ELEVATION, MAX_STAGE, MAX_DISCHARGE
+from core.logger import logger as core_logger
 
 
 @time_function
@@ -78,7 +79,7 @@ def create_channel_excel(file_path, channel_data):
             if not xsec_data.empty:
                 xsec_data.to_excel(writer, sheet_name='Cross-Sections', index=False)
     
-    print(f"Enhanced Excel file created: {output_excel_path}")
+    core_logger.info(f"Enhanced Excel file created: {output_excel_path}")
 
 
 @time_function
@@ -102,7 +103,7 @@ def create_channel_plots(channel_data, output_pdf_path):
             # Fallback: plot all channels without segment grouping
             _create_segment_plots(channel_data, "All", pdf)
     
-    print(f"Enhanced PDF file created: {output_pdf_path}")
+    core_logger.info(f"Enhanced PDF file created: {output_pdf_path}")
 
 
 def _create_segment_plots(segment_data, segment_id, pdf):
@@ -175,16 +176,29 @@ def _plot_single_channel(channel_data, channel_id, ax):
     # Get channel properties from first row
     first_row = channel_rows.iloc[0]
     shape = first_row.get('shape', 'Unknown')
-    grid_id_val = first_row.get(GRID_ID, 'Unknown')
+    # Prefer display grid_id if available; fallback to internal id + 1
+    grid_id_val = first_row.get('grid_id', None)
+    if grid_id_val is None:
+        grid_id_val = first_row.get(GRID_ID, 'Unknown')
     segment_id = first_row.get('segment_id', 'Unknown')
     
     # Set title with channel info
     # Display 1-based grid id in plot titles when possible
     try:
-        grid_id_disp = int(grid_id_val) + 1
+        # If already display id, keep; else convert
+        if first_row.get('grid_id', None) is not None:
+            grid_id_disp = int(grid_id_val)
+        else:
+            grid_id_disp = int(grid_id_val) + 1
     except Exception:
         grid_id_disp = grid_id_val
-    title = f"Grid {grid_id_disp} (Seg {segment_id}, {_get_shape_name(shape)})"
+    # Include cross-section number for natural channels
+    xsec_info = ''
+    if shape == 'N':
+        xsnum = first_row.get('xsec_number') or first_row.get('xsecnum')
+        if pd.notna(xsnum) if isinstance(xsnum, (int, float)) else bool(xsnum):
+            xsec_info = f", XS {int(xsnum)}"
+    title = f"Grid {grid_id_disp} (Seg {segment_id}, {_get_shape_name(shape)}{xsec_info})"
     ax.set_title(title, fontsize=10)
     
     if shape == 'N':
@@ -213,10 +227,15 @@ def _plot_natural_channel(channel_rows, ax):
             ax.fill_between(stations, elevations.min() - 1, elevations, 
                           alpha=0.3, color='lightgray', label='Channel')
             
-            # Add water surface if max_stage available
+            # Add water surface if available; otherwise try depth fallback
             first_row = channel_rows.iloc[0]
             max_stage = first_row.get(MAX_STAGE)
-            if pd.notna(max_stage):
+            # Fallback: use channel_depth when stage missing/implausible
+            if pd.isna(max_stage) or (pd.notna(max_stage) and max_stage <= elevations.min()):
+                ch_depth = first_row.get('channel_depth')
+                if pd.notna(ch_depth):
+                    max_stage = elevations.min() + float(ch_depth)
+            if pd.notna(max_stage) and max_stage > elevations.min():
                 # Only show water surface if it's above channel bottom
                 min_elevation = elevations.min()
                 if max_stage > min_elevation:
@@ -264,6 +283,11 @@ def _plot_natural_channel(channel_rows, ax):
                             ax.plot([water_surface_x[-1], water_surface_x[0]], 
                                    [max_stage, max_stage], 'b--', alpha=0.8, linewidth=1,
                                    label=f'Max Stage: {max_stage:.2f} ft')
+                    else:
+                        # Fallback: draw a simple horizontal water line across the section
+                        ax.plot([stations.min(), stations.max()], [max_stage, max_stage],
+                                'b--', alpha=0.8, linewidth=1,
+                                label=f'Max Stage: {max_stage:.2f} ft')
             
             # Set axis properties
             station_range = stations.max() - stations.min()
@@ -465,6 +489,19 @@ def channel_spreadsheet_and_plots(file_path, channel_data):
     """
     out_folder_path = os.path.join(file_path, 'flo2d_plots')
     os.makedirs(out_folder_path, exist_ok=True)
+    # Diagnostics summary for channel coverage
+    try:
+        if 'shape' in channel_data.columns and GRID_ID in channel_data.columns:
+            nat = channel_data[channel_data['shape'] == 'N']
+            by_id = nat.groupby(GRID_ID)
+            n_channels = by_id.ngroups
+            has_stage = by_id[MAX_STAGE].max().notna().sum() if MAX_STAGE in nat.columns else 0
+            has_depth = by_id['channel_depth'].max().notna().sum() if 'channel_depth' in nat.columns else 0
+            core_logger.info(
+                f"Channel diagnostics: Natural channels={n_channels}, with stage={has_stage}, with depth={has_depth}"
+            )
+    except Exception:
+        pass
     
     create_channel_excel(file_path, channel_data)
     create_channel_plots(channel_data, os.path.join(out_folder_path, 'channel_plots.pdf'))

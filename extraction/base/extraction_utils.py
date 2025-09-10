@@ -58,7 +58,7 @@ def read_with_dask_optimized(file_path, column_names=None, **kwargs):
     
     data = dd.read_csv(
         file_path,
-        delim_whitespace=True,
+        sep=r"\s+",
         header=None,
         names=column_names,
         blocksize=chunk_size,
@@ -101,7 +101,7 @@ def read_file_with_line_number(file_path, column_names, skiprows=0):
     
     df = pd.read_csv(
         file_path,
-        delim_whitespace=True,
+        sep=r"\s+",
         header=None,
         names=column_names,
         skiprows=skiprows,

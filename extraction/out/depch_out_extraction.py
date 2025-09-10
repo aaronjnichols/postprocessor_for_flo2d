@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from core.utilities import time_function
 from core.constants import GRID_ID, normalize_grid_id
+from extraction.base.extraction_utils import read_with_dask_optimized
 
 
 @time_function
@@ -9,15 +10,14 @@ def extract_depch_out(path, relevant_grid_ids=None):
     """Extract channel depth results from DEPCH.OUT using vectorized parsing."""
     file_path = os.path.join(path, 'DEPCH.OUT')
 
-    df = pd.read_csv(
+    # Dask-optimized read for scalability on large files
+    ddf = read_with_dask_optimized(
         file_path,
-        delim_whitespace=True,
-        header=None,
+        column_names=[GRID_ID, 'x', 'y', 'channel_depth'],
         usecols=[0, 3],
-        names=[GRID_ID, 'channel_depth'],
-        dtype={0: 'int64', 3: 'float64'},
-        engine='python',
+        dtype={GRID_ID: 'int64', 'channel_depth': 'float64'},
     )
+    df = ddf.compute()
 
     df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
 

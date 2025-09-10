@@ -128,3 +128,6 @@ version_info.txt
 
 # Log files
 *.log 
+
+# Local AI/tool settings
+.claude/

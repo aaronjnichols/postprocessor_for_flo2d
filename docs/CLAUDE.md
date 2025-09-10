@@ -69,16 +69,7 @@ pytest tests/unit/test_arf_extraction.py
 pytest -m "not slow"
 ```
 
-#### Using the test runner script
-```bash
-# Run all tests
-python run_tests.py
-
-# Run with specific options
-python run_tests.py --unit --coverage --verbose
-python run_tests.py --integration --fast
-python run_tests.py --file tests/unit/test_domain_vectorization.py
-```
+ 
 
 ### Development Tools
 ```bash

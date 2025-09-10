@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from core.utilities import time_function
 from core.constants import GRID_ID, normalize_grid_id
+from extraction.base.extraction_utils import read_with_dask_optimized
 
 
 @time_function
@@ -13,16 +14,14 @@ def extract_veloc_out(path, relevant_grid_ids=None):
     """
     file_path = os.path.join(path, 'VELOC.OUT')
 
-    # Read only the first (grid id) and fourth (velocity) whitespace-separated fields
-    df = pd.read_csv(
+    # Dask-optimized read for scalability on large files
+    ddf = read_with_dask_optimized(
         file_path,
-        delim_whitespace=True,
-        header=None,
+        column_names=[GRID_ID, 'x', 'y', 'velocity'],
         usecols=[0, 3],
-        names=[GRID_ID, 'velocity'],
-        dtype={0: 'int64', 3: 'float64'},
-        engine='python',
+        dtype={GRID_ID: 'int64', 'velocity': 'float64'},
     )
+    df = ddf.compute()
 
     # Normalize GRID_ID to 0-based
     df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)

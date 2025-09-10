@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- fix(channel): ensure CHANMAX grid-id normalization (0-based) for correct joins; water-surface now renders for all natural channels; improved titles with XS number; added diagnostics summary and switched channel spreadsheet prints to logger
+- perf(io): switch DEPCH.OUT and VELOC.OUT readers to Dask-optimized utility; use regex whitespace parsing and named dtypes; update extraction utils to avoid deprecated delim_whitespace
+- tests: add unit tests for CHANMAX normalization and DEPCH/VELOC readers
 
 ### Changed
 - Breaking: Rename internal 0-based identifier column from `grid_id` to `id` across the codebase. User-facing outputs now expose 1-based `grid_id` (was previously `flo2d_grid_id`).

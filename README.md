@@ -160,12 +160,12 @@ python main.py --help
 # Install test dependencies
 pip install -r test-requirements.txt
 
-# Run all tests
-python run_tests.py
+# Run all tests (with coverage per pytest.ini)
+pytest
 
 # Run specific test types
-python run_tests.py --unit --coverage
-python run_tests.py --integration
+pytest -m unit
+pytest -m integration
 ```
 
 ### Project Structure

@@ -7,8 +7,8 @@ This checklist ensures the FLO-2D Postprocessor is thoroughly tested before publ
 ### 1. Development Environment Testing
 
 #### Code Quality
-- [ ] All unit tests pass (`python run_tests.py --unit`)
-- [ ] All integration tests pass (`python run_tests.py --integration`)
+- [ ] All unit tests pass (`pytest -m unit`)
+- [ ] All integration tests pass (`pytest -m integration`)
 - [ ] Coverage reports show acceptable coverage (>80%)
 - [ ] No critical warnings from static analysis tools
 - [ ] All hardcoded paths removed from code

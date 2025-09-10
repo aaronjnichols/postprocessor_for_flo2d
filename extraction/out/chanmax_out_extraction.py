@@ -1,7 +1,15 @@
 import os
 import pandas as pd
 from core.utilities import time_function
-from core.constants import GRID_ID, NODE, MAX_DISCHARGE, TIME_MAX_DISCHARGE, MAX_STAGE, TIME_MAX_STAGE
+from core.constants import (
+    GRID_ID,
+    NODE,
+    MAX_DISCHARGE,
+    TIME_MAX_DISCHARGE,
+    MAX_STAGE,
+    TIME_MAX_STAGE,
+    normalize_grid_id,
+)
 
 @time_function
 def extract_chanmax_out(path):
@@ -27,7 +35,9 @@ def extract_chanmax_out(path):
             TIME_MAX_STAGE
         ]
     )
-    # Rename channel node id to GRID_ID for consistent merging semantics
+    # Rename and normalize channel node id to standard internal id (0-based)
     if NODE in df.columns:
         df = df.rename(columns={NODE: GRID_ID})
+    if GRID_ID in df.columns and not df.empty:
+        df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
     return df
