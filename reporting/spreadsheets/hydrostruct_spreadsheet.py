@@ -324,7 +324,15 @@ def hydrostruct_pdf_plots(hydrograph_data, output_pdf_path):
             plt.close(fig)
 
 # Main function to process the data and generate outputs
-def hydrostruct_spreadsheet_and_plots(folder_path, hydrograph_data):
+def hydrostruct_spreadsheet_and_plots(folder_path, hydrograph_data, peaks_df=None):
+    """
+    Generate Excel and PDF reports for hydraulic structure hydrographs.
+
+    Args:
+        folder_path (str): Model folder path; outputs go to 'flo2d_plots'.
+        hydrograph_data (dict[int|str, pandas.DataFrame]): Timeseries by structure id.
+        peaks_df (pandas.DataFrame|None): Optional peaks summary; currently unused.
+    """
     out_folder_path = os.path.join(folder_path, 'flo2d_plots')
     hydrostruct_hydrographs_to_excel(hydrograph_data, out_folder_path)
     hydrostruct_pdf_plots(hydrograph_data, os.path.join(out_folder_path, 'hydrostruct_plots.pdf'))

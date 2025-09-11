@@ -155,7 +155,8 @@ def _create_segment_plots(segment_data, segment_id, pdf):
         for j in range(len(page_channels), 4):
             fig.delaxes(axs[j])
         
-        pdf.savefig(fig, bbox_inches='tight')
+        # Match hycross PDF page sizing: keep fixed Letter size without tight cropping
+        pdf.savefig(fig)
         plt.close(fig)
 
 
