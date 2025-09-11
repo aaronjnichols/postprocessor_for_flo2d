@@ -23,24 +23,7 @@ This checklist ensures the FLO-2D Postprocessor is thoroughly tested before publ
 - [ ] Progress tracking works throughout processing
 - [ ] Outputs are generated in correct formats and locations
 
-### 2. Executable Building and Testing
-
-#### Build Process
-- [ ] `python build_exe.py` completes successfully
-- [ ] No critical warnings during PyInstaller build
-- [ ] Executable file size is reasonable (< 100MB)
-- [ ] All required dependencies are bundled
-- [ ] Configuration files are included in executable
-
-#### Basic Executable Testing
-- [ ] Executable launches on development machine
-- [ ] GUI appears correctly without console window
-- [ ] Can process sample FLO-2D data
-- [ ] Generates expected output files
-- [ ] Error handling works in standalone mode
-- [ ] Performance is acceptable compared to Python version
-
-### 3. Clean System Testing
+### 2. Clean System Testing
 
 #### Test Environment Setup
 **Required test environments:**
@@ -52,12 +35,9 @@ This checklist ensures the FLO-2D Postprocessor is thoroughly tested before publ
 #### Clean System Test Protocol
 For each test environment:
 
-**Installation Testing:**
-- [ ] Installer runs without errors
-- [ ] Creates Start Menu entry
-- [ ] Creates desktop shortcut (if selected)
-- [ ] Installs to correct directory
-- [ ] Sets up file associations (if applicable)
+**Environment Setup:**
+- [ ] Virtual environment creation succeeds (`python -m venv .venv`)
+- [ ] Dependencies install cleanly (`pip install -r requirements.txt`)
 
 **Basic Functionality:**
 - [ ] Application launches from Start Menu
@@ -80,12 +60,9 @@ For each test environment:
 - [ ] Application doesn't crash on unexpected errors
 - [ ] Memory errors handled appropriately for large datasets
 
-**Uninstallation:**
-- [ ] Uninstaller removes all application files
-- [ ] Start Menu entries are removed
-- [ ] Desktop shortcuts are removed
-- [ ] Registry entries are cleaned up (if any)
-- [ ] User data is preserved or optionally removed
+**Environment Cleanup:**
+- [ ] Project can be removed by deleting the folder/venv
+- [ ] No system-level changes required
 
 ### 4. Data Validation Testing
 
@@ -178,9 +155,7 @@ For each test dataset:
 
 ### 8. Security Testing
 
-#### Executable Security
-- [ ] No false positives from major antivirus software
-- [ ] Code signing works properly (if implemented)
+#### Application Security
 - [ ] No unnecessary network connections
 - [ ] No sensitive data exposure in logs
 - [ ] Temporary files are handled securely
@@ -200,17 +175,10 @@ For each test dataset:
 - [ ] Links and references are correct
 - [ ] Changelog is complete and accurate
 
-#### Package Preparation
-- [ ] All required files are included in installer
-- [ ] File sizes are optimized
-- [ ] Digital signatures are applied (if using)
-- [ ] Test the final release package on clean systems
-
-#### Distribution Testing
-- [ ] Upload/download process works correctly
-- [ ] Release notes are accurate and complete
-- [ ] Installation instructions match actual process
-- [ ] Support channels are properly configured
+#### Release Preparation
+- [ ] Tag source release on GitHub
+- [ ] README and docs reflect Python-based usage
+- [ ] Test a clean-clone + setup on Windows
 
 ## Test Documentation
 

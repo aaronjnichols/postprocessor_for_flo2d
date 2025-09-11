@@ -73,14 +73,8 @@ pytest -m "not slow"
 
 ### Development Tools
 ```bash
-# Build executable (Windows)
-python tools/build_exe.py
-
-# Build installer (Windows)
-tools/build_installer.bat
-
-# Note: No linting tools are currently configured
-# The project uses manual code review and testing for quality assurance
+# Note: Executable/installer packaging has been removed.
+# Use the Python environment for running and testing.
 ```
 
 ## Architecture Overview

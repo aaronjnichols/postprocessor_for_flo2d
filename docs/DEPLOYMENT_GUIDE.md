@@ -1,116 +1,38 @@
 # FLO-2D Postprocessor Deployment Guide
 
-This guide provides step-by-step instructions for building and deploying the FLO-2D Postprocessor as a standalone executable and installer for public distribution.
+This project no longer ships a standalone executable or Windows installer. Deploy and run via a standard Python environment.
 
-## Prerequisites
+## Recommended Deployment
 
-### Development Environment
-- **Python 3.8+** with pip
-- **Git** for version control
-- **Windows 10+** (for building Windows executable)
-- **PyInstaller** for executable creation
-- **Inno Setup** (optional, for installer creation)
+- Use `scripts\setup.bat` on Windows to create a virtual environment and install dependencies.
+- Distribute the repository (or a tagged release zip) and instruct users to run the GUI or CLI with Python.
 
-### Required Python Packages
+### Prerequisites
+- Python 3.8+
+- pip
+
+### Install
 ```bash
 pip install -r requirements.txt
-pip install pyinstaller  # For executable building
+# Optional: tests
+pip install -r test-requirements.txt
 ```
 
-## Building the Executable
-
-### Automated Build Process
-
-The easiest way to build the executable is using the provided build scripts:
-
-#### Option 1: Python Build Script
+### Run
 ```bash
-python build_exe.py
+# GUI
+python gui/launch_gui.py
+
+# CLI
+python main.py -h
 ```
-
-#### Option 2: Windows Batch Script
-```bash
-build_installer.bat
-```
-
-Both scripts will:
-1. Clean previous build directories
-2. Create version information
-3. Build the standalone executable
-4. Generate installer script (if Inno Setup is available)
-
-### Manual Build Process
-
-If you need to customize the build process:
-
-```bash
-# Clean previous builds
-rmdir /s build dist __pycache__
-
-# Build executable
-pyinstaller --onefile --windowed --name=FLO2D-Postprocessor gui/launch_gui.py
-
-# The executable will be in dist/FLO2D-Postprocessor.exe
-```
-
-### Build Configuration
-
-The `build_exe.py` script uses these PyInstaller options:
-- `--onefile`: Creates single executable file
-- `--windowed`: No console window (GUI only)
-- `--name`: Sets executable name
-- `--add-data`: Includes configuration and documentation files
-- `--hidden-import`: Ensures all dependencies are included
-
-## Creating the Installer
-
-### Using Inno Setup (Recommended)
-
-1. **Install Inno Setup 6** from https://jrsoftware.org/isdl.php
-2. **Run the build script** which creates `installer.iss`
-3. **Compile the installer** using Inno Setup
-4. **Find the installer** in `installer_output/FLO2D-Postprocessor-Setup.exe`
-
-### Manual Installer Creation
-
-1. Open Inno Setup
-2. Use the provided `installer.iss` script
-3. Modify paths and options as needed
-4. Compile to create the installer
-
-### Alternative Installer Tools
-
-**NSIS (Nullsoft Scriptable Install System):**
-- Free, powerful installer creator
-- Requires NSIS script creation
-- Good for advanced customization
-
-**MSI Package:**
-- Use WiX Toolset
-- More complex but creates Windows Installer packages
-- Better for enterprise deployment
 
 ## Testing and Validation
 
-### Pre-Release Testing Checklist
-
-#### Executable Testing
-- [ ] Runs on clean Windows 10 system (no Python installed)
-- [ ] Runs on Windows 11
-- [ ] GUI launches properly
-- [ ] Can process sample FLO-2D data
-- [ ] Generates expected outputs
-- [ ] Error handling works correctly
-- [ ] File paths with spaces handled properly
-- [ ] Large datasets process without memory errors
-
-#### Installer Testing
-- [ ] Installer runs on clean system
-- [ ] Creates proper Start Menu entries
-- [ ] Creates desktop shortcut (if selected)
-- [ ] Uninstaller works correctly
-- [ ] No leftover files after uninstall
-- [ ] Handles existing installations properly
+Focus on functional testing in the Python environment:
+- GUI launches and workflows complete without errors
+- CLI processes representative FLO-2D projects and generates expected outputs
+- Outputs (GeoPackage/GeoTIFF/Excel/PDF) open correctly in target tools
 
 #### Functional Testing
 - [ ] All major FLO-2D file types processed
@@ -122,8 +44,8 @@ The `build_exe.py` script uses these PyInstaller options:
 
 ### Test Environments
 
-**Minimum Requirements:**
-- Windows 10 (clean install)
+Minimum suggested:
+- Windows 10/11
 - 4 GB RAM
 - 1 GB free disk space
 

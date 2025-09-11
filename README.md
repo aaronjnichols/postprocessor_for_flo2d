@@ -14,14 +14,7 @@ A comprehensive Python application for automated extraction, processing, and vis
 
 ## 🚀 Quick Start
 
-### Option 1: Download Executable (Recommended for Non-Programmers)
-
-1. Download the latest `FLO2D-Postprocessor-Setup.exe` from the [Releases](../../releases) page
-2. Run the installer and follow the setup wizard
-3. Launch "FLO-2D Postprocessor" from your desktop or Start Menu
-4. Use the GUI to select your FLO-2D project folder and configure settings
-
-### Option 2: Python Installation (For Developers)
+### Python Installation
 
 Windows users can take advantage of the helper batch files in the `scripts` folder:
 
@@ -194,8 +187,7 @@ postprocessor_for_flo2d/
 - Common codes: 2224 (NAD83), 4326 (WGS84), 3857 (Web Mercator)
 
 **"Missing dependencies"**
-- For executable: Reinstall using the setup program
-- For Python: Run `pip install -r requirements.txt`
+- Run `pip install -r requirements.txt`
 
 ### Getting Help
 - Check the [Issues](../../issues) page for known problems
