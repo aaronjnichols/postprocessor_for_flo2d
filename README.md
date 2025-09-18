@@ -1,4 +1,4 @@
-# FLO-2D Postprocessor
+﻿# FLO-2D Postprocessor
 
 A Python application for automated extraction, processing, and visualization of FLO-2D hydraulic modeling data. Convert FLO-2D simulation results into geospatial datasets, Excel reports, and PDF visualizations.
 
@@ -14,18 +14,13 @@ A Python application for automated extraction, processing, and visualization of 
 
 ## Quick Start
 
-### Python Installation
+This project is distributed as source code. Set up a Python environment locally and use the helper scripts under `scripts/` when you are on Windows.
 
-Windows users can use the helper scripts under `scripts/`:
-
+### Windows helpers
 - `scripts\setup.bat` creates a virtual environment and installs dependencies
-- `scripts\run_gui.bat` launches the GUI using that environment
+- `scripts\run_gui.bat` launches the GUI inside that environment
 
-#### Prerequisites
-- Python 3.8 or higher
-- Windows, macOS, or Linux
-
-#### Installation
+### Manual install (Windows/macOS/Linux)
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/postprocessor_for_flo2d.git
@@ -36,13 +31,8 @@ pip install -r requirements.txt
 # Optional: install test dependencies
 pip install -r test-requirements.txt
 
-# (Windows) Quick setup
-scripts\setup.bat
-
 # Launch GUI
 python gui/launch_gui.py
-# Or on Windows, use the batch file
-scripts\run_gui.bat
 
 # Or run from command line
 python main.py /path/to/your/flo2d/project --epsg 2224
@@ -50,13 +40,13 @@ python main.py /path/to/your/flo2d/project --epsg 2224
 
 ## Usage
 
-### GUI Interface
-1. Select FLO-2D Project Folder
-2. Set Coordinate System (EPSG)
-3. Configure Output Options
-4. Run Processing
+### GUI workflow
+1. Select the FLO-2D project folder
+2. Set the coordinate system EPSG code
+3. Configure output options (GeoPackage vs. Shapefile, FLO-2D points, styles)
+4. Run processing and review the generated outputs
 
-### Command Line Interface
+### Command line interface
 ```bash
 # Process a single project
 python main.py /path/to/flo2d/project --epsg 2224
@@ -73,7 +63,7 @@ python main.py /path/to/project --epsg 2224 --style_folder /path/to/qml/styles
 
 ## Supported File Types
 
-### Input Files (.DAT)
+### Input files (.DAT)
 - TOPO.DAT: Grid elevation data
 - MANNINGS_N.DAT: Surface roughness coefficients
 - RAIN.DAT: Rainfall data and time series
@@ -85,7 +75,7 @@ python main.py /path/to/project --epsg 2224 --style_folder /path/to/qml/styles
 - SWMM.inp: SWMM inlet/outlet data
 - FPXSEC.DAT: Floodplain cross-section data
 
-### Output Files (.OUT)
+### Output files (.OUT)
 - DEPTH.OUT: Maximum water depths
 - VELOC.OUT: Velocity magnitude and direction
 - MAXWSELEV.OUT: Maximum water surface elevations
@@ -97,15 +87,15 @@ python main.py /path/to/project --epsg 2224 --style_folder /path/to/qml/styles
 
 ## Output Products
 
-### Geospatial Data
+### Geospatial data
 - Vector: Shapefile (.shp) or GeoPackage (.gpkg)
 - Raster: GeoTIFF (.tif) for depth, velocity, elevation, etc.
 
-### Reports and Visualizations
+### Reports and visualizations
 - Excel workbooks with charts and summaries
 - PDF visualizations (4 plots per page) for cross sections, hydrographs, rating curves
 
-### Key Outputs Include
+### Key outputs include
 - Computational domain boundary
 - Maximum flood depth rasters
 - Velocity magnitude and direction
@@ -118,7 +108,7 @@ python main.py /path/to/project --epsg 2224 --style_folder /path/to/qml/styles
 
 ## Configuration
 
-### GUI Configuration
+### GUI configuration
 Settings persist in `config.json`. You can edit this file directly:
 
 ```json
@@ -133,14 +123,14 @@ Settings persist in `config.json`. You can edit this file directly:
 }
 ```
 
-### Command Line Options
+### Command line options
 ```bash
 python main.py --help
 ```
 
 ## Development
 
-### Running Tests
+### Running tests
 ```bash
 # Install test dependencies
 pip install -r test-requirements.txt
@@ -148,12 +138,12 @@ pip install -r test-requirements.txt
 # Run all tests (with coverage per pytest.ini)
 pytest
 
-# Run specific test types
-pytest -m unit
-pytest -m integration
+# Run specific test selections
+pytest tests/unit -q
+pytest tests/integration -q
 ```
 
-### Project Structure
+### Project structure
 ```
 postprocessor_for_flo2d/
   core/         # Core utilities and constants
@@ -163,40 +153,31 @@ postprocessor_for_flo2d/
   gui/          # Graphical user interface
   tests/        # Test suite
   scripts/      # Setup and launchers
-  docs/         # Documentation
+  docs/         # Developer docs (style guide)
 ```
 
 ## Troubleshooting
-
-### Common Issues
 
 "No FLO-2D files found"
 - Ensure the folder contains FLO-2D .DAT and .OUT files
 - Check file names follow expected FLO-2D conventions
 
 "Coordinate system error"
-- Verify the EPSG code matches the model’s coordinate system
+- Verify the EPSG code matches the model's coordinate system
 - Common codes: 2224 (NAD83 State Plane), 4326 (WGS84), 3857 (Web Mercator)
 
 "Missing dependencies"
 - Run `pip install -r requirements.txt`
 
-### Getting Help
-- Open an issue on GitHub Issues
-- Review documentation in `docs/`
-- Validate FLO-2D files for completeness
+## Documentation
+
+- Coding standards live in `docs/STYLE_GUIDE.md`
+- Example configuration: `config.example.json`
 
 ## License
 
 This project is licensed under the MIT License — see [LICENSE](LICENSE).
 
-## Acknowledgments
-
-- Built for the FLO-2D hydraulic modeling community
-- Utilizes Python geospatial libraries (GeoPandas, Rasterio, Shapely)
-- GUI built with tkinter
-
 ## Version History
 
-See [CHANGELOG.md](CHANGELOG.md) for detailed updates.
-
+See [CHANGELOG.md](CHANGELOG.md) for updates (currently a placeholder until the first release).
