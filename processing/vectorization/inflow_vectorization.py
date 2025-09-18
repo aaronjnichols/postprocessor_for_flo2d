@@ -125,7 +125,9 @@ def create_inflow_points(
     if output_format == "Shapefile":
         output_file = os.path.join(output_path, "inflow_nodes.shp")
         try:
-            gdf.to_file(output_file, driver="ESRI Shapefile", crs=f"EPSG:{coord_system}")
+            if gdf.crs is None:
+                gdf = gdf.set_crs(f"EPSG:{coord_system}")
+            gdf.to_file(output_file, driver="ESRI Shapefile")
             logger.info(f"Inflow nodes Shapefile created at: {output_file}")
         except Exception as e:
             logger.error(f"Failed to create Shapefile: {e}")
@@ -134,7 +136,7 @@ def create_inflow_points(
         output_file = os.path.join(output_path, "inflow_nodes.gpkg")
         try:
             if gdf.crs is None:
-                gdf.crs = f"EPSG:{coord_system}"
+                gdf = gdf.set_crs(f"EPSG:{coord_system}")
             gdf.to_file(output_file, driver="GPKG")
             logger.info(f"Inflow nodes GeoPackage created at: {output_file}")
         except Exception as e:

@@ -71,7 +71,9 @@ def save_geodataframe(gdf, f_path, coord_system, output_format, logger):
     if output_format == "Shapefile":
         output_file = os.path.join(output_dir, 'fpxsec.shp')
         try:
-            gdf.to_file(output_file, driver="ESRI Shapefile", crs=f"EPSG:{coord_system}")
+            if gdf.crs is None:
+                gdf = gdf.set_crs(f"EPSG:{coord_system}")
+            gdf.to_file(output_file, driver="ESRI Shapefile")
             logger.info(f"FLO-2D FPXSEC Shapefile created at: {output_file}")
         except Exception as e:
             logger.error(f"Failed to create Shapefile: {str(e)}")
@@ -79,9 +81,8 @@ def save_geodataframe(gdf, f_path, coord_system, output_format, logger):
     elif output_format == "GeoPackage":
         output_file = os.path.join(output_dir, 'fpxsec.gpkg')
         try:
-            # Ensure CRS is set on GeoDataFrame before saving (pyogrio engine doesn't support crs parameter)
             if gdf.crs is None:
-                gdf.crs = f"EPSG:{coord_system}"
+                gdf = gdf.set_crs(f"EPSG:{coord_system}")
             gdf.to_file(output_file, driver="GPKG")
             logger.info(f"FLO-2D FPXSEC GeoPackage created at: {output_file}")
         except Exception as e:
@@ -113,7 +114,8 @@ def create_fpxsec_shapefile(f_path, coord_system, model_data, fpxsec_results, ou
 
     fpxsec_ids = filter_model_data(model_data)
     gdf = create_geodataframe(fpxsec_ids, model_data, fpxsec_results)
-    gdf.crs = f"EPSG:{coord_system}"
+    if gdf.crs is None:
+        gdf = gdf.set_crs(f"EPSG:{coord_system}")
 
     if gdf.empty:
         logger.warning("No FPXSEC data to save. GeoDataFrame is empty.")
