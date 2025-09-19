@@ -14,7 +14,7 @@ def extract_topo_dat(path):
         path (str): Path to the directory containing TOPO.DAT file.
         
     Returns:
-        pd.DataFrame: DataFrame with grid_id, x, y, and topo_elevation columns.
+        pd.DataFrame: DataFrame with grid_id, x, y, and elev columns.
     """
     file_path = os.path.join(path, 'TOPO.DAT')
     df = read_with_dask_optimized(file_path, column_names=[X_COORD, Y_COORD, TOPO_ELEVATION]).compute()

@@ -20,7 +20,14 @@ import pandas as pd
 # Local application imports
 from core.constants import (
     DEPTH_SUPER, FLOW_DIRECTION, GEOMETRY, GRID_ID, MAX_FROUDE_NO,
-    NUM_EVACUATIONS, NUM_SUPERCRITICAL_TIMESTEPS, NUM_TIME_DECREMENTS, TIME_SUPER
+    NUM_EVACUATIONS, NUM_SUPERCRITICAL_TIMESTEPS, NUM_TIME_DECREMENTS, TIME_SUPER,
+    TOPO_ELEVATION, VELOCITY_CHANNEL, WSE_MAX, Q_MAX, MAX_Q_OUTNQ,
+    DEPTH_MAX, VELOCITY_MAX, INFIL_DEPTH, INFIL_STOP,
+    TIME_ONEFT, TIME_TWOFT, TIME_TO_PEAK,
+    MANNINGS_N, FINAL_VELOCITY, FINAL_DEPTH,
+    RAIN_DEPTH, AREA_REDUCTION_FACTOR,
+    XKSAT, PSIF, DTHETA, ABSTRINF, RTIMPF, SOIL_DEPTH,
+    CURVE_NUMBER, FHORTI, FHORTF, DECAY_COEFF,
 )
 from core.file_discovery import (
     check_file_exists, check_special_processor_requirements,
@@ -174,6 +181,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     # Step 2: Extract model data
     timing_logger.log("Extracting model data from FLO-2D files")
     model_data = extract_model_data_to_df(file_path)
+    # model_data already returned with canonical names
     
     # Check if fpxsec column exists before accessing it
     if 'fpxsec' in model_data.columns:
@@ -647,19 +655,26 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     # Step 17: Create Rasters for Specified Columns
     # Base columns common to all models
     base_columns = [
-        'depth_max', 'velocity', 'q_max', 'wse_max', 'infil_depth', 'infil_stop', 
-        'time_of_oneft', 'time_of_twoft', 'time_to_peak', 'mannings_n', 'topo', 
-        'final_velocity', 'final_depth', 'rain_depth', 'arf'
+        DEPTH_MAX,
+        VELOCITY_CHANNEL,    # VELOC.OUT
+        VELOCITY_MAX,        # VELFP.OUT / MAXQHYD.OUT
+        Q_MAX,               # MAXQHYD/VELFP-derived (floodplain/channel max Q)
+        WSE_MAX,             # MAXWSELEV.OUT
+        INFIL_DEPTH, INFIL_STOP,
+        TIME_ONEFT, TIME_TWOFT, TIME_TO_PEAK,
+        MANNINGS_N, TOPO_ELEVATION,
+        FINAL_VELOCITY, FINAL_DEPTH,
+        RAIN_DEPTH, AREA_REDUCTION_FACTOR,
     ]
     
     # Add infiltration-specific columns based on what's available in the data
     infiltration_columns = [
         # Green-Ampt parameters
-        'xksat', 'psif', 'dtheta', 'abstrinf', 'rtimpf', 'soil_depth',
+        XKSAT, PSIF, DTHETA, ABSTRINF, RTIMPF, SOIL_DEPTH,
         # SCS parameters  
-        'curve_number',
+        CURVE_NUMBER,
         # Horton parameters
-        'fhorti', 'fhortf', 'decay_coeff'
+        FHORTI, FHORTF, DECAY_COEFF,
     ]
     
     desired_columns = base_columns + infiltration_columns

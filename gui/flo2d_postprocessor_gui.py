@@ -71,7 +71,7 @@ class ToolTip:
 class FLO2DPostProcessorGUI:
     def __init__(self, master):
         self.master = master
-        self.master.title("FLO2D Post-Processor Lite")
+        self.master.title("Post-Processor for FLO-2D")
         self.master.geometry("900x900")  # Increased height to accommodate new widgets
         self.master.configure(bg="#2E2E2E")
 
@@ -135,20 +135,11 @@ class FLO2DPostProcessorGUI:
         self.epsg_number.grid(column=0, row=3, sticky=tk.W)
         ToolTip(self.epsg_number, "Enter a valid integer EPSG code (e.g., 4326).")
 
-        # Shapefile Option
-        self.create_shapefile = tk.BooleanVar()
-        shapefile_cb = ttk.Checkbutton(
-            main_frame,
-            text="Create FLO-2D Data Points Shapefile",
-            variable=self.create_shapefile,
-            style='TCheckbutton'
-        )
-        shapefile_cb.grid(column=0, row=4, sticky=tk.W, pady=(10, 0))
-        ToolTip(shapefile_cb, "Check to generate a shapefile of FLO-2D data points.")
+        # (Removed) Shapefile Option: Always create FLO-2D data points output
 
         # --- New Section: Output Format Selection ---
         output_format_label = ttk.Label(main_frame, text="Output Format:")
-        output_format_label.grid(column=0, row=5, sticky=tk.W, pady=(15, 0))
+        output_format_label.grid(column=0, row=4, sticky=tk.W, pady=(15, 0))
         ToolTip(output_format_label, "Select the format for saving the output data.")
 
         self.output_format = tk.StringVar(value="Shapefile")  # Default selection
@@ -160,7 +151,7 @@ class FLO2DPostProcessorGUI:
             variable=self.output_format,
             value="Shapefile"
         )
-        shapefile_rb.grid(column=0, row=6, sticky=tk.W)
+        shapefile_rb.grid(column=0, row=5, sticky=tk.W)
         ToolTip(shapefile_rb, "Save output data as Shapefile.")
 
         geopackage_rb = ttk.Radiobutton(
@@ -169,16 +160,16 @@ class FLO2DPostProcessorGUI:
             variable=self.output_format,
             value="GeoPackage"
         )
-        geopackage_rb.grid(column=0, row=7, sticky=tk.W)
+        geopackage_rb.grid(column=0, row=6, sticky=tk.W)
         ToolTip(geopackage_rb, "Save output data as GeoPackage.")
 
         # Style Files Folder Section
         style_label = ttk.Label(main_frame, text="Style Files Folder:")
-        style_label.grid(column=0, row=8, sticky=tk.W, pady=(15, 0))
+        style_label.grid(column=0, row=7, sticky=tk.W, pady=(15, 0))
         ToolTip(style_label, "Select the folder containing style files for processing.")
 
         style_frame = ttk.Frame(main_frame)
-        style_frame.grid(column=0, row=9, sticky=(tk.W, tk.E))
+        style_frame.grid(column=0, row=8, sticky=(tk.W, tk.E))
         self.style_folder = ttk.Entry(style_frame, width=40, state='readonly')  # Set to readonly to prevent manual editing
         self.style_folder.grid(column=0, row=0, sticky=(tk.W, tk.E))
         ToolTip(self.style_folder, "Path to the folder containing style files.")
@@ -190,7 +181,7 @@ class FLO2DPostProcessorGUI:
 
         # Step Indicator Section
         step_frame = ttk.LabelFrame(main_frame, text="Processing Steps", padding="5")
-        step_frame.grid(column=0, row=10, columnspan=2, sticky=(tk.W, tk.E), pady=(15, 5))
+        step_frame.grid(column=0, row=9, columnspan=2, sticky=(tk.W, tk.E), pady=(15, 5))
         step_frame.columnconfigure(0, weight=1)
         
         self.step_indicator = StepIndicator(step_frame)
@@ -198,7 +189,7 @@ class FLO2DPostProcessorGUI:
         
         # Progress Section
         progress_frame = ttk.LabelFrame(main_frame, text="Progress", padding="5")
-        progress_frame.grid(column=0, row=11, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 5))
+        progress_frame.grid(column=0, row=10, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 5))
         progress_frame.columnconfigure(0, weight=1)
         
         # Overall progress bar
@@ -225,19 +216,19 @@ class FLO2DPostProcessorGUI:
 
         # Enhanced Message Output Section
         output_label = ttk.Label(main_frame, text="Processing Messages:")
-        output_label.grid(column=0, row=12, sticky=tk.W, pady=(10, 0))
+        output_label.grid(column=0, row=11, sticky=tk.W, pady=(10, 0))
         ToolTip(output_label, "Real-time processing messages with enhanced formatting.")
         
         # Rich message frame
         self.rich_message_frame = RichMessageFrame(main_frame)
-        self.rich_message_frame.grid(column=0, row=13, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(5, 0))
+        self.rich_message_frame.grid(column=0, row=12, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(5, 0))
         
         # Keep the old output_text reference for compatibility
         self.output_text = self.rich_message_frame.text_widget
 
         # Control buttons frame
         control_frame = ttk.Frame(main_frame)
-        control_frame.grid(column=0, row=14, columnspan=2, sticky=(tk.W, tk.E), pady=(10,0))
+        control_frame.grid(column=0, row=13, columnspan=2, sticky=(tk.W, tk.E), pady=(10,0))
         control_frame.columnconfigure(1, weight=1)
         
         # Clear output button
@@ -253,7 +244,7 @@ class FLO2DPostProcessorGUI:
         # Configure grid weights for responsiveness
         main_frame.columnconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=0)
-        main_frame.rowconfigure(13, weight=1)  # Updated for rich message frame
+        main_frame.rowconfigure(12, weight=1)  # Updated for rich message frame
 
     def on_message_received(self, message: str, msg_type: str = 'info', message_id: str = None):
         """Callback for receiving messages from the processing system."""
@@ -455,7 +446,7 @@ class FLO2DPostProcessorGUI:
                 result = self.process_flo2d_with_enhanced_logging(
                     file_path,
                     int(self.epsg_number.get()),
-                    self.create_shapefile.get(),
+                    True,
                     verbose=True,
                     style_folder=self.style_folder.get(),
                     output_format=self.output_format.get()
@@ -568,9 +559,7 @@ class FLO2DPostProcessorGUI:
             epsg = config.get("epsg_number", "")
             self.epsg_number.insert(0, epsg)
             
-            # Load Shapefile Option
-            shapefile = config.get("create_flo2d_points", False)
-            self.create_shapefile.set(shapefile)
+            # (Removed) Shapefile Option
             
             # Load Style Files Folder
             style_folder = config.get("style_folder", "")
@@ -590,7 +579,6 @@ class FLO2DPostProcessorGUI:
         config = {
             "flo2d_folders": list(self.folder_listbox.get(0, tk.END)),
             "epsg_number": self.epsg_number.get(),
-            "create_flo2d_points": self.create_shapefile.get(),
             "style_folder": self.style_folder.get(),
             "output_format": self.output_format.get()  # Save output format
         }

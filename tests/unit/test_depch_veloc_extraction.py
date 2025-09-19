@@ -45,5 +45,5 @@ def test_veloc_reader_normalizes_and_filters(tmp_path):
     assert df.iloc[0][GRID_ID] == 200
     assert df.iloc[1][GRID_ID] == 201
     # Column exists
-    assert 'velocity' in df.columns
+    assert 'velocity_channel' in df.columns
 

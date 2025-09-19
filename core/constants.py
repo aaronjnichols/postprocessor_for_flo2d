@@ -31,7 +31,8 @@ DATA = 'data'
 # =============================================================================
 # TOPO.DAT
 # =============================================================================
-TOPO_ELEVATION = 'topo_elevation'
+# Canonical name used across outputs/rasters
+TOPO_ELEVATION = 'elev'
 
 # =============================================================================
 # MANNINGS_N.DAT
@@ -94,6 +95,8 @@ FINAL_VELOCITY = 'final_velocity'
 # VELFP.OUT (also used by MAXQHYD.OUT)
 # =============================================================================
 VELOCITY_MAX = 'velocity_max'
+# VELOC.OUT canonical channel velocity name
+VELOCITY_CHANNEL = 'velocity_channel'
 
 # =============================================================================
 # MAXQHYD.OUT
@@ -103,7 +106,8 @@ FLOW_DIRECTION = 'flow_direction'
 # =============================================================================
 # MAXWSELEV.OUT
 # =============================================================================
-MAX_WS_ELEVATION = 'max_ws_elevation'
+# Canonical name used across outputs/rasters
+# Use the same canonical field name as HYCROSS (WSE_MAX)
 
 # =============================================================================
 # SUPER.OUT
@@ -164,7 +168,7 @@ FPXSEC = 'fpxsec'
 # HYCROSS.OUT
 # =============================================================================
 FPXS_ID = 'fpxs_id'
-Q_MAX = 'q_max'
+Q_MAX = 'q_max'  # canonical floodplain/cross-section max discharge
 VOL_ACFT = 'vol_acft'
 WSE_MAX = 'wse_max'
 
@@ -174,9 +178,9 @@ WSE_MAX = 'wse_max'
 OUTFLOW_CODE = 'outflow_code'
 
 # =============================================================================
-# OUTNQ.OUT
+# OUTNQ.OUT (outflow elements only)
 # =============================================================================
-MAX_Q = 'max_q'
+MAX_Q_OUTNQ = 'outflow_max_q'
 TIME_PEAK = 'time_peak'
 
 # =============================================================================
@@ -363,6 +367,8 @@ def normalize_grid_id(raw_grid_id: int) -> int:
 
 
 
+
+ 
 
 def standardize_grid_id_column(df, current_name: str = None):
     """

@@ -5,7 +5,7 @@ import os
 import pandas as pd
 
 from extraction.out.outnq_out_extraction import extract_outnq_out, extract_outnq_summary
-from core.constants import GRID_ID, MAX_Q, TIME_PEAK
+from core.constants import GRID_ID, Q_MAX, TIME_PEAK
 
 
 def _write_outnq_file(tmp_dir: str):
@@ -29,7 +29,7 @@ def test_outnq_summary_normalizes_zero_based(tmp_path):
     df = extract_outnq_summary(tmp_dir)
 
     assert isinstance(df, pd.DataFrame)
-    assert set([GRID_ID, MAX_Q, TIME_PEAK]).issubset(df.columns)
+    assert set([GRID_ID, Q_MAX, TIME_PEAK]).issubset(df.columns)
     # Summary grid ids should be integer and 0-based (5 -> 4)
     assert pd.api.types.is_integer_dtype(df[GRID_ID])
     assert (df[GRID_ID] == 4).any()

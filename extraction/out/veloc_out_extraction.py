@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 from core.utilities import time_function
-from core.constants import GRID_ID, normalize_grid_id
+from core.constants import GRID_ID, VELOCITY_CHANNEL, normalize_grid_id
 from extraction.base.extraction_utils import read_with_dask_optimized
 
 
@@ -17,9 +17,9 @@ def extract_veloc_out(path, relevant_grid_ids=None):
     # Dask-optimized read for scalability on large files
     ddf = read_with_dask_optimized(
         file_path,
-        column_names=[GRID_ID, 'x', 'y', 'velocity'],
+        column_names=[GRID_ID, 'x', 'y', VELOCITY_CHANNEL],
         usecols=[0, 3],
-        dtype={GRID_ID: 'int64', 'velocity': 'float64'},
+        dtype={GRID_ID: 'int64', VELOCITY_CHANNEL: 'float64'},
     )
     df = ddf.compute()
 
@@ -30,5 +30,5 @@ def extract_veloc_out(path, relevant_grid_ids=None):
         df = df[df[GRID_ID].isin(relevant_grid_ids)]
 
     # Downcast velocity to float32 to reduce memory footprint
-    df['velocity'] = pd.to_numeric(df['velocity'], downcast='float')
+    df[VELOCITY_CHANNEL] = pd.to_numeric(df[VELOCITY_CHANNEL], downcast='float')
     return df.reset_index(drop=True)
