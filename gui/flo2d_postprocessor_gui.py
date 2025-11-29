@@ -9,6 +9,7 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 from main import batch_process_flo2d, process_flo2d
+from core.auto_updater import check_for_updates_async, get_current_version, download_update, apply_update
 import shutil
 import threading
 import json
@@ -89,12 +90,15 @@ class FLO2DPostProcessorGUI:
 
         # Bind the close event to save settings
         self.master.protocol("WM_DELETE_WINDOW", self.on_close)
-        
+
         # Bind keyboard shortcuts
         self.master.bind('<Control-r>', lambda e: self.run_process_thread())
         self.master.bind('<Control-l>', lambda e: self.clear_output())
         self.master.bind('<F5>', lambda e: self.run_process_thread())
         self.master.focus_set()  # Allow window to receive key events
+
+        # Check for updates on startup
+        self.check_for_updates()
 
     def create_widgets(self):
         main_frame = ttk.Frame(self.master, padding="15")
@@ -156,20 +160,30 @@ class FLO2DPostProcessorGUI:
 
         geopackage_rb = ttk.Radiobutton(
             main_frame,
-            text="GeoPackage",
+            text="GeoPackage (consolidated - all layers in one file)",
             variable=self.output_format,
             value="GeoPackage"
         )
         geopackage_rb.grid(column=0, row=6, sticky=tk.W)
-        ToolTip(geopackage_rb, "Save output data as GeoPackage.")
+        ToolTip(geopackage_rb, "Save all vector layers in a single consolidated GeoPackage file.")
+
+        # QGIS Project Checkbox
+        self.create_qgis_project = tk.BooleanVar(value=True)
+        qgis_cb = ttk.Checkbutton(
+            main_frame,
+            text="Create QGIS Project (.qgz) with all layers and symbology",
+            variable=self.create_qgis_project
+        )
+        qgis_cb.grid(column=0, row=7, sticky=tk.W, pady=(10, 0))
+        ToolTip(qgis_cb, "Automatically generate a QGIS project file with all output layers pre-configured with appropriate symbology.")
 
         # Style Files Folder Section
         style_label = ttk.Label(main_frame, text="Style Files Folder:")
-        style_label.grid(column=0, row=7, sticky=tk.W, pady=(15, 0))
+        style_label.grid(column=0, row=8, sticky=tk.W, pady=(15, 0))
         ToolTip(style_label, "Select the folder containing style files for processing.")
 
         style_frame = ttk.Frame(main_frame)
-        style_frame.grid(column=0, row=8, sticky=(tk.W, tk.E))
+        style_frame.grid(column=0, row=9, sticky=(tk.W, tk.E))
         self.style_folder = ttk.Entry(style_frame, width=40, state='readonly')  # Set to readonly to prevent manual editing
         self.style_folder.grid(column=0, row=0, sticky=(tk.W, tk.E))
         ToolTip(self.style_folder, "Path to the folder containing style files.")
@@ -181,7 +195,7 @@ class FLO2DPostProcessorGUI:
 
         # Step Indicator Section
         step_frame = ttk.LabelFrame(main_frame, text="Processing Steps", padding="5")
-        step_frame.grid(column=0, row=9, columnspan=2, sticky=(tk.W, tk.E), pady=(15, 5))
+        step_frame.grid(column=0, row=10, columnspan=2, sticky=(tk.W, tk.E), pady=(15, 5))
         step_frame.columnconfigure(0, weight=1)
         
         self.step_indicator = StepIndicator(step_frame)
@@ -189,7 +203,7 @@ class FLO2DPostProcessorGUI:
         
         # Progress Section
         progress_frame = ttk.LabelFrame(main_frame, text="Progress", padding="5")
-        progress_frame.grid(column=0, row=10, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 5))
+        progress_frame.grid(column=0, row=11, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 5))
         progress_frame.columnconfigure(0, weight=1)
         
         # Overall progress bar
@@ -216,19 +230,19 @@ class FLO2DPostProcessorGUI:
 
         # Enhanced Message Output Section
         output_label = ttk.Label(main_frame, text="Processing Messages:")
-        output_label.grid(column=0, row=11, sticky=tk.W, pady=(10, 0))
+        output_label.grid(column=0, row=12, sticky=tk.W, pady=(10, 0))
         ToolTip(output_label, "Real-time processing messages with enhanced formatting.")
-        
+
         # Rich message frame
         self.rich_message_frame = RichMessageFrame(main_frame)
-        self.rich_message_frame.grid(column=0, row=12, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(5, 0))
+        self.rich_message_frame.grid(column=0, row=13, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(5, 0))
         
         # Keep the old output_text reference for compatibility
         self.output_text = self.rich_message_frame.text_widget
 
         # Control buttons frame
         control_frame = ttk.Frame(main_frame)
-        control_frame.grid(column=0, row=13, columnspan=2, sticky=(tk.W, tk.E), pady=(10,0))
+        control_frame.grid(column=0, row=14, columnspan=2, sticky=(tk.W, tk.E), pady=(10,0))
         control_frame.columnconfigure(1, weight=1)
         
         # Clear output button
@@ -244,7 +258,7 @@ class FLO2DPostProcessorGUI:
         # Configure grid weights for responsiveness
         main_frame.columnconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=0)
-        main_frame.rowconfigure(12, weight=1)  # Updated for rich message frame
+        main_frame.rowconfigure(13, weight=1)  # Rich message frame row
 
     def on_message_received(self, message: str, msg_type: str = 'info', message_id: str = None):
         """Callback for receiving messages from the processing system."""
@@ -449,7 +463,8 @@ class FLO2DPostProcessorGUI:
                     True,
                     verbose=True,
                     style_folder=self.style_folder.get(),
-                    output_format=self.output_format.get()
+                    output_format=self.output_format.get(),
+                    create_qgis_project_file=self.create_qgis_project.get()
                 )
                 
                 # Mark folder completion
@@ -504,12 +519,12 @@ class FLO2DPostProcessorGUI:
             self.set_widgets_state(main_frame=self.master, state='normal')
             self.run_btn.config(text="🚀 Start Processing", state='normal')
     
-    def process_flo2d_with_enhanced_logging(self, file_path, coord_system, create_flo2d_points, verbose, style_folder, output_format):
+    def process_flo2d_with_enhanced_logging(self, file_path, coord_system, create_flo2d_points, verbose, style_folder, output_format, create_qgis_project_file):
         """Process FLO-2D with enhanced logging that integrates with our GUI system."""
         # Import here to avoid circular imports
         import logging
         from main import process_flo2d
-        
+
         try:
             # Process with the enhanced logging system - pass our enhanced timing logger
             result = process_flo2d(
@@ -519,7 +534,8 @@ class FLO2DPostProcessorGUI:
                 verbose,
                 style_folder=style_folder,
                 output_format=output_format,
-                timing_logger=self.enhanced_logger  # Pass the enhanced timing logger
+                timing_logger=self.enhanced_logger,
+                create_qgis_project_file=create_qgis_project_file
             )
             return result
         finally:
@@ -570,7 +586,11 @@ class FLO2DPostProcessorGUI:
             # Load Output Format
             output_format = config.get("output_format", "Shapefile")
             self.output_format.set(output_format)
-            
+
+            # Load QGIS Project setting
+            create_qgis = config.get("create_qgis_project", True)
+            self.create_qgis_project.set(create_qgis)
+
         except Exception as e:
             messagebox.showwarning("Load Settings", f"Failed to load settings:\n{str(e)}")
 
@@ -580,7 +600,8 @@ class FLO2DPostProcessorGUI:
             "flo2d_folders": list(self.folder_listbox.get(0, tk.END)),
             "epsg_number": self.epsg_number.get(),
             "style_folder": self.style_folder.get(),
-            "output_format": self.output_format.get()  # Save output format
+            "output_format": self.output_format.get(),
+            "create_qgis_project": self.create_qgis_project.get()
         }
         try:
             with open(CONFIG_FILE, 'w') as f:
@@ -596,15 +617,87 @@ class FLO2DPostProcessorGUI:
     def clear_output(self):
         """Clear the output text display"""
         self.rich_message_frame.clear_messages()
-        
+
         # Reset progress indicators
         self.overall_progress['value'] = 0
         self.step_progress['value'] = 0
         self.step_indicator.set_current_step(0)
-        
+
         # Reset labels
         self.progress_label.config(text="Output cleared - Ready to process")
         self.stats_label.config(text="")
+
+    def check_for_updates(self):
+        """Check for application updates on GitHub."""
+        def on_update_check_complete(update_info):
+            if update_info:
+                self.master.after(0, lambda: self._show_update_dialog(update_info))
+
+        check_for_updates_async(on_update_check_complete)
+
+    def _show_update_dialog(self, update_info):
+        """Show dialog when an update is available."""
+        version = update_info.get('version', 'Unknown')
+        current = get_current_version()
+        notes = update_info.get('release_notes', '')[:500]  # Truncate long notes
+
+        message = (
+            f"A new version is available!\n\n"
+            f"Current version: {current}\n"
+            f"New version: {version}\n\n"
+            f"Release notes:\n{notes}...\n\n"
+            f"Would you like to download the update?"
+        )
+
+        if messagebox.askyesno("Update Available", message):
+            self._download_update(update_info)
+
+    def _download_update(self, update_info):
+        """Download and apply the update."""
+        download_url = update_info.get('download_url')
+        if not download_url:
+            messagebox.showinfo(
+                "Update",
+                f"Please download the update manually from:\n{update_info.get('html_url', 'GitHub Releases')}"
+            )
+            return
+
+        # Show progress dialog
+        progress_window = tk.Toplevel(self.master)
+        progress_window.title("Downloading Update...")
+        progress_window.geometry("300x100")
+        progress_window.transient(self.master)
+
+        ttk.Label(progress_window, text="Downloading update...").pack(pady=10)
+        progress_bar = ttk.Progressbar(progress_window, mode='determinate', length=250)
+        progress_bar.pack(pady=10)
+
+        def update_progress(downloaded, total):
+            if total > 0:
+                percent = (downloaded / total) * 100
+                self.master.after(0, lambda: progress_bar.configure(value=percent))
+
+        def do_download():
+            try:
+                update_path = download_update(download_url, update_progress)
+                self.master.after(0, progress_window.destroy)
+
+                if update_path:
+                    if messagebox.askyesno(
+                        "Update Downloaded",
+                        "Update downloaded successfully!\n\n"
+                        "The application will restart to apply the update.\n"
+                        "Continue?"
+                    ):
+                        apply_update(update_path, restart=True)
+                        self.master.quit()
+                else:
+                    messagebox.showerror("Update Failed", "Failed to download the update.")
+            except Exception as e:
+                self.master.after(0, progress_window.destroy)
+                messagebox.showerror("Update Error", f"Error downloading update:\n{str(e)}")
+
+        threading.Thread(target=do_download, daemon=True).start()
 
 def main():
     root = tk.Tk()

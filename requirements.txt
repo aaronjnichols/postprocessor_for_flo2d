@@ -10,3 +10,4 @@ openpyxl==3.1.5
 xlsxwriter==3.2.5
 psutil==7.0.0
 ttkthemes==3.2.2
+fiona>=1.9.0
