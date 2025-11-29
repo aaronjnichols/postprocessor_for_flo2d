@@ -1,7 +1,7 @@
 """QGIS Project file generator module.
 
 This module generates QGIS project files (.qgz) with all FLO-2D output layers
-properly styled and organized into groups.
+properly styled and organized into groups. Supports embedding custom QML styles.
 """
 
 import logging
@@ -100,14 +100,69 @@ LAYER_STYLES = {
 }
 
 
+def parse_qml_file(qml_path: str) -> Optional[Dict[str, ET.Element]]:
+    """Parse a QML file and extract styling elements.
+
+    Args:
+        qml_path: Path to the QML file.
+
+    Returns:
+        Dictionary with extracted style elements, or None if parsing fails.
+        Keys may include: 'renderer-v2', 'labeling', 'pipe', 'blendMode', etc.
+    """
+    logger = logging.getLogger('FLO2D_Postprocessor')
+
+    if not os.path.exists(qml_path):
+        return None
+
+    try:
+        tree = ET.parse(qml_path)
+        root = tree.getroot()
+
+        style_elements = {}
+
+        # For vector layers - extract renderer and labeling
+        renderer = root.find('.//renderer-v2')
+        if renderer is not None:
+            style_elements['renderer-v2'] = renderer
+
+        labeling = root.find('.//labeling')
+        if labeling is not None:
+            style_elements['labeling'] = labeling
+
+        # For raster layers - extract pipe (contains renderer)
+        pipe = root.find('.//pipe')
+        if pipe is not None:
+            style_elements['pipe'] = pipe
+
+        # Extract other common style elements
+        for elem_name in ['blendMode', 'featureBlendMode', 'layerOpacity', 'customproperties']:
+            elem = root.find(f'.//{elem_name}')
+            if elem is not None:
+                style_elements[elem_name] = elem
+
+        if style_elements:
+            logger.debug(f"Loaded QML style from: {qml_path}")
+            return style_elements
+
+    except ET.ParseError as e:
+        logger.warning(f"Failed to parse QML file {qml_path}: {e}")
+    except Exception as e:
+        logger.warning(f"Error reading QML file {qml_path}: {e}")
+
+    return None
+
+
 class QGISProjectGenerator:
     """Generator for QGIS project files (.qgs/.qgz).
 
     This class creates QGIS project files with all FLO-2D output layers
     properly configured with symbology and organized into layer groups.
+    Supports loading custom styles from QML files.
 
     Usage:
         generator = QGISProjectGenerator(project_path, coord_system)
+        generator.set_style_folder('/path/to/styles')
         generator.add_geopackage('/path/to/flo2d_results.gpkg')
         generator.add_raster_folder('/path/to/flo2d_rasters')
         generator.generate()  # Creates the .qgz file
@@ -117,7 +172,8 @@ class QGISProjectGenerator:
         self,
         output_dir: str,
         coord_system: int,
-        project_name: str = 'flo2d_project'
+        project_name: str = 'flo2d_project',
+        style_folder: Optional[str] = None
     ):
         """Initialize the QGIS project generator.
 
@@ -125,6 +181,7 @@ class QGISProjectGenerator:
             output_dir: Directory to save the project file.
             coord_system: EPSG code for the coordinate reference system.
             project_name: Base name for the project file.
+            style_folder: Optional path to folder containing QML style files.
         """
         self.output_dir = output_dir
         self.coord_system = coord_system
@@ -136,6 +193,46 @@ class QGISProjectGenerator:
         self.raster_layers: List[Tuple[str, str]] = []  # (name, path)
         self.vector_layers: List[Tuple[str, str, str]] = []  # (name, path, layer_name)
         self.geopackage_path: Optional[str] = None
+
+        # Style management
+        self.style_folder = style_folder
+        self.qml_cache: Dict[str, Dict[str, ET.Element]] = {}  # Cache parsed QML files
+
+    def set_style_folder(self, style_folder: str) -> None:
+        """Set the folder containing QML style files.
+
+        Args:
+            style_folder: Path to folder with QML files.
+        """
+        if style_folder and os.path.isdir(style_folder):
+            self.style_folder = style_folder
+            self.logger.info(f"Style folder set: {style_folder}")
+        else:
+            self.logger.warning(f"Style folder not found: {style_folder}")
+
+    def _get_qml_style(self, layer_name: str) -> Optional[Dict[str, ET.Element]]:
+        """Get QML style for a layer, with caching.
+
+        Args:
+            layer_name: Name of the layer (used to find matching QML file).
+
+        Returns:
+            Parsed QML style elements, or None if not found.
+        """
+        if not self.style_folder:
+            return None
+
+        # Check cache first
+        if layer_name in self.qml_cache:
+            return self.qml_cache[layer_name]
+
+        # Look for QML file
+        qml_path = os.path.join(self.style_folder, f"{layer_name}.qml")
+        style = parse_qml_file(qml_path)
+
+        # Cache result (even if None)
+        self.qml_cache[layer_name] = style
+        return style
 
     def add_raster(self, name: str, raster_path: str) -> None:
         """Add a raster layer to the project.
@@ -396,8 +493,20 @@ class QGISProjectGenerator:
         spatial_ref = ET.SubElement(srs, 'spatialrefsys')
         ET.SubElement(spatial_ref, 'authid').text = f'EPSG:{self.coord_system}'
 
-        # Add basic renderer
-        self._add_raster_renderer(layer, name)
+        # Try to load QML style, fall back to defaults
+        qml_style = self._get_qml_style(name)
+        if qml_style and 'pipe' in qml_style:
+            # Use QML style - append the pipe element
+            layer.append(qml_style['pipe'])
+            self.logger.debug(f"Applied QML style to raster: {name}")
+
+            # Add other style elements if present
+            for elem_name in ['blendMode', 'customproperties']:
+                if elem_name in qml_style:
+                    layer.append(qml_style[elem_name])
+        else:
+            # Use default renderer
+            self._add_raster_renderer(layer, name)
 
     def _add_vector_layer(
         self,
@@ -433,8 +542,24 @@ class QGISProjectGenerator:
         spatial_ref = ET.SubElement(srs, 'spatialrefsys')
         ET.SubElement(spatial_ref, 'authid').text = f'EPSG:{self.coord_system}'
 
-        # Add renderer with styling
-        self._add_vector_renderer(layer, name)
+        # Try to load QML style, fall back to defaults
+        qml_style = self._get_qml_style(name)
+        if qml_style and 'renderer-v2' in qml_style:
+            # Use QML style - append style elements
+            layer.append(qml_style['renderer-v2'])
+            self.logger.debug(f"Applied QML style to vector: {name}")
+
+            # Add labeling if present
+            if 'labeling' in qml_style:
+                layer.append(qml_style['labeling'])
+
+            # Add other style elements if present
+            for elem_name in ['blendMode', 'featureBlendMode', 'layerOpacity', 'customproperties']:
+                if elem_name in qml_style:
+                    layer.append(qml_style[elem_name])
+        else:
+            # Use default renderer
+            self._add_vector_renderer(layer, name)
 
     def _add_raster_renderer(self, layer: ET.Element, name: str) -> None:
         """Add raster renderer with color ramp."""
@@ -538,6 +663,7 @@ def create_qgis_project(
     geopackage_path: Optional[str] = None,
     raster_folder: Optional[str] = None,
     vector_folder: Optional[str] = None,
+    style_folder: Optional[str] = None,
     project_name: str = 'flo2d_project'
 ) -> Optional[str]:
     """Convenience function to create a QGIS project file.
@@ -548,12 +674,15 @@ def create_qgis_project(
         geopackage_path: Path to consolidated GeoPackage (optional).
         raster_folder: Path to folder with rasters (optional).
         vector_folder: Path to folder with vectors (optional).
+        style_folder: Path to folder with QML style files (optional).
         project_name: Name for the project file.
 
     Returns:
         Path to the created .qgz file, or None if failed.
     """
-    generator = QGISProjectGenerator(project_dir, coord_system, project_name)
+    generator = QGISProjectGenerator(
+        project_dir, coord_system, project_name, style_folder=style_folder
+    )
 
     if geopackage_path:
         generator.add_geopackage(geopackage_path)

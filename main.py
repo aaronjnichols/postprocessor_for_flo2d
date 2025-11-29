@@ -746,6 +746,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
                 geopackage_path=consolidated_gpkg_path,
                 raster_folder=raster_outpath,
                 vector_folder=shp_outpath if not consolidated_gpkg_path else None,
+                style_folder=style_folder,
                 project_name='flo2d_project'
             )
             if qgz_path:
