@@ -54,6 +54,8 @@ from extraction.out.time_out_extraction import extract_time_out
 from processing.spatial.geospatial import calculate_cell_size, convert_to_geo_dataframe
 from processing.spatial.rasterization import create_raster_from_gdf
 from processing.spatial.vectorization import convert_gdf_to_shapefile
+from processing.output.geopackage_writer import ConsolidatedGeoPackageWriter
+from processing.output.qgis_project import create_qgis_project
 from processing.vectorization.fpxsec_vectorization import create_fpxsec_shapefile
 from processing.vectorization.hystruc_vectorization import create_hystruc_shapefile
 from processing.vectorization.inflow_vectorization import create_inflow_points
@@ -128,7 +130,7 @@ def setup_logger(level=logging.INFO, log_file=None):
 
     return logger
 
-def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, log_file=None, style_folder=None, output_format="Shapefile", timing_logger=None):
+def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, log_file=None, style_folder=None, output_format="Shapefile", timing_logger=None, create_qgis_project_file=True):
     """
     Processes a single FLO-2D project directory.
 
@@ -141,6 +143,7 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
         style_folder (str): Path to the folder containing style files.
         output_format (str): Desired output format ("Shapefile" or "GeoPackage").
         timing_logger (TimingLogger): Optional timing logger instance (for GUI integration).
+        create_qgis_project_file (bool): Flag to create a QGIS project file (.qgz).
 
     Returns:
         str: Status message upon completion.
@@ -177,6 +180,12 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     timing_logger.log("Creating necessary output directories")
     create_required_folders(output_folders)
     timing_logger.log("Output directories successfully created")
+
+    # Initialize consolidated GeoPackage writer if using GeoPackage format
+    gpkg_writer = None
+    if output_format == "GeoPackage":
+        gpkg_writer = ConsolidatedGeoPackageWriter(shp_outpath, coord_system)
+        logger.info("Initialized consolidated GeoPackage writer")
 
     # Step 2: Extract model data
     timing_logger.log("Extracting model data from FLO-2D files")
@@ -713,6 +722,37 @@ def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, l
     else:
         logger.info("No style folder provided. Skipping style application.")
 
+    # Step 19: Create consolidated GeoPackage (if using GeoPackage format)
+    consolidated_gpkg_path = None
+    if output_format == "GeoPackage":
+        timing_logger.log("Creating consolidated GeoPackage with all vector layers")
+        try:
+            # Import here to collect existing outputs
+            from processing.output.geopackage_writer import collect_existing_outputs
+            gpkg_writer = collect_existing_outputs(shp_outpath, coord_system)
+            consolidated_gpkg_path = gpkg_writer.write()
+            if consolidated_gpkg_path:
+                timing_logger.log(f"Consolidated GeoPackage created: {consolidated_gpkg_path}")
+        except Exception as e:
+            logger.error(f"Failed to create consolidated GeoPackage: {e}")
+
+    # Step 20: Create QGIS project file (.qgz)
+    if create_qgis_project_file:
+        timing_logger.log("Generating QGIS project file (.qgz)")
+        try:
+            qgz_path = create_qgis_project(
+                project_dir=file_path,
+                coord_system=coord_system,
+                geopackage_path=consolidated_gpkg_path,
+                raster_folder=raster_outpath,
+                vector_folder=shp_outpath if not consolidated_gpkg_path else None,
+                project_name='flo2d_project'
+            )
+            if qgz_path:
+                timing_logger.log(f"QGIS project file created: {qgz_path}")
+        except Exception as e:
+            logger.error(f"Failed to create QGIS project file: {e}")
+
     timing_logger.log("=== FLO-2D Postprocessor Completed Successfully ===")
     return "FLO-2D Postprocessing completed successfully."
 
@@ -750,7 +790,7 @@ def apply_styles(file_path, style_folder, logger):
 
     logger.info("Style application process completed.")
 
-def batch_process_flo2d(file_paths, coord_system, create_flo2d_points, verbose=False, style_folder=None, output_format="Shapefile"):
+def batch_process_flo2d(file_paths, coord_system, create_flo2d_points, verbose=False, style_folder=None, output_format="Shapefile", create_qgis_project_file=True):
     """
     Processes multiple FLO-2D project directories sequentially.
 
@@ -761,6 +801,7 @@ def batch_process_flo2d(file_paths, coord_system, create_flo2d_points, verbose=F
         verbose (bool): Flag to enable verbose logging.
         style_folder (str): Path to the folder containing style files.
         output_format (str): Desired output format ("Shapefile" or "GeoPackage").
+        create_qgis_project_file (bool): Flag to create a QGIS project file.
 
     Returns:
         str: Aggregated status messages for all processed directories.
@@ -775,8 +816,9 @@ def batch_process_flo2d(file_paths, coord_system, create_flo2d_points, verbose=F
             create_flo2d_points,
             verbose,
             style_folder=style_folder,
-            output_format=output_format,  # Pass output_format
-            timing_logger=None  # Use default timing logger for batch processing
+            output_format=output_format,
+            timing_logger=None,
+            create_qgis_project_file=create_qgis_project_file
         )
         results.append(f"{file_path}: {result}")
     return "\n".join(results)
@@ -819,6 +861,11 @@ def main():
         default="shapefile",
         help="Desired output format for vector data (default: shapefile). Case-insensitive."
     )
+    parser.add_argument(
+        "--no_qgis_project",
+        action="store_true",
+        help="Disable automatic QGIS project file (.qgz) generation."
+    )
     args = parser.parse_args()
 
     if args.verbose:
@@ -842,7 +889,8 @@ def main():
         args.create_flo2d_points,
         verbose=args.verbose,
         style_folder=args.style_folder,
-        output_format=canonical_output_format  # Pass canonical casing
+        output_format=canonical_output_format,
+        create_qgis_project_file=not args.no_qgis_project
     )
     logger.info("=== FLO-2D Postprocessor Execution Completed ===")
     logger.info(result)

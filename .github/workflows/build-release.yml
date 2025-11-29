@@ -1,0 +1,140 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0
+  workflow_dispatch:  # Allow manual trigger
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Update version in auto_updater.py
+        shell: bash
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix if present
+          if [ -z "$VERSION" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          sed -i "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" core/auto_updater.py
+          echo "Updated version to: $VERSION"
+
+      - name: Build executable with PyInstaller
+        run: |
+          pyinstaller flo2d_postprocessor.spec
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FLO2D_Postprocessor-windows
+          path: dist/FLO2D_Postprocessor.exe
+
+  create-release:
+    needs: build-windows
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: FLO2D_Postprocessor-windows
+          path: dist/
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: FLO-2D Postprocessor ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## FLO-2D Postprocessor ${{ steps.version.outputs.VERSION }}
+
+            ### Installation
+            1. Download `FLO2D_Postprocessor.exe` below
+            2. Run the executable - no installation required
+            3. The application will automatically check for updates on startup
+
+            ### Features
+            - Automated extraction and processing of FLO-2D model outputs
+            - Generation of GeoTIFF rasters for depth, velocity, WSE, etc.
+            - Creation of Shapefiles/GeoPackages for model features
+            - Excel reports with charts and analysis
+            - QGIS project file generation with pre-configured symbology
+            - Auto-update functionality
+
+            ### Requirements
+            - Windows 10 or later
+            - No additional software required
+
+            ### Changelog
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+          files: |
+            dist/FLO2D_Postprocessor.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Optional: Build for macOS
+  build-macos:
+    runs-on: macos-latest
+    if: false  # Disabled by default - enable if needed
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build executable
+        run: |
+          pyinstaller flo2d_postprocessor.spec
+
+      - name: Create DMG
+        run: |
+          hdiutil create -volname "FLO2D_Postprocessor" -srcfolder dist -ov -format UDZO FLO2D_Postprocessor.dmg
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FLO2D_Postprocessor-macos
+          path: FLO2D_Postprocessor.dmg
