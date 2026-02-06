@@ -90,15 +90,31 @@ class ProcessingWorker(QThread):
 
     def run(self):
         """Main worker loop - processes each folder sequentially."""
+        # Force non-interactive matplotlib backend before any reporting
+        # module tries to use pyplot (avoids Tk/Qt backend conflicts in QGIS)
+        import matplotlib
+        matplotlib.use("Agg")
+
         # Ensure the project root is on sys.path so imports work
         plugin_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(plugin_dir)
         if project_root not in sys.path:
             sys.path.insert(0, project_root)
 
+        # QGIS has its own built-in "processing" module (Processing Toolbox).
+        # Our project also has a "processing" package.  We must temporarily
+        # evict QGIS's version from sys.modules so Python resolves imports
+        # from the project root instead.
+        saved_processing_modules = {}
+        for key in list(sys.modules):
+            if key == "processing" or key.startswith("processing."):
+                saved_processing_modules[key] = sys.modules.pop(key)
+
         try:
             from main import process_flo2d
         except ImportError as exc:
+            # Restore QGIS processing modules before returning
+            sys.modules.update(saved_processing_modules)
             self.processing_error.emit(
                 f"Failed to import postprocessor: {exc}\n"
                 f"Ensure the plugin is installed in the project root directory."
