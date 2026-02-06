@@ -560,14 +560,9 @@ class Flo2dPostprocessorDialog(QDialog):
             loaded = 0
             for f in vector_files:
                 full_path = os.path.join(shp_dir, f)
-                if f.endswith(".gpkg"):
-                    layer = QgsVectorLayer(full_path, os.path.splitext(f)[0], "ogr")
-                    if layer.isValid():
-                        project.addMapLayer(layer, False)
-                        vector_group.addLayer(layer)
-                        loaded += 1
-                elif f.endswith(".shp"):
-                    layer = QgsVectorLayer(full_path, os.path.splitext(f)[0], "ogr")
+                layer_name = os.path.splitext(f)[0]
+                if f.endswith(".gpkg") or f.endswith(".shp"):
+                    layer = QgsVectorLayer(full_path, layer_name, "ogr")
                     if layer.isValid():
                         project.addMapLayer(layer, False)
                         vector_group.addLayer(layer)
