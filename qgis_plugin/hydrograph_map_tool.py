@@ -1,20 +1,40 @@
 """
-FLO-2D Postprocessor QGIS Plugin - Hydrograph map tool.
+FLO-2D Postprocessor QGIS Plugin - Feature inspection map tool.
 
-A custom QgsMapToolIdentify that lets the user click on an fpxsec feature
-to open the interactive hydrograph popup.
+A custom QgsMapToolIdentify that lets the user click on a feature
+to open an interactive time-series popup.  Supports floodplain cross
+sections, hydraulic structures, and SWMM junctions/outfalls/conduits.
 """
 
 from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtWidgets import QMessageBox
 from qgis.gui import QgsMapToolIdentify
 from qgis.utils import iface
 
-from .hydrograph_action import show_hydrograph_for_feature
+from .hydrograph_action import show_popup_for_feature
+
+
+# Ordered list of (discriminator_field, feature_type) pairs.
+# The first match wins, so order matters when a layer could match
+# multiple rules (unlikely but defensive).
+_FEATURE_DETECTORS = [
+    ("fpxs_id", "fpxsec"),
+    ("structure_id", "hydraulic_structure"),
+    ("o_type", "swmm_outfall"),
+    ("from", "swmm_conduit"),
+    ("dmax_cap", "swmm_junction"),
+]
+
+
+def _detect_feature_type(field_names):
+    """Return the feature type string for a set of field names, or None."""
+    for discriminator, ftype in _FEATURE_DETECTORS:
+        if discriminator in field_names:
+            return ftype
+    return None
 
 
 class HydrographMapTool(QgsMapToolIdentify):
-    """Click-on-feature map tool that opens a hydrograph dialog."""
+    """Click-on-feature map tool that opens a time-series popup dialog."""
 
     def __init__(self, canvas):
         super().__init__(canvas)
@@ -28,7 +48,7 @@ class HydrographMapTool(QgsMapToolIdentify):
         )
         if not results:
             iface.messageBar().pushWarning(
-                "Show Hydrograph", "No features found at click location."
+                "Inspect Feature", "No features found at click location."
             )
             return
 
@@ -36,16 +56,15 @@ class HydrographMapTool(QgsMapToolIdentify):
             layer = result.mLayer
             feature = result.mFeature
             field_names = [f.name() for f in layer.fields()]
-            if "fpxs_id" in field_names:
+            feature_type = _detect_feature_type(field_names)
+            if feature_type is not None:
                 source = layer.source()
-                fpxs_id = feature["fpxs_id"]
-                vol_acft = feature["vol_acft"] if "vol_acft" in field_names else None
-                show_hydrograph_for_feature(source, fpxs_id, vol_acft)
+                show_popup_for_feature(feature_type, source, feature)
                 return
 
-        # We found features but none had fpxs_id
+        # We found features but none matched a known type
         layer_names = [r.mLayer.name() for r in results]
         iface.messageBar().pushWarning(
-            "Show Hydrograph",
-            f"No floodplain cross-section found. Hit: {', '.join(layer_names)}",
+            "Inspect Feature",
+            f"No inspectable features found. Hit: {', '.join(layer_names)}",
         )

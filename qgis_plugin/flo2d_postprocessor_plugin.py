@@ -12,7 +12,7 @@ from qgis.PyQt.QtWidgets import QAction
 from qgis.core import QgsApplication
 
 from .flo2d_postprocessor_dialog import Flo2dPostprocessorDialog
-from .hydrograph_action import clear_hydrograph_cache
+from .hydrograph_action import clear_data_cache
 from .hydrograph_map_tool import HydrographMapTool
 
 
@@ -54,12 +54,12 @@ class Flo2dPostprocessorPlugin:
         self.hydrograph_tool = HydrographMapTool(self.iface.mapCanvas())
         hydro_action = QAction(
             QgsApplication.getThemeIcon("/mActionIdentify.svg"),
-            "Show Hydrograph",
+            "Inspect Feature",
             self.iface.mainWindow(),
         )
         hydro_action.setCheckable(True)
         hydro_action.setStatusTip(
-            "Click on a floodplain cross-section to view its hydrograph"
+            "Click on a feature to view its time-series data"
         )
         hydro_action.triggered.connect(self._activate_hydrograph_tool)
         self.hydrograph_tool.deactivated.connect(
@@ -71,7 +71,7 @@ class Flo2dPostprocessorPlugin:
 
     def unload(self):
         """Remove the plugin menu item and icon from the QGIS GUI."""
-        clear_hydrograph_cache()
+        clear_data_cache()
         # Deactivate the map tool if it is active
         if (
             self.hydrograph_tool
