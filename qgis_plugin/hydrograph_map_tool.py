@@ -19,6 +19,7 @@ from .hydrograph_action import show_popup_for_feature
 _FEATURE_DETECTORS = [
     ("fpxs_id", "fpxsec"),
     ("structure_id", "hydraulic_structure"),
+    ("structure_", "hydraulic_structure"),
     ("o_type", "swmm_outfall"),
     ("from", "swmm_conduit"),
     ("dmax_cap", "swmm_junction"),
@@ -27,8 +28,9 @@ _FEATURE_DETECTORS = [
 
 def _detect_feature_type(field_names):
     """Return the feature type string for a set of field names, or None."""
+    normalized = {name.lower() for name in field_names}
     for discriminator, ftype in _FEATURE_DETECTORS:
-        if discriminator in field_names:
+        if discriminator.lower() in normalized:
             return ftype
     return None
 

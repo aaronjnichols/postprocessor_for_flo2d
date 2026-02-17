@@ -45,6 +45,7 @@ from qgis.core import (
 )
 from qgis.gui import QgsProjectionSelectionWidget
 
+from .output_discovery import get_vector_output_dirs
 from .processing_worker import ProcessingWorker
 
 
@@ -550,24 +551,37 @@ class Flo2dPostprocessorDialog(QDialog):
         # Create a top-level group for this FLO-2D project
         main_group = root.insertGroup(0, f"FLO-2D: {folder_name}")
 
-        shp_dir = os.path.join(project_folder, "flo2d_shp")
+        existing_vector_dirs = get_vector_output_dirs(project_folder)
         raster_dir = os.path.join(project_folder, "flo2d_rasters")
 
         # Load vector layers
-        if os.path.isdir(shp_dir):
+        if existing_vector_dirs:
             vector_group = main_group.addGroup("Vector Layers")
-            vector_files = sorted(os.listdir(shp_dir))
             loaded = 0
-            for f in vector_files:
-                full_path = os.path.join(shp_dir, f)
-                layer_name = os.path.splitext(f)[0]
-                if f.endswith(".gpkg") or f.endswith(".shp"):
+            seen_vector_paths = set()
+            for vector_dir in existing_vector_dirs:
+                vector_files = sorted(os.listdir(vector_dir))
+                for f in vector_files:
+                    if not f.lower().endswith((".gpkg", ".shp")):
+                        continue
+
+                    full_path = os.path.join(vector_dir, f)
+                    normalized_path = os.path.normcase(os.path.abspath(full_path))
+                    if normalized_path in seen_vector_paths:
+                        continue
+                    seen_vector_paths.add(normalized_path)
+
+                    layer_name = os.path.splitext(f)[0]
                     layer = QgsVectorLayer(full_path, layer_name, "ogr")
                     if layer.isValid():
                         project.addMapLayer(layer, False)
                         vector_group.addLayer(layer)
                         loaded += 1
-            self._log_message(f"Loaded {loaded} vector layer(s) into QGIS", "info")
+            self._log_message(
+                f"Loaded {loaded} vector layer(s) into QGIS from "
+                f"{len(existing_vector_dirs)} folder(s)",
+                "info",
+            )
 
         # Load raster layers
         if os.path.isdir(raster_dir):

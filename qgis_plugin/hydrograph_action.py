@@ -17,6 +17,7 @@ from qgis.utils import iface
 # Module-level cache: keyed by (project_folder, feature_type)
 # ---------------------------------------------------------------------------
 _data_cache = {}
+_HYDROSTRUCT_ID_FIELDS = ("structure_id", "structure_")
 
 
 # ---------------------------------------------------------------------------
@@ -62,8 +63,9 @@ def _project_import_context():
 def _resolve_project_folder(layer_source):
     """Resolve the FLO-2D project folder from a layer source path.
 
-    Layer sources sit inside ``<project>/flo2d_shp/``.  Strips any
-    GeoPackage ``|layername=...`` suffix first.
+    Layer sources sit inside ``<project>/flo2d_shp/`` or
+    ``<project>/FLO2D_SHP/``.  Strips any GeoPackage
+    ``|layername=...`` suffix first.
     """
     if "|" in layer_source:
         layer_source = layer_source.split("|")[0]
@@ -80,6 +82,22 @@ def _fmt(value, decimals=2):
 def _warn(title, message):
     """Show a warning in the QGIS message bar."""
     iface.messageBar().pushWarning(title, message)
+
+
+def _get_feature_value_by_aliases(feature, aliases):
+    """Return the first non-empty feature value for any field alias."""
+    field_lookup = {field.name().lower(): field.name() for field in feature.fields()}
+    for alias in aliases:
+        actual_name = field_lookup.get(alias.lower())
+        if actual_name is None:
+            continue
+        value = feature[actual_name]
+        if value is None:
+            continue
+        value_text = str(value).strip()
+        if value_text:
+            return value_text
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +205,14 @@ def _show_hydrostruct_popup(layer_source, feature):
     data = _data_cache[cache_key]
     hydrographs = data.get("hydrographs", {})
 
-    struct_id = str(feature["structure_id"])
+    struct_id = _get_feature_value_by_aliases(feature, _HYDROSTRUCT_ID_FIELDS)
+    if struct_id is None:
+        _warn(
+            "Inspect Feature",
+            "Hydraulic structure layer is missing a structure ID field.",
+        )
+        return
+
     if struct_id not in hydrographs:
         _warn("Inspect Feature",
               f"No hydrograph data for structure '{struct_id}'.")
@@ -274,10 +299,31 @@ def _show_swmm_junction_popup(layer_source, feature):
         row = merged.loc[merged["node_id"] == name]
         if not row.empty:
             row = row.iloc[0]
-            _add_stat(stats, "Peak Inflow (cfs):", row, "tot_inflw")
-            _add_stat(stats, "Time of Peak:", row, "t_tot_inflw")
-            _add_stat(stats, "Max HGL (ft):", row, "Max_HGL")
-            _add_stat(stats, "Flood Vol (MG):", row, "Total_Flood_Volume")
+            _add_stat_alias(
+                stats,
+                "Peak Inflow (cfs):",
+                row,
+                ("Max_Total_Inflow", "tot_inflw"),
+            )
+            _add_stat_alias(
+                stats,
+                "Time of Peak:",
+                row,
+                ("Time_of_Max_Inflow", "t_tot_inflw"),
+                allow_text=True,
+            )
+            _add_stat_alias(
+                stats,
+                "Max HGL (ft):",
+                row,
+                ("Max_HGL", "max_hgl"),
+            )
+            _add_stat_alias(
+                stats,
+                "Flood Vol (MG):",
+                row,
+                ("Total_Flood_Volume", "flood_vol", "total_flood_volume"),
+            )
 
     _open_dialog(f"Junction \u2014 {name}", series, stats)
 
@@ -390,6 +436,20 @@ def _add_stat(stats_list, label, row, column):
     """Append a (label, formatted_value) tuple if the column exists."""
     if column in row.index:
         stats_list.append((label, _fmt(row[column])))
+
+
+def _add_stat_alias(stats_list, label, row, columns, allow_text=False):
+    """Append a stat for the first available column alias."""
+    for column in columns:
+        if column not in row.index:
+            continue
+
+        value = row[column]
+        if allow_text and not isinstance(value, (int, float)):
+            stats_list.append((label, str(value) if value is not None else "N/A"))
+        else:
+            stats_list.append((label, _fmt(value)))
+        return
 
 
 def _open_dialog(title, series, stats):

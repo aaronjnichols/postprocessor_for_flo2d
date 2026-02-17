@@ -109,59 +109,64 @@ class ProcessingWorker(QThread):
         for key in list(sys.modules):
             if key == "processing" or key.startswith("processing."):
                 saved_processing_modules[key] = sys.modules.pop(key)
-
         try:
-            from main import process_flo2d
-        except ImportError as exc:
-            # Restore QGIS processing modules before returning
-            sys.modules.update(saved_processing_modules)
-            self.processing_error.emit(
-                f"Failed to import postprocessor: {exc}\n"
-                f"Ensure the plugin is installed in the project root directory."
-            )
-            return
-
-        total = len(self.folders)
-        completed_folders = []
-
-        for idx, folder in enumerate(self.folders, 1):
-            if self._cancelled:
-                self.log_message.emit("Processing cancelled by user.", "warning")
-                break
-
-            self.folder_started.emit(folder, idx, total)
-
-            # Update overall progress (per-folder granularity)
-            base_pct = int(((idx - 1) / total) * 100)
-            self.progress_updated.emit(
-                base_pct,
-                f"Folder {idx}/{total}: {os.path.basename(folder)}",
-            )
-
-            timing_logger = _WorkerTimingLogger(self)
-
             try:
-                result = process_flo2d(
-                    file_path=folder,
-                    coord_system=self.epsg,
-                    create_flo2d_points=self.create_points,
-                    verbose=self.verbose,
-                    style_folder=self.style_folder,
-                    output_format=self.output_format,
-                    timing_logger=timing_logger,
+                from main import process_flo2d
+            except ImportError as exc:
+                self.processing_error.emit(
+                    f"Failed to import postprocessor: {exc}\n"
+                    f"Ensure the plugin is installed in the project root directory."
                 )
-                completed_folders.append(folder)
-                self.folder_finished.emit(folder, idx, total)
-            except Exception as exc:
-                tb = traceback.format_exc()
-                self.log_message.emit(
-                    f"Error processing {os.path.basename(folder)}: {exc}", "error"
-                )
-                self.log_message.emit(tb, "error")
-                # Continue with next folder instead of aborting everything
-                continue
+                return
 
-        if self._cancelled:
-            self.processing_error.emit("Processing was cancelled.")
-        else:
-            self.processing_finished.emit(completed_folders)
+            total = len(self.folders)
+            completed_folders = []
+
+            for idx, folder in enumerate(self.folders, 1):
+                if self._cancelled:
+                    self.log_message.emit("Processing cancelled by user.", "warning")
+                    break
+
+                self.folder_started.emit(folder, idx, total)
+
+                # Update overall progress (per-folder granularity)
+                base_pct = int(((idx - 1) / total) * 100)
+                self.progress_updated.emit(
+                    base_pct,
+                    f"Folder {idx}/{total}: {os.path.basename(folder)}",
+                )
+
+                timing_logger = _WorkerTimingLogger(self)
+
+                try:
+                    process_flo2d(
+                        file_path=folder,
+                        coord_system=self.epsg,
+                        create_flo2d_points=self.create_points,
+                        verbose=self.verbose,
+                        style_folder=self.style_folder,
+                        output_format=self.output_format,
+                        timing_logger=timing_logger,
+                    )
+                    completed_folders.append(folder)
+                    self.folder_finished.emit(folder, idx, total)
+                except Exception as exc:
+                    tb = traceback.format_exc()
+                    self.log_message.emit(
+                        f"Error processing {os.path.basename(folder)}: {exc}", "error"
+                    )
+                    self.log_message.emit(tb, "error")
+                    # Continue with next folder instead of aborting everything
+                    continue
+
+            if self._cancelled:
+                self.processing_error.emit("Processing was cancelled.")
+            else:
+                self.processing_finished.emit(completed_folders)
+        finally:
+            # Remove any transient project "processing*" modules imported during
+            # worker execution, then restore QGIS's original module objects.
+            for key in list(sys.modules):
+                if key == "processing" or key.startswith("processing."):
+                    sys.modules.pop(key, None)
+            sys.modules.update(saved_processing_modules)
