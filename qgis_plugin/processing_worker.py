@@ -11,6 +11,7 @@ import time
 import traceback
 
 from qgis.PyQt.QtCore import QThread, pyqtSignal
+from .project_root import ensure_project_root_on_path
 
 
 class _WorkerTimingLogger:
@@ -96,10 +97,13 @@ class ProcessingWorker(QThread):
         matplotlib.use("Agg")
 
         # Ensure the project root is on sys.path so imports work
-        plugin_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(plugin_dir)
-        if project_root not in sys.path:
-            sys.path.insert(0, project_root)
+        project_root, _ = ensure_project_root_on_path(__file__)
+        if project_root is None:
+            self.processing_error.emit(
+                "Failed to locate FLO-2D postprocessor project root.\n"
+                "Re-run scripts/install_qgis_plugin.bat and restart QGIS."
+            )
+            return
 
         # QGIS has its own built-in "processing" module (Processing Toolbox).
         # Our project also has a "processing" package.  We must temporarily

@@ -11,6 +11,7 @@ import sys
 from contextlib import contextmanager
 
 from qgis.utils import iface
+from .project_root import ensure_project_root_on_path
 
 
 # ---------------------------------------------------------------------------
@@ -18,6 +19,7 @@ from qgis.utils import iface
 # ---------------------------------------------------------------------------
 _data_cache = {}
 _HYDROSTRUCT_ID_FIELDS = ("structure_id", "structure_")
+_open_dialog_instances = []
 
 
 # ---------------------------------------------------------------------------
@@ -30,13 +32,12 @@ def _project_import_context():
     QGIS's ``processing`` module so our own ``extraction`` / ``core`` packages
     resolve correctly.  Restores the original state on exit.
     """
-    plugin_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(plugin_dir)
-
-    inserted = False
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-        inserted = True
+    project_root, inserted = ensure_project_root_on_path(__file__)
+    if project_root is None:
+        raise ImportError(
+            "Unable to locate FLO-2D postprocessor project root. "
+            "Re-run scripts/install_qgis_plugin.bat and restart QGIS."
+        )
 
     # Evict QGIS processing modules
     saved = {}
@@ -117,7 +118,10 @@ def show_popup_for_feature(feature_type, layer_source, feature):
     if handler is None:
         _warn("Inspect Feature", f"Unsupported feature type: {feature_type}")
         return
-    handler(layer_source, feature)
+    try:
+        handler(layer_source, feature)
+    except ImportError as exc:
+        _warn("Inspect Feature", str(exc))
 
 
 # ---------------------------------------------------------------------------
@@ -456,7 +460,19 @@ def _open_dialog(title, series, stats):
     """Import and open the dialog (keeps matplotlib import lazy)."""
     from .hydrograph_dialog import HydrographDialog
     dlg = HydrographDialog(title, series, stats, parent=iface.mainWindow())
+    _open_dialog_instances.append(dlg)
+    dlg.destroyed.connect(
+        lambda *_args, _dlg=dlg: _close_dialog_reference(_dlg)
+    )
     dlg.show()
+
+
+def _close_dialog_reference(dialog):
+    """Remove dialog instance from strong-reference list after close."""
+    try:
+        _open_dialog_instances.remove(dialog)
+    except ValueError:
+        pass
 
 
 def clear_data_cache():

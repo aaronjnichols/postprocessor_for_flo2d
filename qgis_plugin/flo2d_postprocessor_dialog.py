@@ -7,7 +7,6 @@ detailed log output, and auto-loading of results into QGIS.
 
 import json
 import os
-import sys
 import time
 
 from qgis.PyQt.QtCore import Qt, QSettings, QSize
@@ -46,6 +45,7 @@ from qgis.core import (
 from qgis.gui import QgsProjectionSelectionWidget
 
 from .output_discovery import get_vector_output_dirs
+from .project_root import ensure_project_root_on_path
 from .processing_worker import ProcessingWorker
 
 
@@ -441,11 +441,17 @@ class Flo2dPostprocessorDialog(QDialog):
         self._log_message(f"Folders: {len(folders)}", "info")
         self._log_message("=" * 60, "info")
 
-        # Add plugin parent directory to sys.path so main.py imports work
-        plugin_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(plugin_dir)
-        if project_root not in sys.path:
-            sys.path.insert(0, project_root)
+        # Ensure postprocessor project root is importable.
+        project_root, _ = ensure_project_root_on_path(__file__)
+        if project_root is None:
+            QMessageBox.critical(
+                self,
+                "Import Configuration Error",
+                "Failed to locate FLO-2D postprocessor project root.\n\n"
+                "Run scripts/install_qgis_plugin.bat and restart QGIS.",
+            )
+            self._set_running_state(False)
+            return
 
         # Launch worker thread
         self.worker = ProcessingWorker(

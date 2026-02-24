@@ -182,6 +182,43 @@ def test_add_stat_alias_falls_back_to_legacy_columns(qgis_stubs):
     ]
 
 
+def test_open_dialog_keeps_reference_until_destroyed(qgis_stubs, monkeypatch):
+    module = importlib.import_module("qgis_plugin.hydrograph_action")
+    module = importlib.reload(module)
+
+    class DummySignal:
+        def __init__(self):
+            self._callbacks = []
+
+        def connect(self, callback):
+            self._callbacks.append(callback)
+
+        def emit(self, *args, **kwargs):
+            for callback in list(self._callbacks):
+                callback(*args, **kwargs)
+
+    class FakeDialog:
+        def __init__(self, *_args, **_kwargs):
+            self.destroyed = DummySignal()
+            self.shown = False
+
+        def show(self):
+            self.shown = True
+
+    fake_dialog_module = types.ModuleType("qgis_plugin.hydrograph_dialog")
+    fake_dialog_module.HydrographDialog = FakeDialog
+    monkeypatch.setitem(sys.modules, "qgis_plugin.hydrograph_dialog", fake_dialog_module)
+
+    module._open_dialog_instances.clear()
+    module._open_dialog("Test", [], [])
+    assert len(module._open_dialog_instances) == 1
+    assert module._open_dialog_instances[0].shown is True
+
+    dlg = module._open_dialog_instances[0]
+    dlg.destroyed.emit()
+    assert len(module._open_dialog_instances) == 0
+
+
 def test_processing_worker_restores_qgis_processing_modules(qgis_stubs, monkeypatch):
     module = importlib.import_module("qgis_plugin.processing_worker")
     module = importlib.reload(module)
