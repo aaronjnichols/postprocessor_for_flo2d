@@ -41,6 +41,9 @@ def hydrograph_dialog_module(monkeypatch):
     qtwidgets_module.QHBoxLayout = DummyLayout
     qtwidgets_module.QLabel = DummyLabel
     qtwidgets_module.QPushButton = DummyButton
+    qtwidgets_module.QCheckBox = DummyButton
+    qtwidgets_module.QFrame = DummyLabel
+    qtwidgets_module.QGroupBox = DummyLabel
     qtwidgets_module.QSizePolicy = DummySizePolicy
 
     qgis_module.PyQt = pyqt_module

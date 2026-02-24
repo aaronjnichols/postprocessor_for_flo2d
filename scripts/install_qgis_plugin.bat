@@ -6,7 +6,7 @@ for %%I in ("%SCRIPT_DIR%..") do set "REPO_ROOT=%%~fI"
 set "QGIS_PLUGINS_DIR=%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins"
 set "PLUGIN_DIR=%QGIS_PLUGINS_DIR%\flo2d_postprocessor"
 
-echo [1/3] Preparing plugin directory...
+echo [1/4] Preparing plugin directory...
 if not exist "%QGIS_PLUGINS_DIR%" mkdir "%QGIS_PLUGINS_DIR%"
 if not exist "%PLUGIN_DIR%" mkdir "%PLUGIN_DIR%"
 
@@ -15,7 +15,7 @@ if not exist "%REPO_ROOT%\qgis_plugin\metadata.txt" (
     exit /b 1
 )
 
-echo [2/3] Copying qgis_plugin files...
+echo [2/4] Copying qgis_plugin files...
 xcopy "%REPO_ROOT%\qgis_plugin\*" "%PLUGIN_DIR%\" /E /I /Y >nul
 if errorlevel 1 (
     echo Failed to copy plugin files.

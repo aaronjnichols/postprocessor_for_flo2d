@@ -219,6 +219,23 @@ def test_open_dialog_keeps_reference_until_destroyed(qgis_stubs, monkeypatch):
     assert len(module._open_dialog_instances) == 0
 
 
+def test_resolve_timeseries_column_is_case_insensitive(qgis_stubs):
+    module = importlib.import_module("qgis_plugin.hydrograph_action")
+    module = importlib.reload(module)
+
+    df = pd.DataFrame(
+        {
+            "time": [0.0, 1.0],
+            "I3-PROP_HAMILTON010E": [1.2, 2.3],
+        }
+    )
+
+    assert (
+        module._resolve_timeseries_column(df, "i3-prop_hamilton010e")
+        == "I3-PROP_HAMILTON010E"
+    )
+
+
 def test_processing_worker_restores_qgis_processing_modules(qgis_stubs, monkeypatch):
     module = importlib.import_module("qgis_plugin.processing_worker")
     module = importlib.reload(module)

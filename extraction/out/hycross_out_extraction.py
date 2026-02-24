@@ -4,6 +4,11 @@ import pandas as pd
 from core.utilities import time_function
 from core.constants import FPXS_ID, TIME_MAX_DISCHARGE, Q_MAX, VOL_ACFT, WSE_MAX, TIME, DISCHARGE
 
+WSE = "wse"
+FLOW_WIDTH = "flow_width"
+AVE_DEPTH = "ave_depth"
+VELOCITY = "velocity"
+
 # Regular expression patterns
 Q_MAX_PATTERN = re.compile(r'MAXIMUM DISCHARGE FROM CROSS SECTION\s+\d+\s+IS:\s+(\d+\.\d+)\s+CFS')
 TIME_MAX_PATTERN = re.compile(r'AT TIME:\s+(\d+\.\d+)\s+HOURS')
@@ -173,9 +178,14 @@ def extract_hycross_hydrograph_data(folder_path):
                 try:
                     parts = line.split()
                     time = float(parts[0])
+                    flow_width = float(parts[1])
+                    ave_depth = float(parts[2])
                     wse = float(parts[3])  # Extract WS ELEV
+                    velocity = float(parts[4])
                     discharge = float(parts[5])
-                    hydrograph_data[current_section].append((time, discharge))
+                    hydrograph_data[current_section].append(
+                        (time, flow_width, ave_depth, wse, velocity, discharge)
+                    )
                     if wse > current_wse:
                         current_wse = wse
                     max_wse_info[current_section] = current_wse
@@ -185,7 +195,10 @@ def extract_hycross_hydrograph_data(folder_path):
 
     # Convert lists to pandas DataFrames and integrate max discharge
     for section in hydrograph_data:
-        df = pd.DataFrame(hydrograph_data[section], columns=[TIME, DISCHARGE])
+        df = pd.DataFrame(
+            hydrograph_data[section],
+            columns=[TIME, FLOW_WIDTH, AVE_DEPTH, WSE, VELOCITY, DISCHARGE],
+        )
         if section in max_discharge_info:
             df = _integrate_max_discharge_in_df(df, max_discharge_info[section])
         hydrograph_data[section] = df
@@ -211,7 +224,16 @@ def _integrate_max_discharge_in_df(hydrograph_data, max_discharge_info):
         hydrograph_data.loc[hydrograph_data[TIME] == max_time, DISCHARGE] = max_discharge
     else:
         # Insert a new row for the maximum discharge
-        new_row = pd.DataFrame({TIME: [max_time], DISCHARGE: [max_discharge]})
+        new_row = pd.DataFrame(
+            {
+                TIME: [max_time],
+                FLOW_WIDTH: [float("nan")],
+                AVE_DEPTH: [float("nan")],
+                WSE: [float("nan")],
+                VELOCITY: [float("nan")],
+                DISCHARGE: [max_discharge],
+            }
+        )
         hydrograph_data = pd.concat([hydrograph_data, new_row], ignore_index=True)
         hydrograph_data = hydrograph_data.sort_values(by=TIME).reset_index(drop=True)
 

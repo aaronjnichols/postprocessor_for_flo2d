@@ -210,15 +210,21 @@ def _index_to_hours_since_start(df: pd.DataFrame, time_col_name: str = "Time") -
     return df
 
 
-def _extract_entity_time_series(
-    raw_lines: Iterable[str], header_pattern: re.Pattern, data_pattern: re.Pattern, value_group_index: int
-) -> pd.DataFrame:
-    """Generic time-series extractor for entities (nodes/links).
+def _extract_entity_time_series_multi(
+    raw_lines: Iterable[str],
+    header_pattern: re.Pattern,
+    data_pattern: re.Pattern,
+    metric_names: List[str],
+) -> Dict[str, pd.DataFrame]:
+    """Generic multi-metric time-series extractor for entities (nodes/links).
 
-    Builds a wide DataFrame with a numeric ``time`` column (hours since start)
-    and one column per entity id.
+    Returns one wide DataFrame per metric with:
+    - ``time`` column (hours since start)
+    - one column per entity id
     """
-    data: Dict[str, Dict[str, float]] = defaultdict(dict)
+    metric_data: Dict[str, Dict[str, Dict[str, float]]] = {
+        metric: defaultdict(dict) for metric in metric_names
+    }
     current_entity: Optional[str] = None
 
     for line in raw_lines:
@@ -226,35 +232,52 @@ def _extract_entity_time_series(
         if head_match:
             current_entity = head_match.group(1).strip()
             continue
-        if current_entity:
-            data_match = data_pattern.search(line)
-            if data_match:
-                date, time_str, *groups = data_match.groups()
-                datetime_str = f"{date} {time_str}"
+        if not current_entity:
+            continue
+
+        data_match = data_pattern.search(line)
+        if data_match:
+            date, time_str, *groups = data_match.groups()
+            datetime_str = f"{date} {time_str}"
+            for metric_idx, metric_name in enumerate(metric_names):
+                if metric_idx >= len(groups):
+                    break
                 try:
-                    value = float(groups[value_group_index - 3])
-                    data[current_entity][datetime_str] = value
-                except (ValueError, IndexError):
+                    metric_value = float(groups[metric_idx])
+                except (TypeError, ValueError):
                     continue
-            elif not line.strip() or line.strip().startswith("<<<"):
-                current_entity = None
+                metric_data[metric_name][current_entity][datetime_str] = metric_value
+        elif not line.strip() or line.strip().startswith("<<<"):
+            current_entity = None
 
-    if not data:
-        return pd.DataFrame()
-
-    df = pd.DataFrame.from_dict(data, orient="columns")
-    return _index_to_hours_since_start(df)
+    results: Dict[str, pd.DataFrame] = {}
+    for metric_name in metric_names:
+        data = metric_data.get(metric_name, {})
+        if not data:
+            results[metric_name] = pd.DataFrame()
+            continue
+        df = pd.DataFrame.from_dict(data, orient="columns")
+        results[metric_name] = _index_to_hours_since_start(df)
+    return results
 
 
 # ---------------------------------------------------------------------------
 # Extraction functions for specific sections
 # ---------------------------------------------------------------------------
 
-def _extract_node_time_series(raw_lines):
-    """Extract inflow time series data for all nodes."""
-    return _extract_entity_time_series(
-        raw_lines, NODE_HEADER_PATTERN, NODE_DATA_PATTERN, value_group_index=3
+def _extract_node_time_series_multi(raw_lines) -> Dict[str, pd.DataFrame]:
+    """Extract node time-series for all supported SWMM node metrics."""
+    return _extract_entity_time_series_multi(
+        raw_lines,
+        NODE_HEADER_PATTERN,
+        NODE_DATA_PATTERN,
+        metric_names=["total_inflow", "flooding", "depth", "head"],
     )
+
+
+def _extract_node_time_series(raw_lines):
+    """Extract total inflow time series data for all nodes (legacy key)."""
+    return _extract_node_time_series_multi(raw_lines).get("total_inflow", pd.DataFrame())
 
 
 def _extract_node_summary(content: Iterable[str]) -> pd.DataFrame:
@@ -483,7 +506,8 @@ def _extract_nodes_rpt(folder_path: str) -> dict:
     file_path = _find_rpt_file(folder_path)
     raw_content = _read_file_content(file_path)
 
-    node_time_series_df = _extract_node_time_series(raw_content)
+    node_time_series_multi = _extract_node_time_series_multi(raw_content)
+    node_time_series_df = node_time_series_multi.get("total_inflow", pd.DataFrame())
     sections = _parse_sections(raw_content)
 
     node_summary_df = _extract_node_summary(sections.get("node_summary", []))
@@ -519,6 +543,7 @@ def _extract_nodes_rpt(folder_path: str) -> dict:
         "flooding_summary": flooding_summary,
         "outfall_loading": outfall_loading,
         "node_time_series": node_time_series_df,
+        "node_time_series_multi": node_time_series_multi,
         "merged_results": merged_results,
     }
 
@@ -533,9 +558,17 @@ def _parse_link_sections(raw_lines: Iterable[str]) -> Dict[str, List[str]]:
 
 
 def _extract_link_time_series(raw_lines: Iterable[str]) -> pd.DataFrame:
-    """Extract flow time series data for all links."""
-    return _extract_entity_time_series(
-        raw_lines, LINK_HEADER_PATTERN, LINK_DATA_PATTERN, value_group_index=3
+    """Extract flow time series data for all links (legacy key)."""
+    return _extract_link_time_series_multi(raw_lines).get("flow", pd.DataFrame())
+
+
+def _extract_link_time_series_multi(raw_lines: Iterable[str]) -> Dict[str, pd.DataFrame]:
+    """Extract link time-series for all supported SWMM link metrics."""
+    return _extract_entity_time_series_multi(
+        raw_lines,
+        LINK_HEADER_PATTERN,
+        LINK_DATA_PATTERN,
+        metric_names=["flow", "velocity", "depth", "capacity"],
     )
 
 
@@ -674,7 +707,8 @@ def _extract_links_rpt(folder_path: str) -> dict:
     file_path = _find_rpt_file(folder_path)
     raw_content = _read_file_content(file_path)
 
-    link_time_series_df = _extract_link_time_series(raw_content)
+    link_time_series_multi = _extract_link_time_series_multi(raw_content)
+    link_time_series_df = link_time_series_multi.get("flow", pd.DataFrame())
     sections = _parse_link_sections(raw_content)
 
     link_flow_df = _extract_link_flow_summary(sections.get("link_flow", []))
@@ -694,6 +728,7 @@ def _extract_links_rpt(folder_path: str) -> dict:
         "conduit_surcharge": conduit_surcharge_df,
         "flow_classification": flow_classification_df,
         "link_time_series": link_time_series_df,
+        "link_time_series_multi": link_time_series_multi,
         "merged_results": merged_results,
     }
 

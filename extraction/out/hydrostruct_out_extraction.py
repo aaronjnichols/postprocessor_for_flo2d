@@ -4,6 +4,29 @@ import re
 from core.utilities import time_function
 from core.constants import TIME, INFLOW, OUTFLOW, STRUCTURE_ID
 
+def _rows_to_hydrograph_df(rows):
+    """Convert parsed numeric rows to a standardized hydrograph DataFrame."""
+    if not rows:
+        return pd.DataFrame(columns=[TIME, INFLOW, OUTFLOW])
+
+    max_values = max(len(row) - 1 for row in rows)
+    value_columns = []
+    if max_values >= 1:
+        value_columns.append(INFLOW)
+    if max_values >= 2:
+        value_columns.append(OUTFLOW)
+    if max_values > 2:
+        for idx in range(3, max_values + 1):
+            value_columns.append(f"metric_{idx}")
+
+    columns = [TIME] + value_columns
+    normalized = []
+    for row in rows:
+        padded = list(row) + [float("nan")] * (len(columns) - len(row))
+        normalized.append(padded[: len(columns)])
+    return pd.DataFrame(normalized, columns=columns)
+
+
 def _parse_hydrograph_data(folder_path):
     """Parse hydrograph data from HYDROSTRUCT.OUT."""
     file_path = os.path.join(folder_path, 'HYDROSTRUCT.OUT')
@@ -16,7 +39,7 @@ def _parse_hydrograph_data(folder_path):
     current_structure = None
     current_data = []
     structure_header_re = re.compile(r'THE MAXIMUM DISCHARGE FOR:\s+(\S+)\s+')
-    data_row_re = re.compile(r'^\s*(\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)')
+    data_row_re = re.compile(r'^\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?(?:\s+-?\d+(?:\.\d+)?)+)\s*$')
 
     try:
         with open(file_path, 'r') as file:
@@ -24,17 +47,22 @@ def _parse_hydrograph_data(folder_path):
                 header_match = structure_header_re.search(line)
                 if header_match:
                     if current_structure and current_data:
-                        df = pd.DataFrame(current_data, columns=[TIME, INFLOW, OUTFLOW])
+                        df = _rows_to_hydrograph_df(current_data)
                         hydrograph_data[current_structure] = df
                         current_data = []
                     current_structure = header_match.group(1)
                 else:
                     data_match = data_row_re.search(line)
                     if data_match:
-                        time, inflow, outflow = data_match.groups()
-                        current_data.append([float(time), float(inflow), float(outflow)])
+                        parts = line.split()
+                        try:
+                            values = [float(value) for value in parts]
+                        except ValueError:
+                            continue
+                        if len(values) >= 3:
+                            current_data.append(values)
             if current_structure and current_data:
-                df = pd.DataFrame(current_data, columns=[TIME, INFLOW, OUTFLOW])
+                df = _rows_to_hydrograph_df(current_data)
                 hydrograph_data[current_structure] = df
 
         if not hydrograph_data:
