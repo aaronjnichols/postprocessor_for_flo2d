@@ -2,8 +2,9 @@
 FLO-2D Postprocessor QGIS Plugin - Feature inspection map tool.
 
 A custom QgsMapToolIdentify that lets the user click on a feature
-to open an interactive time-series popup.  Supports floodplain cross
-sections, hydraulic structures, and SWMM junctions/outfalls/conduits.
+to open an interactive popup. Supports floodplain cross sections,
+hydraulic structures, SWMM junctions/outfalls/conduits, and channel
+profile layers.
 """
 
 from qgis.PyQt.QtCore import Qt
@@ -17,6 +18,10 @@ from .hydrograph_action import show_popup_for_feature
 # The first match wins, so order matters when a layer could match
 # multiple rules (unlikely but defensive).
 _FEATURE_DETECTORS = [
+    ("xsec_id", "channel_xsec"),
+    ("left_bank", "channel_xsec"),
+    ("bank_side", "channel_bank_segment"),
+    ("xsec_count", "channel_bank_segment"),
     ("fpxs_id", "fpxsec"),
     ("structure_id", "hydraulic_structure"),
     ("structure_", "hydraulic_structure"),
@@ -32,6 +37,16 @@ def _detect_feature_type(field_names):
     for discriminator, ftype in _FEATURE_DETECTORS:
         if discriminator.lower() in normalized:
             return ftype
+    return None
+
+
+def _detect_feature_type_from_layer_name(layer_name):
+    """Best-effort fallback when expected fields are missing/truncated."""
+    name = (layer_name or "").strip().lower()
+    if "channel_xsec" in name:
+        return "channel_xsec"
+    if "channel_bank" in name:
+        return "channel_bank_segment"
     return None
 
 
@@ -59,6 +74,8 @@ class HydrographMapTool(QgsMapToolIdentify):
             feature = result.mFeature
             field_names = [f.name() for f in layer.fields()]
             feature_type = _detect_feature_type(field_names)
+            if feature_type is None:
+                feature_type = _detect_feature_type_from_layer_name(layer.name())
             if feature_type is not None:
                 source = layer.source()
                 show_popup_for_feature(feature_type, source, feature)

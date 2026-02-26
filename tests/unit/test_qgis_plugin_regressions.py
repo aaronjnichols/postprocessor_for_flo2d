@@ -90,6 +90,24 @@ def test_detect_feature_type_supports_shapefile_hydraulic_alias(qgis_stubs):
     assert module._detect_feature_type(["STRUCTURE_"]) == "hydraulic_structure"
 
 
+def test_detect_feature_type_supports_channel_layers(qgis_stubs):
+    module = importlib.import_module("qgis_plugin.hydrograph_map_tool")
+    module = importlib.reload(module)
+
+    assert module._detect_feature_type(["bank_side", "segment_id"]) == "channel_bank_segment"
+    assert module._detect_feature_type(["xsec_id", "max_q_cfs"]) == "channel_xsec"
+    assert module._detect_feature_type(["left_bank", "right_bank"]) == "channel_xsec"
+
+
+def test_detect_feature_type_falls_back_to_layer_name(qgis_stubs):
+    module = importlib.import_module("qgis_plugin.hydrograph_map_tool")
+    module = importlib.reload(module)
+
+    assert module._detect_feature_type_from_layer_name("channel_bank_segments") == "channel_bank_segment"
+    assert module._detect_feature_type_from_layer_name("channel_xsec_lines") == "channel_xsec"
+    assert module._detect_feature_type_from_layer_name("computational_domain") is None
+
+
 def test_get_feature_value_by_aliases_uses_truncated_structure_field(qgis_stubs):
     module = importlib.import_module("qgis_plugin.hydrograph_action")
     module = importlib.reload(module)
@@ -234,6 +252,52 @@ def test_resolve_timeseries_column_is_case_insensitive(qgis_stubs):
         module._resolve_timeseries_column(df, "i3-prop_hamilton010e")
         == "I3-PROP_HAMILTON010E"
     )
+
+
+def test_show_popup_dispatches_channel_handlers(qgis_stubs, monkeypatch):
+    module = importlib.import_module("qgis_plugin.hydrograph_action")
+    module = importlib.reload(module)
+
+    calls = []
+
+    monkeypatch.setattr(
+        module,
+        "_show_channel_segment_profile_popup",
+        lambda *_args, **_kwargs: calls.append("segment"),
+    )
+    monkeypatch.setattr(
+        module,
+        "_show_channel_xsec_popup",
+        lambda *_args, **_kwargs: calls.append("xsec"),
+    )
+
+    module.show_popup_for_feature("channel_bank_segment", "src", object())
+    module.show_popup_for_feature("channel_xsec", "src", object())
+
+    assert calls == ["segment", "xsec"]
+
+
+def test_build_clipped_stage_series_uses_intersections(qgis_stubs):
+    module = importlib.import_module("qgis_plugin.hydrograph_action")
+    module = importlib.reload(module)
+
+    stations = [0.0, 5.0, 10.0]
+    elevations = [12.0, 10.0, 12.0]
+    stage = 11.0
+    series = module._build_clipped_stage_series(
+        stations,
+        elevations,
+        stage,
+        "max_stage",
+        "Max Water Surface (ft)",
+        "#1f77b4",
+    )
+
+    assert series is not None
+    assert series["x"][0] == 2.5
+    assert series["x"][1] == 7.5
+    assert series["y"][0] == 11.0
+    assert series["y"][1] == 11.0
 
 
 def test_processing_worker_restores_qgis_processing_modules(qgis_stubs, monkeypatch):

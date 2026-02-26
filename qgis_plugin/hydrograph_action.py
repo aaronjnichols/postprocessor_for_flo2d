@@ -2,14 +2,17 @@
 FLO-2D Postprocessor QGIS Plugin - Feature data handler.
 
 Resolves the FLO-2D project folder from a layer source path, extracts
-time-series data (with caching), and opens an interactive popup dialog
-for floodplain cross sections, hydraulic structures, and SWMM features.
+time-series/profile data (with caching), and opens interactive popup dialogs
+for floodplain cross sections, hydraulic structures, SWMM features,
+and channel profile layers.
 """
 
 import os
 import sys
+import math
 from contextlib import contextmanager
 
+import numpy as np
 from qgis.utils import iface
 from .project_root import ensure_project_root_on_path
 
@@ -78,6 +81,130 @@ _SWMM_LINK_METRICS = [
 _SWMM_NODE_LABEL = "Inflow (cfs)"
 _SWMM_OUTFALL_LABEL = "Discharge (cfs)"
 
+_CHANNEL_SEGMENT_METRICS = [
+    {
+        "id": "bed_elev",
+        "column": "bed_elev",
+        "label": "Bed Elevation (ft)",
+        "color": "#222222",
+        "default_on": True,
+    },
+    {
+        "id": "left_bank_elev",
+        "column": "left_bank_elev",
+        "label": "Left Bank (ft)",
+        "color": "#2ca02c",
+        "default_on": True,
+    },
+    {
+        "id": "right_bank_elev",
+        "column": "right_bank_elev",
+        "label": "Right Bank (ft)",
+        "color": "#66a61e",
+        "default_on": True,
+    },
+    {
+        "id": "max_water_surface",
+        "column": "max_water_surface",
+        "label": "Max Water Surface (ft)",
+        "color": "#1f77b4",
+        "default_on": True,
+    },
+    {
+        "id": "max_discharge",
+        "column": "max_discharge",
+        "label": "Max Discharge (cfs)",
+        "color": "#d62728",
+        "default_on": False,
+    },
+    {
+        "id": "max_velocity",
+        "column": "max_velocity",
+        "label": "Max Velocity (ft/s)",
+        "color": "#9467bd",
+        "default_on": False,
+    },
+    {
+        "id": "max_froude_no",
+        "column": "max_froude_no",
+        "label": "Max Froude",
+        "color": "#ff7f0e",
+        "default_on": False,
+    },
+    {
+        "id": "max_flow_area",
+        "column": "max_flow_area",
+        "label": "Max Flow Area (ft²)",
+        "color": "#8c564b",
+        "default_on": False,
+    },
+    {
+        "id": "max_wetted_perimeter",
+        "column": "max_wetted_perimeter",
+        "label": "Max Wetted Perimeter (ft)",
+        "color": "#e377c2",
+        "default_on": False,
+    },
+    {
+        "id": "max_hydraulic_radius",
+        "column": "max_hydraulic_radius",
+        "label": "Max Hydraulic Radius (ft)",
+        "color": "#7f7f7f",
+        "default_on": False,
+    },
+    {
+        "id": "max_top_width",
+        "column": "max_top_width",
+        "label": "Max Top Width (ft)",
+        "color": "#17becf",
+        "default_on": False,
+    },
+    {
+        "id": "max_width_depth",
+        "column": "max_width_depth",
+        "label": "Max Width/Depth",
+        "color": "#bcbd22",
+        "default_on": False,
+    },
+    {
+        "id": "max_energy_slope",
+        "column": "max_energy_slope",
+        "label": "Max Energy Slope",
+        "color": "#1f78b4",
+        "default_on": False,
+    },
+    {
+        "id": "max_bed_shear_stress",
+        "column": "max_bed_shear_stress",
+        "label": "Max Bed Shear Stress (lb/ft²)",
+        "color": "#a65628",
+        "default_on": False,
+    },
+    {
+        "id": "max_surface_area",
+        "column": "max_surface_area",
+        "label": "Max Surface Area (ft²)",
+        "color": "#4daf4a",
+        "default_on": False,
+    },
+]
+
+_CHANNEL_HYCHAN_METRICS = [
+    {"id": "discharge", "column": "discharge", "label": "Discharge (cfs)", "color": "blue", "default_on": True},
+    {"id": "elev", "column": "elev", "label": "Water Surface Elev. (ft)", "color": "green", "default_on": True},
+    {"id": "depth", "column": "depth", "label": "Depth (ft)", "color": "orange", "default_on": False},
+    {"id": "velocity", "column": "velocity", "label": "Velocity (ft/s)", "color": "red", "default_on": False},
+    {"id": "froude_no", "column": "froude_no", "label": "Froude Number", "color": "purple", "default_on": False},
+    {"id": "flow_area", "column": "flow_area", "label": "Flow Area (ft²)", "color": "#8c564b", "default_on": False},
+    {"id": "wetted_perimeter", "column": "wetted_perimeter", "label": "Wetted Perimeter (ft)", "color": "#e377c2", "default_on": False},
+    {"id": "hydraulic_radius", "column": "hydraulic_radius", "label": "Hydraulic Radius (ft)", "color": "#7f7f7f", "default_on": False},
+    {"id": "top_width", "column": "top_width", "label": "Top Width (ft)", "color": "#17becf", "default_on": False},
+    {"id": "width_depth", "column": "width_depth", "label": "Width/Depth", "color": "#bcbd22", "default_on": False},
+    {"id": "energy_slope", "column": "energy_slope", "label": "Energy Slope", "color": "#1f78b4", "default_on": False},
+    {"id": "bed_shear_stress", "column": "bed_shear_stress", "label": "Bed Shear Stress (lb/ft²)", "color": "#a65628", "default_on": False},
+    {"id": "surface_area", "column": "surface_area", "label": "Surface Area (ft²)", "color": "#4daf4a", "default_on": False},
+]
+
 
 # ---------------------------------------------------------------------------
 # sys.path / sys.modules context manager
@@ -133,6 +260,8 @@ def _resolve_project_folder(layer_source):
 def _fmt(value, decimals=2):
     """Format a numeric value, returning 'N/A' for non-numeric."""
     if isinstance(value, (int, float)):
+        if not math.isfinite(float(value)):
+            return "N/A"
         return f"{value:.{decimals}f}"
     return "N/A"
 
@@ -241,6 +370,144 @@ def _column_to_label(column_name):
     return column_name.replace("_", " ").title()
 
 
+def _as_int(value):
+    """Return integer value if castable, else None."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_float(value):
+    """Return float value if castable, else None."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_constant_series(x_values, y_value, series_id, label, color, default_on=False):
+    """Build a constant-value line series over x_values."""
+    if y_value is None:
+        return None
+    y_float = _as_float(y_value)
+    if y_float is None:
+        return None
+    return {
+        "id": series_id,
+        "x": x_values,
+        "y": [y_float] * len(x_values),
+        "label": label,
+        "color": color,
+        "default_on": bool(default_on),
+    }
+
+
+def _compute_stage_intervals(stations, elevations, stage):
+    """Compute x-intervals where ground elevation is below/equal stage."""
+    intervals = []
+    for i in range(len(stations) - 1):
+        x1 = float(stations[i])
+        x2 = float(stations[i + 1])
+        z1 = float(elevations[i])
+        z2 = float(elevations[i + 1])
+
+        if not all(np.isfinite([x1, x2, z1, z2])):
+            continue
+        if x1 == x2:
+            continue
+
+        below1 = z1 <= stage
+        below2 = z2 <= stage
+
+        if below1 and below2:
+            intervals.append((min(x1, x2), max(x1, x2)))
+            continue
+
+        if below1 == below2:
+            continue
+
+        dz = z2 - z1
+        if dz == 0:
+            continue
+        t = (stage - z1) / dz
+        if t < 0.0 or t > 1.0:
+            continue
+        xi = x1 + t * (x2 - x1)
+
+        if below1:
+            a, b = x1, xi
+        else:
+            a, b = xi, x2
+        intervals.append((min(a, b), max(a, b)))
+
+    if not intervals:
+        return []
+
+    intervals.sort(key=lambda item: item[0])
+    merged = [list(intervals[0])]
+    tolerance = 1e-9
+    for a, b in intervals[1:]:
+        if a <= merged[-1][1] + tolerance:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+
+    return [(a, b) for a, b in merged if (b - a) > tolerance]
+
+
+def _build_clipped_stage_series(
+    stations,
+    elevations,
+    stage,
+    series_id,
+    label,
+    color,
+    default_on=True,
+):
+    """Build a horizontal stage line clipped to ground intersection bounds."""
+    stage_value = _as_float(stage)
+    if stage_value is None:
+        return None
+
+    x = np.asarray(stations, dtype=float)
+    z = np.asarray(elevations, dtype=float)
+    valid = np.isfinite(x) & np.isfinite(z)
+    if np.count_nonzero(valid) < 2:
+        return None
+
+    x = x[valid]
+    z = z[valid]
+    order = np.argsort(x)
+    x = x[order]
+    z = z[order]
+
+    if stage_value <= float(np.nanmin(z)):
+        return None
+
+    intervals = _compute_stage_intervals(x, z, stage_value)
+    if not intervals:
+        return None
+
+    x_line = []
+    y_line = []
+    for index, (x_start, x_end) in enumerate(intervals):
+        x_line.extend([x_start, x_end])
+        y_line.extend([stage_value, stage_value])
+        if index < len(intervals) - 1:
+            x_line.append(float("nan"))
+            y_line.append(float("nan"))
+
+    return {
+        "id": series_id,
+        "x": x_line,
+        "y": y_line,
+        "label": label,
+        "color": color,
+        "default_on": bool(default_on),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
@@ -253,6 +520,8 @@ def show_popup_for_feature(feature_type, layer_source, feature):
         "swmm_junction": _show_swmm_junction_popup,
         "swmm_outfall": _show_swmm_outfall_popup,
         "swmm_conduit": _show_swmm_conduit_popup,
+        "channel_bank_segment": _show_channel_segment_profile_popup,
+        "channel_xsec": _show_channel_xsec_popup,
     }
     handler = handlers.get(feature_type)
     if handler is None:
@@ -701,6 +970,193 @@ def _show_swmm_conduit_popup(layer_source, feature):
 
 
 # ---------------------------------------------------------------------------
+# Channel profile layers
+# ---------------------------------------------------------------------------
+
+def _get_channel_profile_data(project_folder):
+    """Load and cache channel profile dataset for a project folder."""
+    cache_key = (project_folder, "channel_profiles")
+    if cache_key in _data_cache:
+        return _data_cache[cache_key]
+
+    with _project_import_context():
+        from extraction.out.channel_profile_out_extraction import (
+            extract_channel_profile_dataset,
+        )
+        dataset = extract_channel_profile_dataset(project_folder)
+
+    _data_cache[cache_key] = dataset
+    return dataset
+
+
+def _show_channel_segment_profile_popup(layer_source, feature):
+    project_folder = _resolve_project_folder(layer_source)
+    dataset = _get_channel_profile_data(project_folder)
+
+    segment_value = _get_feature_value_by_aliases(feature, ("segment_id",))
+    segment_id = _as_int(segment_value)
+    if segment_id is None:
+        _warn("Inspect Feature", "Channel bank layer is missing segment_id.")
+        return
+
+    segment_profiles = dataset.get("segment_profiles", {})
+    df = segment_profiles.get(segment_id)
+    if df is None or df.empty:
+        _warn("Inspect Feature", f"No profile data for channel segment {segment_id}.")
+        return
+
+    x_col = "chainage_ft" if "chainage_ft" in df.columns else "xsec_id"
+    series = _build_series_from_dataframe(df, x_col, _CHANNEL_SEGMENT_METRICS)
+    if not series:
+        _warn(
+            "Inspect Feature",
+            f"No plottable profile data for channel segment {segment_id}.",
+        )
+        return
+
+    total_length = _as_float(df.get("length_ft", []).sum()) if "length_ft" in df.columns else None
+    peak_q = None
+    if "max_discharge" in df.columns:
+        peak_q = _as_float(df["max_discharge"].max())
+    if peak_q is None and "max_discharge_hychan" in df.columns:
+        peak_q = _as_float(df["max_discharge_hychan"].max())
+
+    max_wse = _as_float(df.get("max_water_surface", []).max()) if "max_water_surface" in df.columns else None
+    stats = [
+        ("Segment:", str(segment_id)),
+        ("Cross Sections:", str(len(df))),
+        ("Length (ft):", _fmt(total_length)),
+        ("Peak Q (cfs):", _fmt(peak_q)),
+        ("Max WSE (ft):", _fmt(max_wse)),
+    ]
+
+    _open_dialog(
+        f"Channel Profile \u2014 Segment {segment_id}",
+        series,
+        stats,
+        x_label="Channel Length (ft)",
+        show_max_annotations=False,
+    )
+
+
+def _show_channel_xsec_popup(layer_source, feature):
+    project_folder = _resolve_project_folder(layer_source)
+    dataset = _get_channel_profile_data(project_folder)
+
+    xsec_value = _get_feature_value_by_aliases(feature, ("xsec_id",))
+    xsec_id = _as_int(xsec_value)
+    if xsec_id is None:
+        _warn("Inspect Feature", "Cross-section layer is missing xsec_id.")
+        return
+
+    lookup = dataset.get("xsec_lookup")
+    if lookup is None or lookup.empty:
+        _warn("Inspect Feature", "No channel cross-section lookup data is available.")
+        return
+
+    hit = lookup.loc[lookup["xsec_id"] == xsec_id]
+    if hit.empty:
+        _warn("Inspect Feature", f"No channel lookup entry for xsec_id {xsec_id}.")
+        return
+    row = hit.iloc[0]
+
+    element_id = _as_int(row.get("element_id"))
+    xsec_number = _as_int(row.get("xsec_number"))
+    segment_id = _as_int(row.get("segment_id"))
+
+    hydrographs = dataset.get("element_hydrographs", {})
+    hydrograph_df = hydrographs.get(element_id)
+    hydrograph_series = _build_series_from_dataframe(
+        hydrograph_df,
+        "time",
+        _CHANNEL_HYCHAN_METRICS,
+    )
+
+    max_stage = _as_float(row.get("max_stage"))
+    if max_stage is None:
+        max_stage = _as_float(row.get("max_water_surface"))
+    if (
+        max_stage is None
+        and hydrograph_df is not None
+        and not hydrograph_df.empty
+        and "elev" in hydrograph_df.columns
+    ):
+        elev_values = hydrograph_df["elev"].apply(_as_float)
+        elev_values = elev_values[elev_values.notna()]
+        if not elev_values.empty:
+            max_stage = float(elev_values.max())
+
+    xsec_geometry = dataset.get("xsec_geometry", {})
+    geometry_df = xsec_geometry.get(xsec_number) if xsec_number is not None else None
+
+    geometry_series = []
+    if geometry_df is not None and not geometry_df.empty:
+        x_values = geometry_df["station"].values
+        geometry_series.append(
+            {
+                "id": "geometry",
+                "x": x_values,
+                "y": geometry_df["elevation"].values,
+                "label": "Cross-Section Elevation (ft)",
+                "color": "#222222",
+                "default_on": True,
+            }
+        )
+        max_stage_series = _build_clipped_stage_series(
+            x_values,
+            geometry_df["elevation"].values,
+            max_stage,
+            "max_stage",
+            "Max Water Surface (ft)",
+            "#1f77b4",
+            default_on=True,
+        )
+        if max_stage_series is not None:
+            geometry_series.append(max_stage_series)
+
+    if not geometry_series and not hydrograph_series:
+        _warn(
+            "Inspect Feature",
+            f"No geometry or time-series data for channel cross-section {xsec_id}.",
+        )
+        return
+
+    peak_q = None
+    time_peak_q = None
+    if hydrograph_df is not None and not hydrograph_df.empty:
+        if "discharge" in hydrograph_df.columns and "time" in hydrograph_df.columns:
+            q_series = hydrograph_df["discharge"]
+            t_series = hydrograph_df["time"]
+            q_num = q_series.apply(_as_float)
+            valid = q_num.notna()
+            if valid.any():
+                peak_q = float(q_num[valid].max())
+                peak_idx = q_num[valid].idxmax()
+                time_peak_q = _as_float(t_series.loc[peak_idx])
+
+    if peak_q is None:
+        peak_q = _as_float(row.get("max_discharge"))
+    if time_peak_q is None:
+        time_peak_q = _as_float(row.get("time_max_discharge"))
+
+    stats = [
+        ("Segment:", str(segment_id) if segment_id is not None else "N/A"),
+        ("Element:", str(element_id) if element_id is not None else "N/A"),
+        ("XSEC No:", str(xsec_number) if xsec_number is not None else "N/A"),
+        ("Peak Q (cfs):", _fmt(peak_q)),
+        ("Time to Peak (hr):", _fmt(time_peak_q)),
+        ("Max Stage (ft):", _fmt(max_stage)),
+    ]
+
+    _open_channel_xsec_dialog(
+        f"Channel Cross Section \u2014 XSEC {xsec_id}",
+        geometry_series,
+        hydrograph_series,
+        stats,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
 
@@ -724,10 +1180,41 @@ def _add_stat_alias(stats_list, label, row, columns, allow_text=False):
         return
 
 
-def _open_dialog(title, series, stats):
+def _open_dialog(
+    title,
+    series,
+    stats,
+    x_label="Time (hours)",
+    show_max_annotations=True,
+):
     """Import and open the dialog (keeps matplotlib import lazy)."""
     from .hydrograph_dialog import HydrographDialog
-    dlg = HydrographDialog(title, series, stats, parent=iface.mainWindow())
+    dlg = HydrographDialog(
+        title,
+        series,
+        stats,
+        parent=iface.mainWindow(),
+        x_label=x_label,
+        show_max_annotations=show_max_annotations,
+    )
+    _open_dialog_instances.append(dlg)
+    dlg.destroyed.connect(
+        lambda *_args, _dlg=dlg: _close_dialog_reference(_dlg)
+    )
+    dlg.show()
+
+
+def _open_channel_xsec_dialog(title, geometry_series, hydrograph_series, stats):
+    """Import and open the channel cross-section dialog."""
+    from .channel_profile_dialog import ChannelCrossSectionDialog
+
+    dlg = ChannelCrossSectionDialog(
+        title,
+        geometry_series,
+        hydrograph_series,
+        stats,
+        parent=iface.mainWindow(),
+    )
     _open_dialog_instances.append(dlg)
     dlg.destroyed.connect(
         lambda *_args, _dlg=dlg: _close_dialog_reference(_dlg)
