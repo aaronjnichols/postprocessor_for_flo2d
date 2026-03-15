@@ -180,7 +180,9 @@ OUTFLOW_CODE = 'outflow_code'
 # =============================================================================
 # OUTNQ.OUT (outflow elements only)
 # =============================================================================
-MAX_Q_OUTNQ = 'outflow_max_q'
+# OUTNQ peak discharge uses the shared canonical max-discharge field name.
+# Keep the legacy constant as an alias so existing imports continue to work.
+MAX_Q_OUTNQ = Q_MAX
 TIME_PEAK = 'time_peak'
 
 # =============================================================================

@@ -3,7 +3,7 @@ import re
 import logging
 import pandas as pd
 from core.utilities import time_function
-from core.constants import GRID_ID, TIME, MAX_Q_OUTNQ, TIME_PEAK, DISCHARGE, normalize_grid_id
+from core.constants import GRID_ID, TIME, Q_MAX, TIME_PEAK, DISCHARGE, normalize_grid_id
 from core.logger import setup_logger
 
 
@@ -15,7 +15,7 @@ def _extract_outnq_summary(folder_path):
         folder_path (str): Path to the directory containing OUTNQ.OUT file.
         
     Returns:
-        pd.DataFrame: DataFrame with columns [GRID_ID, MAX_Q, TIME_PEAK] containing
+        pd.DataFrame: DataFrame with columns [GRID_ID, Q_MAX, TIME_PEAK] containing
                      maximum discharge and time to peak for each outflow element.
                      
     Raises:
@@ -50,7 +50,7 @@ def _extract_outnq_summary(folder_path):
                 time_peak = float(time_str)
                 summary_data.append({
                     GRID_ID: grid_id,
-                    MAX_Q_OUTNQ: max_q,
+                    Q_MAX: max_q,
                     TIME_PEAK: time_peak
                 })
             except ValueError as e:
@@ -64,14 +64,14 @@ def _extract_outnq_summary(folder_path):
 
         # Ensure proper data types
         summary_df[GRID_ID] = pd.to_numeric(summary_df[GRID_ID], errors='coerce').astype('Int64')
-        summary_df[MAX_Q_OUTNQ] = pd.to_numeric(summary_df[MAX_Q_OUTNQ], errors='coerce')
+        summary_df[Q_MAX] = pd.to_numeric(summary_df[Q_MAX], errors='coerce')
         summary_df[TIME_PEAK] = pd.to_numeric(summary_df[TIME_PEAK], errors='coerce')
 
         # Normalize grid ids to internal 0-based convention
         if not summary_df.empty and GRID_ID in summary_df.columns:
             summary_df[GRID_ID] = summary_df[GRID_ID].apply(
                 lambda v: normalize_grid_id(int(v)) if pd.notna(v) else v
-            )
+            ).astype('Int64')
         
         logger.info(f"Successfully extracted {len(summary_df)} outflow summary records from OUTNQ.OUT")
         return summary_df
