@@ -1,20 +1,32 @@
-import sys
+import os
+
 import pandas as pd
-import numpy as np
+
 from core.utilities import time_function
 from core.constants import normalize_grid_id, GRID_ID, AREA_REDUCTION_FACTOR
 
+
+def _resolve_arf_dat_path(path: str) -> str:
+    """Accept either a project directory or an explicit ARF.DAT file path."""
+    if os.path.isdir(path):
+        return os.path.join(path, 'ARF.DAT')
+    return path
+
 @time_function
-def extract_arf_dat(file_path):
-    '''
-    Extracts grid IDs and Area Reduction Factors from a file.
+def extract_arf_dat(path: str) -> pd.DataFrame:
+    """
+    Extract grid IDs and Area Reduction Factors from ARF.DAT.
 
     Parameters:
-        file_path (str): The path to the file to be processed.
+        path (str): Path to ARF.DAT or the project directory containing it.
 
     Returns:
-        pd.DataFrame: A DataFrame containing 'grid_id' and 'arf' columns.
-    '''
+        pd.DataFrame: DataFrame containing normalized grid IDs and ARF values.
+    """
+    file_path = _resolve_arf_dat_path(path)
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"ARF.DAT file not found at {file_path}")
+
     data = []
     with open(file_path, 'r') as file:
         for line in file:

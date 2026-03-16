@@ -247,7 +247,11 @@ def extract_model_data_to_df(
     main_df = data_frames['DEPTH.OUT']
     logger.info(f"Main dataframe (DEPTH.OUT) shape: {main_df.shape}")
 
-    main_df = controlled_merge(main_df, data_frames)
+    merge_frames = {
+        name: df for name, df in data_frames.items()
+        if name != 'ARF.DAT'
+    }
+    main_df = controlled_merge(main_df, merge_frames)
 
     # Merge ARF data if available
     if 'ARF.DAT' in data_frames:
