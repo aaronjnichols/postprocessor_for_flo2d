@@ -100,6 +100,8 @@ EXTRACTOR_REGISTRY: Dict[str, Dict[str, object]] = {
     'CHANNEL_COMBINED': { 'func': extract_channel_data,     'enabled': False, 'heavy': True,  'merge_key': 'GRID_ID', 'virtual': True, 'depends_on': ['CHAN.DAT'] },
 }
 
+REQUIRED_MODEL_FILES = ('DEPTH.OUT',)
+
 
 def _resolve_enabled_extractors(
     performance_profile: str,
@@ -151,6 +153,32 @@ def _resolve_enabled_extractors(
     return {name: meta for name, meta in registry.items() if meta.get('enabled')}
 
 
+def _validate_required_model_files(file_path: str) -> None:
+    """Raise a clear error when required files for merged extraction are absent."""
+    missing_files = [
+        name for name in REQUIRED_MODEL_FILES
+        if not check_file_exists(get_file_path(file_path, name))
+    ]
+    if missing_files:
+        missing_text = ", ".join(missing_files)
+        raise FileNotFoundError(
+            f"Missing required FLO-2D file(s) for merged extraction in {file_path}: {missing_text}"
+        )
+
+
+def _validate_required_extractors(enabled_registry: Dict[str, Dict[str, object]]) -> None:
+    """Reject configurations that disable required merged-model extractors."""
+    disabled_required = [
+        name for name in REQUIRED_MODEL_FILES
+        if name not in enabled_registry
+    ]
+    if disabled_required:
+        disabled_text = ", ".join(disabled_required)
+        raise ValueError(
+            f"Cannot disable required FLO-2D extractor(s) for merged extraction: {disabled_text}"
+        )
+
+
 def extract_model_data_to_df(
     file_path: str,
     enable_channel_combined: bool = False,
@@ -182,9 +210,12 @@ def extract_model_data_to_df(
         disable=disable,
         enable_channel_combined=enable_channel_combined,
     )
+    _validate_required_model_files(file_path)
+    _validate_required_extractors(enabled_registry)
 
     # Pre-scan for present files and cap workers accordingly
     present_extractors = []
+    extraction_errors: Dict[str, Exception] = {}
     for name, meta in enabled_registry.items():
         # Virtual entries resolve via dependency presence, non-virtual check file
         if meta.get('virtual'):
@@ -217,6 +248,7 @@ def extract_model_data_to_df(
                 else:
                     logger.info(f"{name} is empty or returned no rows")
             except Exception as e:
+                extraction_errors[name] = e
                 logger.error(f"Error processing {name}: {e}")
 
     # Fallback: if INFIL primary not already added by pool but INFIL.DAT exists
@@ -244,7 +276,14 @@ def extract_model_data_to_df(
 
     verify_grid_ids(data_frames)
 
-    main_df = data_frames['DEPTH.OUT']
+    main_df = data_frames.get('DEPTH.OUT')
+    if main_df is None or main_df.empty:
+        depth_error = extraction_errors.get('DEPTH.OUT')
+        if depth_error is not None:
+            raise RuntimeError("Failed to extract required FLO-2D file DEPTH.OUT") from depth_error
+        raise RuntimeError(
+            f"Required FLO-2D file DEPTH.OUT did not produce any rows in {file_path}"
+        )
     logger.info(f"Main dataframe (DEPTH.OUT) shape: {main_df.shape}")
 
     merge_frames = {
@@ -260,12 +299,6 @@ def extract_model_data_to_df(
         main_df = pd.merge(main_df, data_frames['ARF.DAT'], on=GRID_ID, how='left')
         main_df[AREA_REDUCTION_FACTOR] = main_df[AREA_REDUCTION_FACTOR].fillna(0.0)
         logger.info(f"Dataframe shape after merging ARF.DAT: {main_df.shape}")
-
-    if 'SUPER.OUT' in data_frames:
-        from core.constants import GRID_ID
-        logger.info("Merging SUPER.OUT data...")
-        main_df = pd.merge(main_df, data_frames['SUPER.OUT'], on=GRID_ID, how='left')
-        logger.info(f"Dataframe shape after merging SUPER.OUT: {main_df.shape}")
 
     main_df = ensure_unique_columns(main_df)
     log_time("Extracting model data", start_time)

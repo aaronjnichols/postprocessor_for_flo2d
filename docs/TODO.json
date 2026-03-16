@@ -13,7 +13,7 @@
     {
       "name": "Stabilize merged model dataframe assembly",
       "description": "`extract_model_data_to_df()` merges `SUPER.OUT` inside `controlled_merge()` and then merges it again, creating duplicated `*_x` and `*_y` columns; remove double-merges, add explicit required-file validation, and fail cleanly when `DEPTH.OUT` is absent.",
-      "status": "not started"
+      "status": "complete"
     },
     {
       "name": "Correct MANNINGS_N.DAT parsing",
