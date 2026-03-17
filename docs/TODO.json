@@ -18,7 +18,7 @@
     {
       "name": "Correct MANNINGS_N.DAT parsing",
       "description": "`extract_mannings_n_dat()` reads `MANNINGS_N.DAT` with a two-column schema even though the fixture data is grid/x/y/n style; fix the parser so grid IDs and Manning values are mapped correctly.",
-      "status": "not started"
+      "status": "complete"
     },
     {
       "name": "Repair pytest configuration",
