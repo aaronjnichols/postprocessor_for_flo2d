@@ -48,6 +48,52 @@ from .output_discovery import get_vector_output_dirs
 from .project_root import ensure_project_root_on_path
 from .processing_worker import ProcessingWorker
 
+_FALLBACK_PROJECT_MARKERS = (
+    "CADPTS.DAT",
+    "TOPO.DAT",
+    "FPLAIN.DAT",
+    "MANNINGS_N.DAT",
+    "DEPTH.OUT",
+    "CHAN.DAT",
+    "INFLOW.DAT",
+    "SWMM.inp",
+)
+
+
+def _load_supported_file_helpers():
+    """Load registry helpers after bootstrapping the repo root onto sys.path."""
+    project_root, _ = ensure_project_root_on_path(__file__)
+    if project_root is None:
+        return None, None
+    try:
+        from core.supported_files import (
+            describe_project_marker_examples,
+            list_present_validation_marker_files,
+        )
+    except ImportError:
+        return None, None
+    return describe_project_marker_examples, list_present_validation_marker_files
+
+
+def _describe_project_markers() -> str:
+    """Return short sample text for folder-validation messages."""
+    describe_helper, _ = _load_supported_file_helpers()
+    if describe_helper is None:
+        return ", ".join((*_FALLBACK_PROJECT_MARKERS[:4], "..."))
+    return describe_helper()
+
+
+def _list_present_project_markers(folder: str) -> list[str]:
+    """Return supported marker files found in a project folder."""
+    _, list_helper = _load_supported_file_helpers()
+    if list_helper is None:
+        return [
+            filename
+            for filename in _FALLBACK_PROJECT_MARKERS
+            if os.path.isfile(os.path.join(folder, filename))
+        ]
+    return list_helper(folder)
+
 
 class Flo2dPostprocessorDialog(QDialog):
     """Main dialog for the FLO-2D Postprocessor plugin."""
@@ -117,7 +163,7 @@ class Flo2dPostprocessorDialog(QDialog):
         self.folder_list.setMaximumHeight(140)
         self.folder_list.setToolTip(
             "FLO-2D project directories to process.\n"
-            "Each directory should contain CADPTS.DAT / TOPO.DAT / DEPTH.OUT etc."
+            f"Each directory should contain supported files such as {_describe_project_markers()}."
         )
         folders_vbox.addWidget(self.folder_list)
 
@@ -333,18 +379,14 @@ class Flo2dPostprocessorDialog(QDialog):
                 return
 
         # Validate it looks like a FLO-2D folder
-        flo2d_markers = [
-            "CADPTS.DAT", "TOPO.DAT", "FPLAIN.DAT", "MANNINGS_N.DAT",
-            "DEPTH.OUT", "CHAN.DAT", "INFLOW.DAT", "SWMM.inp",
-        ]
-        found = [f for f in flo2d_markers if os.path.isfile(os.path.join(folder, f))]
+        found = _list_present_project_markers(folder)
         if not found:
             reply = QMessageBox.question(
                 self,
                 "Folder Validation",
                 f"This folder does not appear to contain FLO-2D files:\n\n"
                 f"{folder}\n\n"
-                f"No typical FLO-2D files (CADPTS.DAT, TOPO.DAT, DEPTH.OUT, etc.) were found.\n\n"
+                f"No supported FLO-2D files ({_describe_project_markers()}) were found.\n\n"
                 f"Add it anyway?",
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No,
@@ -688,13 +730,7 @@ class Flo2dPostprocessorDialog(QDialog):
             folders = []
         for folder in folders:
             if os.path.isdir(folder):
-                flo2d_markers = [
-                    "CADPTS.DAT", "TOPO.DAT", "FPLAIN.DAT", "DEPTH.OUT",
-                ]
-                found = [
-                    f for f in flo2d_markers
-                    if os.path.isfile(os.path.join(folder, f))
-                ]
+                found = _list_present_project_markers(folder)
                 basename = os.path.basename(folder)
                 item = QListWidgetItem()
                 item.setText(f"{basename}   ({len(found)} FLO-2D files found)")

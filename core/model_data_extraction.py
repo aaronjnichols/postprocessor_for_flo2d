@@ -20,85 +20,17 @@ from extraction.base.extraction_utils import (
     controlled_merge,
 )
 from core.file_discovery import get_file_path, check_file_exists
-from core.constants import GRID_ID, NODE, normalize_grid_id
-from extraction.out.depth_out_extraction import extract_depth_out
-from extraction.dat.mannings_n_dat_extraction import extract_mannings_n_dat
-from extraction.dat.topo_dat_extraction import extract_topo_dat
-from extraction.out.velfp_out_extraction import extract_velfp_out
-from extraction.out.maxqhyd_out_extraction import extract_maxqhyd_out
-from extraction.out.maxwselev_out_extraction import extract_maxwselev_out
-from extraction.out.infil_depth_out_extraction import extract_infil_depth_out
-from extraction.out.timeoneft_out_extraction import extract_timeoneft_out
-from extraction.out.timetwoft_out_extraction import extract_timetwoft_out
-from extraction.out.timetopeak_out_extraction import extract_timetopeak_out
-from extraction.out.finalvel_out_extraction import extract_finalvel_out
-from extraction.out.finaldep_out_extraction import extract_finaldep_out
-from extraction.dat.rain_dat_extraction import extract_rain_dat
-from extraction.out.super_out_extraction import extract_super_out
+from core.supported_files import (
+    get_model_extractor_registry,
+    get_required_model_files,
+)
 from extraction.dat.infil_dat_extraction import extract_infil_dat, get_primary_infiltration_data
 from extraction.dat.fpxsec_dat_extraction import extract_fpxsec_dat
-from extraction.dat.arf_dat_extraction import extract_arf_dat
-from extraction.out.veloc_out_extraction import extract_veloc_out
-from extraction.out.depch_out_extraction import extract_depch_out
-from extraction.out.time_out_extraction import extract_time_out
-from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_out
-from extraction.out.outnq_out_extraction import extract_outnq_out, extract_outnq_summary
-from extraction.dat.outflow_dat_extraction import extract_outflow_dat
-from extraction.out.chanmax_out_extraction import extract_chanmax_out
-from extraction.out.channel_extraction import extract_channel_data
+from extraction.out.outnq_out_extraction import extract_outnq_out
 
 
-## Removed ad-hoc normalization/rename adapters:
-## - EVACUATEDFP, OUTNQ summary, OUTFLOW, and CHANMAX extractors now normalize/shape at source.
-
-
-def _adapter_infil_primary(path: str) -> pd.DataFrame:
-    """Adapter for INFIL.DAT to return the primary spatial infiltration dataset keyed by GRID_ID."""
-    try:
-        infil_data = extract_infil_dat(path)
-        df = get_primary_infiltration_data(infil_data)
-        return df if df is not None else pd.DataFrame()
-    except Exception:
-        return pd.DataFrame()
-
-
-FILE_EXTRACTORS = {
-    # NOTE: Replaced by EXTRACTOR_REGISTRY below
-}
-
-# P2: Replace simple dict with a registry and profile support
-# merge_key: 'GRID_ID' means regular merge; 'NONE' means ancillary/no merge into main
-EXTRACTOR_REGISTRY: Dict[str, Dict[str, object]] = {
-    # Core/grid-mergeable, lightweight
-    'DEPTH.OUT':        { 'func': extract_depth_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'MANNINGS_N.DAT':   { 'func': extract_mannings_n_dat,   'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'TOPO.DAT':         { 'func': extract_topo_dat,         'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'VELFP.OUT':        { 'func': extract_velfp_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'MAXQHYD.OUT':      { 'func': extract_maxqhyd_out,      'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'MAXWSELEV.OUT':    { 'func': extract_maxwselev_out,    'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'INFIL_DEPTH.OUT':  { 'func': extract_infil_depth_out,  'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'TIMEONEFT.OUT':    { 'func': extract_timeoneft_out,    'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'TIMETWOFT.OUT':    { 'func': extract_timetwoft_out,    'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'TIMETOPEAK.OUT':   { 'func': extract_timetopeak_out,   'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'FINALVEL.OUT':     { 'func': extract_finalvel_out,     'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'FINALDEP.OUT':     { 'func': extract_finaldep_out,     'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'RAIN.DAT':         { 'func': extract_rain_dat,         'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'SUPER.OUT':        { 'func': extract_super_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'ARF.DAT':          { 'func': extract_arf_dat,          'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    # Added pool-wrapped special cases
-    'INFIL.DAT':        { 'func': _adapter_infil_primary,   'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'FPXSEC.DAT':       { 'func': extract_fpxsec_dat,       'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    # P0 quick wins
-    'VELOC.OUT':        { 'func': extract_veloc_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'DEPCH.OUT':        { 'func': extract_depch_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'TIME.OUT':         { 'func': extract_time_out,         'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'EVACUATEDFP.OUT':  { 'func': extract_evacuatedfp_out,  'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'OUTNQ.OUT':        { 'func': extract_outnq_summary,    'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'OUTFLOW.DAT':      { 'func': extract_outflow_dat,      'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'CHANMAX.OUT':      { 'func': extract_chanmax_out,      'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    # Virtual/optional heavy module
-    'CHANNEL_COMBINED': { 'func': extract_channel_data,     'enabled': False, 'heavy': True,  'merge_key': 'GRID_ID', 'virtual': True, 'depends_on': ['CHAN.DAT'] },
-}
+EXTRACTOR_REGISTRY: Dict[str, Dict[str, object]] = get_model_extractor_registry()
+REQUIRED_MODEL_FILES = get_required_model_files()
 
 REQUIRED_MODEL_FILES = ('DEPTH.OUT',)
 

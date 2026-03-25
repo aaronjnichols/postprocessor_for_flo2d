@@ -23,22 +23,22 @@
     {
       "name": "Repair pytest configuration",
       "description": "`pytest.ini` uses `[tool:pytest]` instead of `[pytest]`, so custom marks are not registered and the suite emits unknown-mark warnings; fix the config and keep coverage options under the correct section.",
-      "status": "not started"
+      "status": "complete"
     },
     {
       "name": "Unify extractor interfaces and logging",
       "description": "Standardize extractors to accept either project folders or explicit file paths consistently, replace remaining ad-hoc `print()` calls, and merge the duplicated logger and `TimingLogger` implementations so repeated setup does not accumulate handlers.",
-      "status": "not started"
+      "status": "complete"
     },
     {
       "name": "Create a single supported-file registry",
       "description": "Supported filenames are split across `main.py`, `core/file_discovery.py`, and `core/model_data_extraction.py`, which causes drift for files like `HYDROSTRUCT.OUT` and partial `LEVEE.DAT` support; centralize this metadata and drive discovery, orchestration, and UI from one source.",
-      "status": "not started"
+      "status": "complete"
     },
     {
       "name": "Add regression tests for merge and orchestration bugs",
       "description": "Add targeted tests for ARF loading, MANNINGS parsing, OUTNQ canonical columns, duplicate SUPER merges, and missing-core-file behavior so the current regressions do not recur.",
-      "status": "not started"
+      "status": "complete"
     },
     {
       "name": "Expand parser coverage for under-tested modules",

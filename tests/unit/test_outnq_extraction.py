@@ -58,7 +58,19 @@ def test_outnq_summary_normalizes_zero_based():
     assert pd.api.types.is_integer_dtype(df[GRID_ID])
     assert (df[GRID_ID] == 4).any()
 
+def test_outnq_extractors_accept_explicit_file_path():
+    tmp_dir = _prepare_model_dir("outnq_file_path_case")
+    _write_outnq_file(tmp_dir)
+    outnq_file = os.path.join(tmp_dir, "OUTNQ.OUT")
 
+    directory_summary = extract_outnq_summary(tmp_dir)
+    file_summary = extract_outnq_summary(outnq_file)
+    pd.testing.assert_frame_equal(file_summary, directory_summary)
+
+    directory_result = extract_outnq_out(tmp_dir)
+    file_result = extract_outnq_out(outnq_file)
+    pd.testing.assert_frame_equal(file_result["summary"], directory_result["summary"])
+    pd.testing.assert_frame_equal(file_result["time_series"], directory_result["time_series"])
 def test_outnq_timeseries_columns_zero_based():
     tmp_dir = _prepare_model_dir("outnq_timeseries_case")
     _write_outnq_file(tmp_dir)

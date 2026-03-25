@@ -7,6 +7,7 @@ import os
 import pandas as pd
 
 from core.utilities import time_function
+from core.path_resolver import resolve_model_file_path
 
 _INVALID_SENTINEL = -999.0
 
@@ -18,7 +19,7 @@ def extract_chanws_out(folder_path: str) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Columns ['element_id', 'x', 'y', 'max_wse'].
     """
-    file_path = os.path.join(folder_path, "CHANWS.OUT")
+    file_path = resolve_model_file_path(folder_path, "CHANWS.OUT")
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"CHANWS.OUT file not found at {file_path}")
 

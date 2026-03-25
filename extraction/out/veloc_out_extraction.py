@@ -3,6 +3,7 @@ import pandas as pd
 from core.utilities import time_function
 from core.constants import GRID_ID, VELOCITY_CHANNEL, normalize_grid_id
 from extraction.base.extraction_utils import read_with_dask_optimized
+from core.path_resolver import resolve_model_file_path
 
 
 @time_function
@@ -12,7 +13,7 @@ def extract_veloc_out(path, relevant_grid_ids=None):
     This reader uses pandas.read_csv with explicit column selection and dtypes
     for improved performance on large files.
     """
-    file_path = os.path.join(path, 'VELOC.OUT')
+    file_path = resolve_model_file_path(path, 'VELOC.OUT')
 
     # Dask-optimized read for scalability on large files
     ddf = read_with_dask_optimized(

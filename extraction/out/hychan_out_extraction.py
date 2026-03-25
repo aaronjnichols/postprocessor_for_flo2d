@@ -9,6 +9,7 @@ from typing import Dict, List
 import pandas as pd
 
 from core.utilities import time_function
+from core.path_resolver import resolve_model_file_path
 
 _BLOCK_START_RE = re.compile(r"CHANNEL HYDROGRAPH FOR ELEMENT NO:\s*(\d+)")
 
@@ -47,7 +48,7 @@ def extract_hychan_out(folder_path: str) -> Dict[int, pd.DataFrame]:
     Returns:
         Dict[int, pd.DataFrame]: Mapping element_id -> hydrograph DataFrame.
     """
-    file_path = os.path.join(folder_path, "HYCHAN.OUT")
+    file_path = resolve_model_file_path(folder_path, "HYCHAN.OUT")
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"HYCHAN.OUT file not found at {file_path}")
 

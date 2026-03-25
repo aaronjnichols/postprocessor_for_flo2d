@@ -4,6 +4,12 @@ import pandas as pd
 
 from core.utilities import time_function
 from core.constants import normalize_grid_id, GRID_ID, AREA_REDUCTION_FACTOR
+from core.path_resolver import resolve_model_file_path
+
+
+def _resolve_arf_dat_path(path: str) -> str:
+    """Accept either a project directory or an explicit ARF.DAT file path."""
+    return resolve_model_file_path(path, "ARF.DAT")
 
 
 def _resolve_arf_dat_path(path: str) -> str:

@@ -10,11 +10,12 @@ from core.constants import (
     TIME_MAX_STAGE,
     normalize_grid_id,
 )
+from core.path_resolver import resolve_model_file_path
 
 @time_function
 def extract_chanmax_out(path):
     """Extract channel maximum results from CHANMAX.OUT"""
-    file_path = os.path.join(path, 'CHANMAX.OUT')
+    file_path = resolve_model_file_path(path, 'CHANMAX.OUT')
     data = []
     with open(file_path, 'r', encoding='ISO-8859-1') as file:
         for line in file:

@@ -3,6 +3,7 @@ import pandas as pd
 import re
 from core.utilities import time_function
 from core.constants import TIME, INFLOW, OUTFLOW, STRUCTURE_ID
+from core.path_resolver import resolve_model_file_path
 
 def _rows_to_hydrograph_df(rows):
     """Convert parsed numeric rows to a standardized hydrograph DataFrame."""
@@ -29,7 +30,7 @@ def _rows_to_hydrograph_df(rows):
 
 def _parse_hydrograph_data(folder_path):
     """Parse hydrograph data from HYDROSTRUCT.OUT."""
-    file_path = os.path.join(folder_path, 'HYDROSTRUCT.OUT')
+    file_path = resolve_model_file_path(folder_path, 'HYDROSTRUCT.OUT')
     
     # Check if file exists
     if not os.path.exists(file_path):
@@ -79,7 +80,7 @@ def _parse_hydrograph_data(folder_path):
 
 def _extract_hydrostruct_peaks(folder_path):
     """Extract peak discharge and time to peak from HYDROSTRUCT.OUT."""
-    file_path = os.path.join(folder_path, 'HYDROSTRUCT.OUT')
+    file_path = resolve_model_file_path(folder_path, 'HYDROSTRUCT.OUT')
     peaks = {}
     with open(file_path, 'r') as file:
         for line in file:
@@ -122,7 +123,7 @@ def extract_hydrostruct_out(folder_path):
         ValueError: If no data found in file
         RuntimeError: If error reading file
     """
-    file_path = os.path.join(folder_path, 'HYDROSTRUCT.OUT')
+    file_path = resolve_model_file_path(folder_path, 'HYDROSTRUCT.OUT')
     
     # Check if file exists
     if not os.path.exists(file_path):

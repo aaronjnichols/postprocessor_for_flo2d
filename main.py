@@ -33,6 +33,7 @@ from core.file_discovery import (
     check_file_exists, check_special_processor_requirements,
     get_existing_files, get_file_path, log_file_status
 )
+from core.logger import TimingLogger, setup_logger
 from core.model_data_extraction import extract_model_data_to_df
 from core.utilities import create_required_folders
 
@@ -75,58 +76,6 @@ from reporting.spreadsheets.inflow_spreadsheets import create_pdf_plots, export_
 from reporting.spreadsheets.outnq_spreadsheets import create_outnq_spreadsheets_and_plots
 from reporting.spreadsheets.rain_spreadsheet import rain_spreadsheet_and_plot
 from reporting.spreadsheets.swmm_rating_tables_spreadsheet import swmm_rating_tables_and_plots
-
-class TimingLogger:
-    """
-    A helper class to log the timing of each processing step.
-    """
-    def __init__(self, logger):
-        self.logger = logger
-        self.start_time = time.time()
-        self.last_log_time = self.start_time
-
-    def log(self, message):
-        current_time = time.time()
-        elapsed = current_time - self.last_log_time
-        total_elapsed = current_time - self.start_time
-        self.logger.info(f"{message} (Step Duration: {elapsed:.2f} seconds, Total Elapsed: {total_elapsed:.2f} seconds)")
-        self.last_log_time = current_time
-
-def setup_logger(level=logging.INFO, log_file=None):
-    """
-    Sets up the logger with the specified level and log file.
-
-    Args:
-        level (int): Logging level.
-        log_file (str): Path to the log file.
-
-    Returns:
-        logging.Logger: Configured logger instance.
-    """
-    logger = logging.getLogger('FLO2D_Postprocessor')
-    logger.setLevel(level)
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-
-    # Clear existing handlers to prevent duplicate logs
-    if logger.hasHandlers():
-        logger.handlers.clear()
-
-    # Console Handler
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    # File Handler
-    if log_file:
-        try:
-            file_handler = logging.FileHandler(log_file)
-            file_handler.setFormatter(formatter)
-            logger.addHandler(file_handler)
-            logger.debug(f"Logging initialized. Logs will be saved to: {log_file}")
-        except IOError as e:
-            logger.warning(f"Unable to create log file at {log_file}. Logging will continue on console only. Error: {e}")
-
-    return logger
 
 def process_flo2d(file_path, coord_system, create_flo2d_points, verbose=False, log_file=None, style_folder=None, output_format="Shapefile", timing_logger=None):
     """

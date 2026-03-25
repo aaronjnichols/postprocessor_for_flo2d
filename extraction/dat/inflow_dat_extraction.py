@@ -3,6 +3,7 @@ import logging
 import pandas as pd
 from core.logger import setup_logger
 from core.constants import normalize_grid_id
+from core.path_resolver import resolve_model_file_path
 
 
 def extract_inflow_dat(folder_path):
@@ -20,7 +21,7 @@ def extract_inflow_dat(folder_path):
         FileNotFoundError: If INFLOW.DAT file is not found.
     """
     logger = setup_logger('INFLOW', level=logging.INFO)
-    file_path = os.path.join(folder_path, 'INFLOW.DAT')
+    file_path = resolve_model_file_path(folder_path, 'INFLOW.DAT')
     
     if not os.path.exists(file_path):
         logger.error(f"INFLOW.DAT file not found at {file_path}")

@@ -1,10 +1,11 @@
 import os
 import pandas as pd
 from core.constants import GRID_ID, RAIN_DEPTH, normalize_grid_id
+from core.path_resolver import resolve_model_file_path
 
 
 def extract_rain_dat(path):
-    rain_file = os.path.join(path, 'RAIN.DAT')
+    rain_file = resolve_model_file_path(path, 'RAIN.DAT')
     with open(rain_file, 'r') as file:
         lines = file.readlines()
 

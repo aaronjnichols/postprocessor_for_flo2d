@@ -1,10 +1,11 @@
 import os
 import pandas as pd
 from core.constants import GRID_ID, MAX_FROUDE_NO, DEPTH_SUPER, TIME_SUPER, NUM_SUPERCRITICAL_TIMESTEPS, normalize_grid_id
+from core.path_resolver import resolve_model_file_path
 
 
 def extract_super_out(path):
-    super_file = os.path.join(path, 'SUPER.OUT')
+    super_file = resolve_model_file_path(path, 'SUPER.OUT')
     with open(super_file, 'r') as file:
         lines = file.readlines()
 

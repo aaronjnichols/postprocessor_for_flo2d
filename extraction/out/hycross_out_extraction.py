@@ -3,6 +3,7 @@ import re
 import pandas as pd
 from core.utilities import time_function
 from core.constants import FPXS_ID, TIME_MAX_DISCHARGE, Q_MAX, VOL_ACFT, WSE_MAX, TIME, DISCHARGE
+from core.path_resolver import resolve_model_file_path
 
 WSE = "wse"
 FLOW_WIDTH = "flow_width"
@@ -103,7 +104,8 @@ def extract_hycross_out(file_path):
         pd.DataFrame: DataFrame with FPXSEC results including Q_MAX, TIME_MAX_DISCHARGE, 
                      VOL_ACFT, and WSE_MAX columns
     """
-    with open(os.path.join(file_path, 'HYCROSS.OUT'), 'r') as file:
+    hycross_file = resolve_model_file_path(file_path, 'HYCROSS.OUT')
+    with open(hycross_file, 'r') as file:
         file_content = file.read()
     start_time, end_time = _get_start_end_time(file_content)
     wse_max_values = _extract_max_wse(file_content, start_time, end_time)
@@ -129,7 +131,7 @@ def extract_hycross_hydrograph_data(folder_path):
     Raises:
         FileNotFoundError: If HYCROSS.OUT file is not found in the specified folder
     """
-    file_path = os.path.join(folder_path, 'HYCROSS.OUT')
+    file_path = resolve_model_file_path(folder_path, 'HYCROSS.OUT')
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"HYCROSS.OUT file not found at {file_path}")
         

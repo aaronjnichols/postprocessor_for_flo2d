@@ -2,9 +2,10 @@ import os
 import pandas as pd
 from extraction.base.extraction_utils import read_with_dask_optimized
 from core.constants import GRID_ID, Q_MAX, FLOW_DIRECTION, normalize_grid_id
+from core.path_resolver import resolve_model_file_path
 
 def extract_maxqhyd_out(path):
-    file_path = os.path.join(path, 'MAXQHYD.OUT')
+    file_path = resolve_model_file_path(path, 'MAXQHYD.OUT')
     df = read_with_dask_optimized(file_path, column_names=None, skiprows=4).compute()
     df = df[df.iloc[:, 0] >= 1]
     if df.empty:

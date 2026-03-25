@@ -354,3 +354,105 @@ def test_get_vector_output_dirs_handles_legacy_folder_names(monkeypatch):
     assert os.path.normcase(os.path.normpath(result[0])) == os.path.normcase(
         os.path.normpath(legacy_dir)
     )
+
+
+def test_dialog_import_falls_back_without_core_on_path(qgis_stubs, monkeypatch, tmp_path):
+    class DummyWidget:
+        def __init__(self, *args, **kwargs):
+            return None
+
+    class DummyDialog:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        def windowFlags(self):
+            return 0
+
+        def setWindowFlags(self, *_args, **_kwargs):
+            return None
+
+    qtcore_module = sys.modules["qgis.PyQt.QtCore"]
+    qtcore_module.QSettings = DummyWidget
+    qtcore_module.QSize = DummyWidget
+    qtcore_module.Qt = types.SimpleNamespace(
+        CrossCursor=0,
+        WindowMinMaxButtonsHint=0,
+        Vertical=0,
+        AlignLeft=0,
+        UserRole=0,
+    )
+
+    qtgui_module = types.ModuleType("qgis.PyQt.QtGui")
+    qtgui_module.QColor = DummyWidget
+    qtgui_module.QFont = DummyWidget
+    qtgui_module.QIcon = DummyWidget
+    qtgui_module.QTextCharFormat = DummyWidget
+
+    qtwidgets_module = types.ModuleType("qgis.PyQt.QtWidgets")
+    qtwidgets_module.QCheckBox = DummyWidget
+    qtwidgets_module.QComboBox = DummyWidget
+    qtwidgets_module.QDialog = DummyDialog
+    qtwidgets_module.QFileDialog = DummyWidget
+    qtwidgets_module.QFrame = DummyWidget
+    qtwidgets_module.QGridLayout = DummyWidget
+    qtwidgets_module.QGroupBox = DummyWidget
+    qtwidgets_module.QHBoxLayout = DummyWidget
+    qtwidgets_module.QHeaderView = DummyWidget
+    qtwidgets_module.QLabel = DummyWidget
+    qtwidgets_module.QLineEdit = DummyWidget
+    qtwidgets_module.QListWidget = DummyWidget
+    qtwidgets_module.QListWidgetItem = DummyWidget
+    qtwidgets_module.QMessageBox = types.SimpleNamespace(Yes=1, No=0)
+    qtwidgets_module.QProgressBar = DummyWidget
+    qtwidgets_module.QPushButton = DummyWidget
+    qtwidgets_module.QSizePolicy = DummyWidget
+    qtwidgets_module.QSplitter = DummyWidget
+    qtwidgets_module.QTextEdit = DummyWidget
+    qtwidgets_module.QToolButton = DummyWidget
+    qtwidgets_module.QVBoxLayout = DummyWidget
+    qtwidgets_module.QWidget = DummyWidget
+    qtwidgets_module.QAbstractItemView = types.SimpleNamespace(ExtendedSelection=0)
+
+    qgis_core_module = types.ModuleType("qgis.core")
+    qgis_core_module.QgsCoordinateReferenceSystem = DummyWidget
+    qgis_core_module.QgsProject = DummyWidget
+    qgis_core_module.QgsRasterLayer = DummyWidget
+    qgis_core_module.QgsVectorLayer = DummyWidget
+
+    qgis_gui_module = sys.modules["qgis.gui"]
+    qgis_gui_module.QgsProjectionSelectionWidget = DummyWidget
+
+    pyqt_module = sys.modules["qgis.PyQt"]
+    pyqt_module.QtGui = qtgui_module
+    pyqt_module.QtWidgets = qtwidgets_module
+
+    monkeypatch.setitem(sys.modules, "qgis.PyQt.QtGui", qtgui_module)
+    monkeypatch.setitem(sys.modules, "qgis.PyQt.QtWidgets", qtwidgets_module)
+    monkeypatch.setitem(sys.modules, "qgis.core", qgis_core_module)
+
+    fake_output_discovery = types.ModuleType("qgis_plugin.output_discovery")
+    fake_output_discovery.get_vector_output_dirs = lambda *_args, **_kwargs: []
+    monkeypatch.setitem(sys.modules, "qgis_plugin.output_discovery", fake_output_discovery)
+
+    fake_project_root = types.ModuleType("qgis_plugin.project_root")
+    fake_project_root.ensure_project_root_on_path = lambda *_args, **_kwargs: (None, False)
+    monkeypatch.setitem(sys.modules, "qgis_plugin.project_root", fake_project_root)
+
+    fake_processing_worker = types.ModuleType("qgis_plugin.processing_worker")
+    fake_processing_worker.ProcessingWorker = DummyWidget
+    monkeypatch.setitem(sys.modules, "qgis_plugin.processing_worker", fake_processing_worker)
+
+    for module_name in list(sys.modules):
+        if module_name == "core" or module_name.startswith("core."):
+            monkeypatch.delitem(sys.modules, module_name, raising=False)
+    monkeypatch.delitem(sys.modules, "qgis_plugin.flo2d_postprocessor_dialog", raising=False)
+
+    module = importlib.import_module("qgis_plugin.flo2d_postprocessor_dialog")
+    module = importlib.reload(module)
+
+    project_dir = tmp_path / "plugin_project"
+    project_dir.mkdir()
+    (project_dir / "DEPTH.OUT").write_text("test\n", encoding="utf-8")
+
+    assert module._describe_project_markers().startswith("CADPTS.DAT")
+    assert module._list_present_project_markers(str(project_dir)) == ["DEPTH.OUT"]

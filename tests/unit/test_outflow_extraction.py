@@ -27,6 +27,7 @@ class TestOutflowExtraction:
             # Check that grid IDs are integer and 0-based
             assert pd.api.types.is_integer_dtype(result_df[GRID_ID])
             assert result_df[GRID_ID].min() >= 0
+            assert set(result_df[GRID_ID]) >= {272, 372, 373, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011}
             
     def test_outflow_file_not_found(self, tmp_path):
         """Test that missing outflow file raises appropriate error."""

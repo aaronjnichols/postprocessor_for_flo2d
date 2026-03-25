@@ -1,5 +1,6 @@
 import pandas as pd
 from core.constants import GRID_ID, NUM_EVACUATIONS, normalize_grid_id
+from core.path_resolver import resolve_model_file_path
 
 def extract_evacuatedfp_out(file_path):
     """
@@ -11,10 +12,7 @@ def extract_evacuatedfp_out(file_path):
     Returns:
         pandas.DataFrame: DataFrame containing the extracted data.
     """
-    import os
-    # Allow caller to pass folder or full file path
-    if os.path.isdir(file_path):
-        file_path = os.path.join(file_path, 'EVACUATEDFP.OUT')
+    file_path = resolve_model_file_path(file_path, 'EVACUATEDFP.OUT')
 
     grid_ids = []
     num_evacuations = []

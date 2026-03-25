@@ -5,6 +5,7 @@ import pandas as pd
 from core.utilities import time_function
 from core.constants import GRID_ID, TIME, Q_MAX, TIME_PEAK, DISCHARGE, normalize_grid_id
 from core.logger import setup_logger
+from core.path_resolver import resolve_model_file_path
 
 
 def _extract_outnq_summary(folder_path):
@@ -24,7 +25,7 @@ def _extract_outnq_summary(folder_path):
         RuntimeError: If error reading file.
     """
     logger = setup_logger('OUTNQ_OUT', level=logging.INFO)
-    file_path = os.path.join(folder_path, 'OUTNQ.OUT')
+    file_path = resolve_model_file_path(folder_path, 'OUTNQ.OUT')
     
     if not os.path.exists(file_path):
         logger.error(f"OUTNQ.OUT file not found at {file_path}")
@@ -103,7 +104,7 @@ def _extract_outnq_time_series(folder_path):
         RuntimeError: If error reading or processing file.
     """
     logger = setup_logger('OUTNQ_OUT', level=logging.INFO)
-    file_path = os.path.join(folder_path, 'OUTNQ.OUT')
+    file_path = resolve_model_file_path(folder_path, 'OUTNQ.OUT')
     
     if not os.path.exists(file_path):
         logger.error(f"OUTNQ.OUT file not found at {file_path}")
@@ -233,7 +234,7 @@ def extract_outnq_out(folder_path):
         ValueError: If no valid data found in file
         RuntimeError: If error reading or processing file
     """
-    file_path = os.path.join(folder_path, 'OUTNQ.OUT')
+    file_path = resolve_model_file_path(folder_path, 'OUTNQ.OUT')
     
     # Check if file exists
     if not os.path.exists(file_path):

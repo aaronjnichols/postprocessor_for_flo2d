@@ -1,10 +1,10 @@
-import os
 from extraction.base.extraction_utils import read_with_dask_optimized
 from core.constants import GRID_ID, MANNINGS_N, X_COORD, Y_COORD, normalize_grid_id
+from core.path_resolver import resolve_model_file_path
 
 
 def extract_mannings_n_dat(path):
-    file_path = os.path.join(path, 'MANNINGS_N.DAT')
+    file_path = resolve_model_file_path(path, 'MANNINGS_N.DAT')
     df = read_with_dask_optimized(
         file_path,
         column_names=[GRID_ID, X_COORD, Y_COORD, MANNINGS_N],
