@@ -1,0 +1,6 @@
+[run]
+data_file = pytest_runtime/.coverage
+omit =
+    tests/*
+    gui/*
+    setup.py

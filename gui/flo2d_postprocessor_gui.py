@@ -8,6 +8,10 @@ import time
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
+from core.supported_files import (
+    describe_project_marker_examples,
+    folder_contains_supported_files,
+)
 from main import batch_process_flo2d, process_flo2d
 import shutil
 import threading
@@ -291,6 +295,7 @@ class FLO2DPostProcessorGUI:
                         "Folder Validation", 
                         f"The selected folder does not appear to contain typical FLO-2D files.\n\n"
                         f"Folder: {folder_selected}\n\n"
+                        f"No supported files ({describe_project_marker_examples()}) were found.\n\n"
                         f"Add anyway?",
                         icon='warning'
                     )
@@ -383,16 +388,7 @@ class FLO2DPostProcessorGUI:
     
     def is_flo2d_folder(self, folder_path):
         """Check if folder contains typical FLO-2D files"""
-        flo2d_files = [
-            # Core input files
-            'CADPTS.DAT', 'TOPO.DAT', 'FPLAIN.DAT', 'MANNINGS_N.DAT',
-            # Optional input files
-            'ARF.DAT', 'INFLOW.DAT', 'FPXSEC.DAT', 'HYSTRUC.DAT', 
-            'RAIN.DAT', 'SWMM.inp', 'SWMMFLORT.DAT', 'XSEC.DAT', 
-            'CHAN.DAT', 'INFIL.DAT'
-        ]
-        existing_files = os.listdir(folder_path) if os.path.isdir(folder_path) else []
-        return any(file in existing_files for file in flo2d_files)
+        return folder_contains_supported_files(folder_path)
 
     def format_time(self, seconds):
         """Format elapsed time in seconds to a human-readable string."""

@@ -14,6 +14,7 @@ from core.constants import (
     HYDCX_FINAL, FHORTI, FHORTF, DECAY_COEFF
 )
 from core.logger import setup_logger
+from core.path_resolver import resolve_model_file_path
 
 logger = setup_logger('infil_dat_extraction')
 
@@ -98,7 +99,7 @@ def extract_infil_dat(path: str) -> Dict[str, Union[pd.DataFrame, Dict[str, Any]
         FileNotFoundError: If INFIL.DAT file is not found.
         ValueError: If file format is invalid.
     """
-    infil_file = os.path.join(path, 'INFIL.DAT')
+    infil_file = resolve_model_file_path(path, 'INFIL.DAT')
     
     if not os.path.exists(infil_file):
         raise FileNotFoundError(f"INFIL.DAT file not found at {infil_file}")

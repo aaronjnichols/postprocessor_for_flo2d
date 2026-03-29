@@ -135,3 +135,4 @@ version_info.txt
 # Local scratch scripts (do not commit)
 _tmp_*.py
 tmp_run*.py
+pytest_workdir/

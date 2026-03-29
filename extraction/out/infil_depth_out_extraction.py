@@ -3,6 +3,7 @@ import logging
 import pandas as pd
 from core.utilities import time_function
 from core.constants import GRID_ID, X_COORD, Y_COORD, INFIL_DEPTH, INFIL_STOP
+from core.path_resolver import resolve_model_file_path
 
 
 @time_function
@@ -26,7 +27,7 @@ def extract_infil_depth_out(path):
         RuntimeError: If error reading file
     """
     logger = logging.getLogger('FLO2D_Postprocessor')
-    file_path = os.path.join(path, 'INFIL_DEPTH.OUT')
+    file_path = resolve_model_file_path(path, 'INFIL_DEPTH.OUT')
     
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"INFIL_DEPTH.OUT file not found at {file_path}")

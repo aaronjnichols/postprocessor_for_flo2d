@@ -1,9 +1,10 @@
 import os
 from extraction.base.extraction_utils import read_with_dask_optimized
 from core.constants import GRID_ID, X_COORD, Y_COORD, TIME_ONEFT, normalize_grid_id
+from core.path_resolver import resolve_model_file_path
 
 def extract_timeoneft_out(path):
-    file_path = os.path.join(path, 'TIMEONEFT.OUT')
+    file_path = resolve_model_file_path(path, 'TIMEONEFT.OUT')
     df = read_with_dask_optimized(file_path, column_names=[GRID_ID, X_COORD, Y_COORD, TIME_ONEFT]).compute()
     df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
     return df

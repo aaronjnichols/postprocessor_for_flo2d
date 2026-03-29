@@ -1,6 +1,8 @@
 import os
+import logging
 import pandas as pd
 from core.utilities import time_function
+from core.path_resolver import resolve_model_file_path
 
 @time_function
 def extract_chanbank_dat(path):
@@ -14,7 +16,8 @@ def extract_chanbank_dat(path):
         pd.DataFrame: DataFrame with columns ['xsec_id', 'left_bank', 'right_bank'].
                      Returns empty DataFrame if file doesn't exist or on error.
     """
-    file_path = os.path.join(path, 'CHANBANK.DAT')
+    logger = logging.getLogger('FLO2D_Postprocessor')
+    file_path = resolve_model_file_path(path, 'CHANBANK.DAT')
     
     if not os.path.exists(file_path):
         return pd.DataFrame(columns=['xsec_id', 'left_bank', 'right_bank'])
@@ -39,5 +42,5 @@ def extract_chanbank_dat(path):
         return pd.DataFrame(data)
         
     except Exception as e:
-        print(f"Error reading CHANBANK.DAT: {e}")
+        logger.error("Error reading CHANBANK.DAT: %s", e)
         return pd.DataFrame(columns=['xsec_id', 'left_bank', 'right_bank'])

@@ -1,10 +1,11 @@
 import os
 import pandas as pd
 from core.constants import GRID_ID, FPXSEC, normalize_grid_id
+from core.path_resolver import resolve_model_file_path
 
 
 def extract_fpxsec_dat(path):
-    fpxsec_file = os.path.join(path, 'FPXSEC.DAT')
+    fpxsec_file = resolve_model_file_path(path, 'FPXSEC.DAT')
     if not os.path.exists(fpxsec_file):
         return pd.DataFrame()
 

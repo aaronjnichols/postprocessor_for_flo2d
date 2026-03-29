@@ -2,74 +2,16 @@ import os
 import logging
 from typing import Dict, List, Tuple, Optional
 
-from extraction.out.super_out_extraction import extract_super_out
-from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_out
-from extraction.out.time_out_extraction import extract_time_out
-from extraction.dat.arf_dat_extraction import extract_arf_dat
-from extraction.out.hycross_out_extraction import extract_hycross_out
-from extraction.dat.hystruc_dat_extraction import extract_hystruc_results
-from extraction.out.hydrostruct_out_extraction import extract_hydrostruct_out
-from extraction.dat.inflow_dat_extraction import extract_inflow_dat
-from extraction.dat.swmm_inp_extraction import extract_swmm_inp
-from extraction.dat.swmmflort_dat_extraction import extract_swmmflort_dat
-from extraction.out.channel_extraction import extract_channel_data
+from core.supported_files import (
+    get_file_extractors,
+    get_special_processors,
+    get_supported_file_names,
+    get_supported_files_by_category,
+)
 
-
-FLO2D_FILES = {
-    'core_data': [
-        'TOPO.DAT',
-        'MANNINGS_N.DAT',
-        'DEPTH.OUT'
-    ],
-    'output_files': [
-        'SUPER.OUT',
-        'EVACUATEDFP.OUT', 
-        'TIME.OUT',
-        'VELFP.OUT',
-        'MAXQHYD.OUT',
-        'MAXWSELEV.OUT',
-        'INFIL_DEPTH.OUT',
-        'TIMEONEFT.OUT',
-        'TIMETWOFT.OUT',
-        'TIMETOPEAK.OUT',
-        'FINALVEL.OUT',
-        'FINALDEP.OUT'
-    ],
-    'optional_inputs': [
-        'ARF.DAT',
-        'INFLOW.DAT',
-        'OUTFLOW.DAT',
-        'FPXSEC.DAT',
-        'HYCROSS.OUT',
-        'HYSTRUC.DAT',
-        'RAIN.DAT',
-        'SWMM.inp',
-        'SWMMQIN.OUT',
-        'SWMMFLORT.DAT',
-        'XSEC.DAT',
-        'CHAN.DAT',
-        'CHANMAX.OUT',
-        'DEPCH.OUT',
-        'VELOC.OUT'
-    ]
-}
-
-FILE_EXTRACTORS = {
-    'ARF.DAT': extract_arf_dat,
-    'SUPER.OUT': extract_super_out,
-    'EVACUATEDFP.OUT': extract_evacuatedfp_out,
-            'TIME.OUT': extract_time_out,
-    'INFLOW.DAT': extract_inflow_dat,
-    'SWMM.inp': extract_swmm_inp,
-    'SWMMFLORT.DAT': extract_swmmflort_dat,
-}
-
-SPECIAL_PROCESSORS = {
-            'FPXSEC_HYCROSS': ('FPXSEC.DAT', 'HYCROSS.OUT', extract_hycross_out),
-    'HYSTRUC': ('HYSTRUC.DAT', None, extract_hystruc_results),
-            'HYDROSTRUCT': ('HYDROSTRUCT.OUT', None, extract_hydrostruct_out),
-    'CHANNEL': (['XSEC.DAT', 'CHAN.DAT'], ['CHANMAX.OUT', 'DEPCH.OUT', 'VELOC.OUT'], extract_channel_data),
-}
+FLO2D_FILES = get_supported_files_by_category()
+FILE_EXTRACTORS = get_file_extractors()
+SPECIAL_PROCESSORS = get_special_processors()
 
 
 def get_project_file_paths(project_dir: str) -> Dict[str, str]:
@@ -84,11 +26,7 @@ def get_project_file_paths(project_dir: str) -> Dict[str, str]:
     """
     file_paths = {}
     
-    all_files = []
-    for category in FLO2D_FILES.values():
-        all_files.extend(category)
-    
-    for filename in all_files:
+    for filename in get_supported_file_names():
         file_paths[filename] = os.path.join(project_dir, filename)
     
     return file_paths

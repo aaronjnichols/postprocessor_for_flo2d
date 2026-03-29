@@ -180,7 +180,9 @@ OUTFLOW_CODE = 'outflow_code'
 # =============================================================================
 # OUTNQ.OUT (outflow elements only)
 # =============================================================================
-MAX_Q_OUTNQ = 'outflow_max_q'
+# OUTNQ peak discharge uses the shared canonical max-discharge field name.
+# Keep the legacy constant as an alias so existing imports continue to work.
+MAX_Q_OUTNQ = Q_MAX
 TIME_PEAK = 'time_peak'
 
 # =============================================================================
@@ -402,34 +404,10 @@ def standardize_grid_id_column(df, current_name: str = None):
 # FILE EXTENSIONS AND FORMATS
 # =============================================================================
 
-# FLO-2D File Extensions
-FLO2D_FILES = {
-    'DEPTH': 'DEPTH.OUT',
-    'SUPER': 'SUPER.OUT',
-    'VELOC': 'VELOC.OUT',
-    'CHANMAX': 'CHANMAX.OUT',
-    'DEPCH': 'DEPCH.OUT',
-    'TOPO': 'TOPO.DAT',
-    'MANNINGS': 'MANNINGS_N.DAT',
-    'ARF': 'ARF.DAT',
-    'RAIN': 'RAIN.DAT',
-    'INFIL': 'INFIL.DAT',
-    'FPXSEC': 'FPXSEC.DAT',
-    'CHAN': 'CHAN.DAT',
-    'MAXQHYD': 'MAXQHYD.OUT',
-    'MAXWSELEV': 'MAXWSELEV.OUT',
-    'INFIL_DEPTH': 'INFIL_DEPTH.OUT',
-    'TIMEONEFT': 'TIMEONEFT.OUT',
-    'TIMETWOFT': 'TIMETWOFT.OUT',
-    'TIMETOPEAK': 'TIMETOPEAK.OUT',
-    'FINALVEL': 'FINALVEL.OUT',
-    'FINALDEP': 'FINALDEP.OUT',
-    'EVACUATEDFP': 'EVACUATEDFP.OUT',
-    'TIME': 'TIME.OUT',
-    'VELFP': 'VELFP.OUT',
-    'OUTFLOW': 'OUTFLOW.DAT',
-    'OUTNQ': 'OUTNQ.OUT',
-}
+from core.supported_files import get_legacy_file_aliases
+
+# FLO-2D file aliases kept for backward compatibility.
+FLO2D_FILES = get_legacy_file_aliases()
 
 # Output formats
 OUTPUT_FORMATS = {

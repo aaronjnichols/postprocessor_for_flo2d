@@ -20,85 +20,19 @@ from extraction.base.extraction_utils import (
     controlled_merge,
 )
 from core.file_discovery import get_file_path, check_file_exists
-from core.constants import GRID_ID, NODE, normalize_grid_id
-from extraction.out.depth_out_extraction import extract_depth_out
-from extraction.dat.mannings_n_dat_extraction import extract_mannings_n_dat
-from extraction.dat.topo_dat_extraction import extract_topo_dat
-from extraction.out.velfp_out_extraction import extract_velfp_out
-from extraction.out.maxqhyd_out_extraction import extract_maxqhyd_out
-from extraction.out.maxwselev_out_extraction import extract_maxwselev_out
-from extraction.out.infil_depth_out_extraction import extract_infil_depth_out
-from extraction.out.timeoneft_out_extraction import extract_timeoneft_out
-from extraction.out.timetwoft_out_extraction import extract_timetwoft_out
-from extraction.out.timetopeak_out_extraction import extract_timetopeak_out
-from extraction.out.finalvel_out_extraction import extract_finalvel_out
-from extraction.out.finaldep_out_extraction import extract_finaldep_out
-from extraction.dat.rain_dat_extraction import extract_rain_dat
-from extraction.out.super_out_extraction import extract_super_out
+from core.supported_files import (
+    get_model_extractor_registry,
+    get_required_model_files,
+)
 from extraction.dat.infil_dat_extraction import extract_infil_dat, get_primary_infiltration_data
 from extraction.dat.fpxsec_dat_extraction import extract_fpxsec_dat
-from extraction.dat.arf_dat_extraction import extract_arf_dat
-from extraction.out.veloc_out_extraction import extract_veloc_out
-from extraction.out.depch_out_extraction import extract_depch_out
-from extraction.out.time_out_extraction import extract_time_out
-from extraction.out.evacuatedfp_out_extraction import extract_evacuatedfp_out
-from extraction.out.outnq_out_extraction import extract_outnq_out, extract_outnq_summary
-from extraction.dat.outflow_dat_extraction import extract_outflow_dat
-from extraction.out.chanmax_out_extraction import extract_chanmax_out
-from extraction.out.channel_extraction import extract_channel_data
+from extraction.out.outnq_out_extraction import extract_outnq_out
 
 
-## Removed ad-hoc normalization/rename adapters:
-## - EVACUATEDFP, OUTNQ summary, OUTFLOW, and CHANMAX extractors now normalize/shape at source.
+EXTRACTOR_REGISTRY: Dict[str, Dict[str, object]] = get_model_extractor_registry()
+REQUIRED_MODEL_FILES = get_required_model_files()
 
-
-def _adapter_infil_primary(path: str) -> pd.DataFrame:
-    """Adapter for INFIL.DAT to return the primary spatial infiltration dataset keyed by GRID_ID."""
-    try:
-        infil_data = extract_infil_dat(path)
-        df = get_primary_infiltration_data(infil_data)
-        return df if df is not None else pd.DataFrame()
-    except Exception:
-        return pd.DataFrame()
-
-
-FILE_EXTRACTORS = {
-    # NOTE: Replaced by EXTRACTOR_REGISTRY below
-}
-
-# P2: Replace simple dict with a registry and profile support
-# merge_key: 'GRID_ID' means regular merge; 'NONE' means ancillary/no merge into main
-EXTRACTOR_REGISTRY: Dict[str, Dict[str, object]] = {
-    # Core/grid-mergeable, lightweight
-    'DEPTH.OUT':        { 'func': extract_depth_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'MANNINGS_N.DAT':   { 'func': extract_mannings_n_dat,   'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'TOPO.DAT':         { 'func': extract_topo_dat,         'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'VELFP.OUT':        { 'func': extract_velfp_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'MAXQHYD.OUT':      { 'func': extract_maxqhyd_out,      'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'MAXWSELEV.OUT':    { 'func': extract_maxwselev_out,    'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'INFIL_DEPTH.OUT':  { 'func': extract_infil_depth_out,  'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'TIMEONEFT.OUT':    { 'func': extract_timeoneft_out,    'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'TIMETWOFT.OUT':    { 'func': extract_timetwoft_out,    'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'TIMETOPEAK.OUT':   { 'func': extract_timetopeak_out,   'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'FINALVEL.OUT':     { 'func': extract_finalvel_out,     'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'FINALDEP.OUT':     { 'func': extract_finaldep_out,     'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'RAIN.DAT':         { 'func': extract_rain_dat,         'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'SUPER.OUT':        { 'func': extract_super_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'ARF.DAT':          { 'func': extract_arf_dat,          'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    # Added pool-wrapped special cases
-    'INFIL.DAT':        { 'func': _adapter_infil_primary,   'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'FPXSEC.DAT':       { 'func': extract_fpxsec_dat,       'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    # P0 quick wins
-    'VELOC.OUT':        { 'func': extract_veloc_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'DEPCH.OUT':        { 'func': extract_depch_out,        'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'TIME.OUT':         { 'func': extract_time_out,         'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'EVACUATEDFP.OUT':  { 'func': extract_evacuatedfp_out,  'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'OUTNQ.OUT':        { 'func': extract_outnq_summary,    'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'OUTFLOW.DAT':      { 'func': extract_outflow_dat,      'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    'CHANMAX.OUT':      { 'func': extract_chanmax_out,      'enabled': True,  'heavy': False, 'merge_key': 'GRID_ID' },
-    # Virtual/optional heavy module
-    'CHANNEL_COMBINED': { 'func': extract_channel_data,     'enabled': False, 'heavy': True,  'merge_key': 'GRID_ID', 'virtual': True, 'depends_on': ['CHAN.DAT'] },
-}
+REQUIRED_MODEL_FILES = ('DEPTH.OUT',)
 
 
 def _resolve_enabled_extractors(
@@ -151,6 +85,32 @@ def _resolve_enabled_extractors(
     return {name: meta for name, meta in registry.items() if meta.get('enabled')}
 
 
+def _validate_required_model_files(file_path: str) -> None:
+    """Raise a clear error when required files for merged extraction are absent."""
+    missing_files = [
+        name for name in REQUIRED_MODEL_FILES
+        if not check_file_exists(get_file_path(file_path, name))
+    ]
+    if missing_files:
+        missing_text = ", ".join(missing_files)
+        raise FileNotFoundError(
+            f"Missing required FLO-2D file(s) for merged extraction in {file_path}: {missing_text}"
+        )
+
+
+def _validate_required_extractors(enabled_registry: Dict[str, Dict[str, object]]) -> None:
+    """Reject configurations that disable required merged-model extractors."""
+    disabled_required = [
+        name for name in REQUIRED_MODEL_FILES
+        if name not in enabled_registry
+    ]
+    if disabled_required:
+        disabled_text = ", ".join(disabled_required)
+        raise ValueError(
+            f"Cannot disable required FLO-2D extractor(s) for merged extraction: {disabled_text}"
+        )
+
+
 def extract_model_data_to_df(
     file_path: str,
     enable_channel_combined: bool = False,
@@ -182,9 +142,12 @@ def extract_model_data_to_df(
         disable=disable,
         enable_channel_combined=enable_channel_combined,
     )
+    _validate_required_model_files(file_path)
+    _validate_required_extractors(enabled_registry)
 
     # Pre-scan for present files and cap workers accordingly
     present_extractors = []
+    extraction_errors: Dict[str, Exception] = {}
     for name, meta in enabled_registry.items():
         # Virtual entries resolve via dependency presence, non-virtual check file
         if meta.get('virtual'):
@@ -217,6 +180,7 @@ def extract_model_data_to_df(
                 else:
                     logger.info(f"{name} is empty or returned no rows")
             except Exception as e:
+                extraction_errors[name] = e
                 logger.error(f"Error processing {name}: {e}")
 
     # Fallback: if INFIL primary not already added by pool but INFIL.DAT exists
@@ -244,10 +208,21 @@ def extract_model_data_to_df(
 
     verify_grid_ids(data_frames)
 
-    main_df = data_frames['DEPTH.OUT']
+    main_df = data_frames.get('DEPTH.OUT')
+    if main_df is None or main_df.empty:
+        depth_error = extraction_errors.get('DEPTH.OUT')
+        if depth_error is not None:
+            raise RuntimeError("Failed to extract required FLO-2D file DEPTH.OUT") from depth_error
+        raise RuntimeError(
+            f"Required FLO-2D file DEPTH.OUT did not produce any rows in {file_path}"
+        )
     logger.info(f"Main dataframe (DEPTH.OUT) shape: {main_df.shape}")
 
-    main_df = controlled_merge(main_df, data_frames)
+    merge_frames = {
+        name: df for name, df in data_frames.items()
+        if name != 'ARF.DAT'
+    }
+    main_df = controlled_merge(main_df, merge_frames)
 
     # Merge ARF data if available
     if 'ARF.DAT' in data_frames:
@@ -256,12 +231,6 @@ def extract_model_data_to_df(
         main_df = pd.merge(main_df, data_frames['ARF.DAT'], on=GRID_ID, how='left')
         main_df[AREA_REDUCTION_FACTOR] = main_df[AREA_REDUCTION_FACTOR].fillna(0.0)
         logger.info(f"Dataframe shape after merging ARF.DAT: {main_df.shape}")
-
-    if 'SUPER.OUT' in data_frames:
-        from core.constants import GRID_ID
-        logger.info("Merging SUPER.OUT data...")
-        main_df = pd.merge(main_df, data_frames['SUPER.OUT'], on=GRID_ID, how='left')
-        logger.info(f"Dataframe shape after merging SUPER.OUT: {main_df.shape}")
 
     main_df = ensure_unique_columns(main_df)
     log_time("Extracting model data", start_time)

@@ -7,7 +7,9 @@ from pathlib import Path
 from core.file_discovery import (
     get_file_path, 
     check_file_exists, 
-    get_existing_files
+    check_special_processor_requirements,
+    get_existing_files,
+    get_extractable_files,
 )
 
 
@@ -56,3 +58,30 @@ class TestFileDiscoveryIntegration:
         assert isinstance(existing_files, dict)
         # Some files should be found (from temp_model_dir fixture)
         assert len(existing_files) > 0
+
+    @pytest.mark.integration
+    def test_special_processor_requirements_include_hycross_out(self, temp_model_dir):
+        """FPXSEC_HYCROSS should require both FPXSEC.DAT and HYCROSS.OUT."""
+        model_path = str(temp_model_dir)
+        (temp_model_dir / "FPXSEC.DAT").write_text("X 1 0 1\n", encoding="utf-8")
+
+        requirements_met, missing_files = check_special_processor_requirements(model_path, "FPXSEC_HYCROSS")
+
+        assert not requirements_met
+        assert missing_files == ["HYCROSS.OUT"]
+
+    @pytest.mark.integration
+    def test_discovery_uses_registry_for_hydrostruct_and_levee(self, tmp_path):
+        """Central registry additions should be visible through discovery helpers."""
+        model_dir = tmp_path / "registry_model"
+        model_dir.mkdir()
+        (model_dir / "HYDROSTRUCT.OUT").write_text("S 1\n", encoding="utf-8")
+        (model_dir / "LEVEE.DAT").write_text("0.0 0\n", encoding="utf-8")
+
+        existing_files = get_existing_files(str(model_dir))
+        extractable_files = get_extractable_files(str(model_dir))
+
+        assert "HYDROSTRUCT.OUT" in existing_files
+        assert "LEVEE.DAT" in existing_files
+        assert "HYDROSTRUCT.OUT" in extractable_files
+        assert "LEVEE.DAT" in extractable_files

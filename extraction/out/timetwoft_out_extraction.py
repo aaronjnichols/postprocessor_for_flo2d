@@ -1,9 +1,10 @@
 import os
 from extraction.base.extraction_utils import read_with_dask_optimized
 from core.constants import GRID_ID, X_COORD, Y_COORD, TIME_TWOFT, normalize_grid_id
+from core.path_resolver import resolve_model_file_path
 
 def extract_timetwoft_out(path):
-    file_path = os.path.join(path, 'TIMETWOFT.OUT')
+    file_path = resolve_model_file_path(path, 'TIMETWOFT.OUT')
     df = read_with_dask_optimized(file_path, column_names=[GRID_ID, X_COORD, Y_COORD, TIME_TWOFT]).compute()
     df[GRID_ID] = df[GRID_ID].apply(normalize_grid_id)
     return df

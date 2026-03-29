@@ -1,0 +1,33 @@
+[general]
+name=FLO-2D Postprocessor
+qgisMinimumVersion=3.22
+description=Automated extraction, processing, and visualization of FLO-2D hydraulic modeling results directly in QGIS.
+version=1.0.0
+author=Aaron Nichols
+email=info@flo2dpostprocessor.com
+about=Converts FLO-2D simulation output into production-ready geospatial datasets (Shapefiles, GeoPackages, GeoTIFFs), Excel reports with charts, and PDF visualizations. Processed layers are automatically loaded into QGIS with organized layer groups and optional QML styling.
+
+    Features:
+    - Batch processing of multiple FLO-2D project directories
+    - Automatic extraction of 30+ FLO-2D input/output file types
+    - GeoTIFF raster generation for depth, velocity, elevation, and more
+    - Vector layer creation (domain boundary, inflow/outflow, channels, SWMM)
+    - Excel spreadsheets with formatted charts
+    - PDF cross-section and hydrograph plots
+    - Auto-loading results into QGIS with organized layer groups
+    - QML style file support
+
+tracker=https://github.com/aaronjnichols/postprocessor_for_flo2d/issues
+repository=https://github.com/aaronjnichols/postprocessor_for_flo2d
+tags=flo-2d, flood, hydraulic, modeling, postprocessor, raster, hydrology, gis
+homepage=https://github.com/aaronjnichols/postprocessor_for_flo2d
+category=Analysis
+icon=icon.svg
+experimental=False
+deprecated=False
+changelog=
+    1.0.0 - Initial QGIS plugin release
+    - Full FLO-2D postprocessing pipeline
+    - Native QGIS CRS selector
+    - Auto-load results into layer groups
+    - Progress tracking with detailed log output

@@ -1,7 +1,9 @@
 import os
+import logging
 import pandas as pd
 from core.utilities import time_function
 from core.constants import STAGE, FLOW
+from core.path_resolver import resolve_model_file_path
 
 @time_function
 def extract_swmmflort_dat(file_path):
@@ -14,7 +16,8 @@ def extract_swmmflort_dat(file_path):
     Returns:
     list: A list of dictionaries, each containing table name and data.
     """
-    file_path = os.path.join(file_path, "SWMMFLORT.DAT")
+    logger = logging.getLogger('FLO2D_Postprocessor')
+    file_path = resolve_model_file_path(file_path, "SWMMFLORT.DAT")
     rating_tables = []
     current_table = None
 
@@ -34,7 +37,7 @@ def extract_swmmflort_dat(file_path):
                         discharge = float(parts[2])
                         current_table["Data"].append({STAGE: stage, FLOW: discharge})
                     except ValueError:
-                        print(f"Warning: Could not convert values to float: {parts}")
+                        logger.warning("Could not convert SWMMFLORT.DAT values to float: %s", parts)
 
         if current_table:
             rating_tables.append(current_table)
@@ -44,7 +47,7 @@ def extract_swmmflort_dat(file_path):
             table["Data"] = pd.DataFrame(table["Data"])
 
     except Exception as e:
-        print(f"An error occurred while processing the file: {str(e)}")
+        logger.error("An error occurred while processing SWMMFLORT.DAT: %s", e)
         return []
 
     return rating_tables

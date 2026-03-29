@@ -3,6 +3,7 @@ import re
 import pandas as pd
 from core.utilities import time_function
 from core.constants import GRID_ID, NUM_TIME_DECREMENTS, normalize_grid_id
+from core.path_resolver import resolve_model_file_path
 
 
 @time_function
@@ -24,7 +25,7 @@ def extract_time_out(folder_path):
         ValueError: If no valid data found in file
         RuntimeError: If error reading file
     """
-    file_path = os.path.join(folder_path, 'TIME.OUT')
+    file_path = resolve_model_file_path(folder_path, 'TIME.OUT')
     
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"TIME.OUT file not found at {file_path}")

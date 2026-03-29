@@ -1,0 +1,84 @@
+{
+  "todo": [
+    {
+      "name": "Fix OUTNQ canonical naming regression",
+      "description": "`extract_outnq_summary()` currently returns `outflow_max_q` while the test suite expects canonical `q_max`; align constants, extractor output, and downstream consumers so `tests/unit/test_outnq_extraction.py` passes again.",
+      "status": "complete"
+    },
+    {
+      "name": "Fix ARF.DAT loading in model merge pipeline",
+      "description": "`core.model_data_extraction.extract_model_data_to_df()` passes the project directory to `extract_arf_dat()`, which expects a file path and currently raises a permission error; normalize the contract so ARF attributes and rasters are actually produced.",
+      "status": "complete"
+    },
+    {
+      "name": "Stabilize merged model dataframe assembly",
+      "description": "`extract_model_data_to_df()` merges `SUPER.OUT` inside `controlled_merge()` and then merges it again, creating duplicated `*_x` and `*_y` columns; remove double-merges, add explicit required-file validation, and fail cleanly when `DEPTH.OUT` is absent.",
+      "status": "complete"
+    },
+    {
+      "name": "Correct MANNINGS_N.DAT parsing",
+      "description": "`extract_mannings_n_dat()` reads `MANNINGS_N.DAT` with a two-column schema even though the fixture data is grid/x/y/n style; fix the parser so grid IDs and Manning values are mapped correctly.",
+      "status": "complete"
+    },
+    {
+      "name": "Repair pytest configuration",
+      "description": "`pytest.ini` uses `[tool:pytest]` instead of `[pytest]`, so custom marks are not registered and the suite emits unknown-mark warnings; fix the config and keep coverage options under the correct section.",
+      "status": "complete"
+    },
+    {
+      "name": "Unify extractor interfaces and logging",
+      "description": "Standardize extractors to accept either project folders or explicit file paths consistently, replace remaining ad-hoc `print()` calls, and merge the duplicated logger and `TimingLogger` implementations so repeated setup does not accumulate handlers.",
+      "status": "complete"
+    },
+    {
+      "name": "Create a single supported-file registry",
+      "description": "Supported filenames are split across `main.py`, `core/file_discovery.py`, and `core/model_data_extraction.py`, which causes drift for files like `HYDROSTRUCT.OUT` and partial `LEVEE.DAT` support; centralize this metadata and drive discovery, orchestration, and UI from one source.",
+      "status": "complete"
+    },
+    {
+      "name": "Add regression tests for merge and orchestration bugs",
+      "description": "Add targeted tests for ARF loading, MANNINGS parsing, OUTNQ canonical columns, duplicate SUPER merges, and missing-core-file behavior so the current regressions do not recur.",
+      "status": "complete"
+    },
+    {
+      "name": "Expand parser coverage for under-tested modules",
+      "description": "Add unit tests for currently under-covered extractors and report builders, especially `fpxsec`, `hystruc`, `swmmflort`, `topo`, `mannings_n`, `finaldep`, `finalvel`, `timeoneft`, `timetwoft`, `timetopeak`, `velfp`, and `infil_depth`.",
+      "status": "not started"
+    },
+    {
+      "name": "Add CONT.DAT and TOLER.DAT post-processing",
+      "description": "Implement `CONT.DAT` and `TOLER.DAT` parsing and surface their switches and parameters in outputs; these files are present in all sampled models and should drive conditional validation for channel, street, levee, SWMM, rain, infiltration, and hydraulic-structure workflows.",
+      "status": "not started"
+    },
+    {
+      "name": "Complete LEVEE.DAT workflow support",
+      "description": "`LEVEE.DAT` already has a parser, but it is not wired into discovery, main processing, tests, or outputs; finish the integration and add post-processing for companion outputs such as `LEVEEDEFIC.OUT` and `LEVOVERTOPMAX.OUT`.",
+      "status": "in progress"
+    },
+    {
+      "name": "Surface section and profile outputs",
+      "description": "Promote the existing `CHANWS.OUT` and `HYCHAN.OUT` profile work and extend section reporting to model files seen in the sample projects such as `CROSSMAX.OUT`, `CROSSQ.OUT`, `CHANNEL_CONVERGENCE.OUT`, `CHVOLUME.OUT`, and `OVERBANK.OUT`.",
+      "status": "in progress"
+    },
+    {
+      "name": "Add storm-drain companion file support",
+      "description": "Detroit Basin includes `SWMMFLO.DAT`, `SWMMOUTF.DAT`, `SWMMOUTFIN.OUT`, `ManholePop.OUT`, and related storm-drain diagnostics; add parsers, geometry and report outputs, and optional `SDCLOGGING.DAT` support to round out the SWMM workflow around the already-supported `SWMM.inp` and `SWMMFLORT.DAT`.",
+      "status": "not started"
+    },
+    {
+      "name": "Add optional roughness and stability override inputs",
+      "description": "Implement documented optional inputs `FPFROUDE.DAT`, `SHALLOWN_SPATIAL.DAT`, and `TOLSPATIAL.DAT`, and link them to raster and vector outputs so users can inspect spatial overrides to global control values.",
+      "status": "not started"
+    },
+    {
+      "name": "Add STREET.DAT support",
+      "description": "Implement `STREET.DAT` parsing, validation, and geometry and report outputs so street-routing models can be post-processed when `MSTREET = 1` in `CONT.DAT`.",
+      "status": "not started"
+    },
+    {
+      "name": "Broaden gridded OUT-file post-processing",
+      "description": "Add a generic raster and vector pipeline for additional gridded outputs already present in the real models, including `FINALDIR.OUT`, `VELDIREC.OUT`, `DEPFP.OUT`, `DEPTHTOL.OUT`, `IMPACT.OUT`, `FLOODWAVETIME.OUT`, `FLOODWAY.OUT`, `SURFAREA.OUT`, `SPECENERGY.OUT`, `STATICPRESS.OUT`, `FPINFILTRATION.OUT`, `INFILHY.OUT`, `INTERGWS.OUT`, and `ROUGH.OUT`.",
+      "status": "not started"
+    }
+  ]
+}

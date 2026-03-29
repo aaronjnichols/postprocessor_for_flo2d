@@ -8,6 +8,7 @@ import os
 import logging
 import re
 from core.utilities import time_function
+from core.path_resolver import resolve_model_file_path
 from core.constants import (
     SWMM_NAME, INVERT_ELEVATION, MAX_DEPTH, INIT_DEPTH, SURCHARGE_DEPTH, PONDED_AREA,
     OUTFALL_TYPE, STAGE_DATA, TIDE_GATE, FROM_NODE, TO_NODE, LENGTH, MANNINGS_N,
@@ -25,6 +26,7 @@ def extract_swmm_inp(file_path, epsg):
     Returns:
     - dict of GeoDataFrames for junctions, outfalls, and conduits.
     """
+    file_path = resolve_model_file_path(file_path, "SWMM.inp")
     sections = {
         'JUNCTIONS': [], 'OUTFALLS': [], 'CONDUITS': [], 'XSECTIONS': [],
         'COORDINATES': [], 'LOSSES': [], 'INFLOWS': []

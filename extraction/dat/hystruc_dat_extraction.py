@@ -3,6 +3,7 @@ import pandas as pd
 import re
 import logging
 from core.utilities import time_function
+from core.path_resolver import resolve_model_file_path
 from core.constants import (
     STRUCTURE_ID,
     INFLOW_NODE,
@@ -217,7 +218,7 @@ def extract_hystruc_results(file_path, return_comprehensive=False):
                 - 'culvert_data': Dict of culvert equation parameters by structure
                 - 'storm_drain_data': Dict of storm drain parameters by structure
     """
-    hystruc_file_path = os.path.join(file_path, 'HYSTRUC.DAT')
+    hystruc_file_path = resolve_model_file_path(file_path, 'HYSTRUC.DAT')
     
     if not os.path.exists(hystruc_file_path):
         logger.error(f"HYSTRUC.DAT not found at {hystruc_file_path}")
@@ -390,7 +391,7 @@ def extract_rating_curves(file_path):
         list: A list of dictionaries where each entry contains the structure name and its associated rating curve data.
     """
     # Use the enhanced extraction and return just the rating curves part
-    _, rating_curves = extract_hystruc_results(os.path.dirname(file_path))
+    _, rating_curves = extract_hystruc_results(file_path)
     return rating_curves
 
 def get_comprehensive_structure_data(file_path):
@@ -404,7 +405,7 @@ def get_comprehensive_structure_data(file_path):
     Returns:
         dict: Comprehensive data structure with all extracted information
     """
-    hystruc_file_path = os.path.join(file_path, 'HYSTRUC.DAT')
+    hystruc_file_path = resolve_model_file_path(file_path, 'HYSTRUC.DAT')
     
     if not os.path.exists(hystruc_file_path):
         return {

@@ -5,6 +5,7 @@ import pandas as pd
 from core.utilities import time_function
 from core.constants import GRID_ID, normalize_grid_id
 from core.logger import setup_logger
+from core.path_resolver import resolve_model_file_path
 
 
 @time_function
@@ -28,7 +29,7 @@ def extract_chan_dat(path: str) -> Dict[str, pd.DataFrame]:
         ValueError: If file contains invalid channel geometry data.
     """
     logger = setup_logger('CHAN_DAT', level=logging.INFO)
-    file_path = os.path.join(path, 'CHAN.DAT')
+    file_path = resolve_model_file_path(path, 'CHAN.DAT')
     
     if not os.path.exists(file_path):
         logger.error(f"CHAN.DAT file not found at {file_path}")

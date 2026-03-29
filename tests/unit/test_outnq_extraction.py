@@ -2,10 +2,24 @@
 Unit tests for OUTNQ.OUT extraction normalization.
 """
 import os
+from pathlib import Path
+from uuid import uuid4
+
 import pandas as pd
 
+from core.model_data_extraction import extract_model_data_to_df
 from extraction.out.outnq_out_extraction import extract_outnq_out, extract_outnq_summary
 from core.constants import GRID_ID, Q_MAX, TIME_PEAK
+
+
+TEST_TEMP_ROOT = Path(__file__).resolve().parents[2] / "pytest_workdir"
+
+
+def _prepare_model_dir(case_name: str) -> str:
+    TEST_TEMP_ROOT.mkdir(exist_ok=True)
+    case_dir = TEST_TEMP_ROOT / f"{case_name}_{uuid4().hex}"
+    case_dir.mkdir()
+    return str(case_dir)
 
 
 def _write_outnq_file(tmp_dir: str):
@@ -22,8 +36,18 @@ THE MAX Q AT OUTFLOW ELEMENT:           5 IS:         12.34 CFS AT TIME:        
         f.write(content)
 
 
-def test_outnq_summary_normalizes_zero_based(tmp_path):
-    tmp_dir = str(tmp_path)
+def _write_depth_file(tmp_dir: str):
+    content = "\n".join([
+        "1 100.0 200.0 0.10",
+        "5 125.0 225.0 0.75",
+    ])
+    path = os.path.join(tmp_dir, 'DEPTH.OUT')
+    with open(path, 'w') as f:
+        f.write(content)
+
+
+def test_outnq_summary_normalizes_zero_based():
+    tmp_dir = _prepare_model_dir("outnq_summary_case")
     _write_outnq_file(tmp_dir)
 
     df = extract_outnq_summary(tmp_dir)
@@ -34,9 +58,21 @@ def test_outnq_summary_normalizes_zero_based(tmp_path):
     assert pd.api.types.is_integer_dtype(df[GRID_ID])
     assert (df[GRID_ID] == 4).any()
 
+def test_outnq_extractors_accept_explicit_file_path():
+    tmp_dir = _prepare_model_dir("outnq_file_path_case")
+    _write_outnq_file(tmp_dir)
+    outnq_file = os.path.join(tmp_dir, "OUTNQ.OUT")
 
-def test_outnq_timeseries_columns_zero_based(tmp_path):
-    tmp_dir = str(tmp_path)
+    directory_summary = extract_outnq_summary(tmp_dir)
+    file_summary = extract_outnq_summary(outnq_file)
+    pd.testing.assert_frame_equal(file_summary, directory_summary)
+
+    directory_result = extract_outnq_out(tmp_dir)
+    file_result = extract_outnq_out(outnq_file)
+    pd.testing.assert_frame_equal(file_result["summary"], directory_result["summary"])
+    pd.testing.assert_frame_equal(file_result["time_series"], directory_result["time_series"])
+def test_outnq_timeseries_columns_zero_based():
+    tmp_dir = _prepare_model_dir("outnq_timeseries_case")
     _write_outnq_file(tmp_dir)
 
     result = extract_outnq_out(tmp_dir)
@@ -46,4 +82,18 @@ def test_outnq_timeseries_columns_zero_based(tmp_path):
     assert 4 in ts.columns
     # Index should be sorted numeric time
     assert ts.index.is_monotonic_increasing
+
+
+def test_outnq_summary_uses_canonical_q_max_in_model_merge():
+    tmp_dir = _prepare_model_dir("outnq_model_merge_case")
+    _write_depth_file(tmp_dir)
+    _write_outnq_file(tmp_dir)
+
+    model_df, ancillary = extract_model_data_to_df(tmp_dir, return_ancillary=True)
+
+    assert Q_MAX in model_df.columns
+    assert TIME_PEAK in model_df.columns
+    assert 'outflow_max_q' not in model_df.columns
+    assert model_df.loc[model_df[GRID_ID] == 4, Q_MAX].iat[0] == 12.34
+    assert 4 in ancillary['outnq_time_series'].columns
 
